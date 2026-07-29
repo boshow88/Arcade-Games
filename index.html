@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Arcade Games</title>
+    <link rel="icon" type="image/svg+xml" href="./favicon.svg">
+    <link rel="stylesheet" href="./css/common.css">
+</head>
+<body>
+    <div class="app-shell">
+        <header class="app-header">
+            <div class="lang-toggle" id="lang-toggle" role="radiogroup" data-i18n-aria-label="language">
+                <button type="button" data-lang="en" role="radio" aria-checked="true">EN</button>
+                <button type="button" data-lang="zh" role="radio" aria-checked="false">中</button>
+            </div>
+            <h1 class="app-title">Arcade<span class="title-accent"> Games</span></h1>
+            <p class="app-subtitle" data-i18n="appSubtitle">A collection of fast, pick-up-and-play arcade games.</p>
+        </header>
+
+        <main class="games-grid">
+            <a class="game-card ladder-connect" href="./games/ladder-connect.html">
+                <div class="game-card-header">
+                    <span class="game-icon" data-icon="ladder" aria-hidden="true"></span>
+                    <div>
+                        <div class="game-name" data-i18n="ladderConnectName">Ladder Connect</div>
+                        <div class="game-tagline" data-i18n="ladderConnectTagline">Draw rungs, route the balls.</div>
+                    </div>
+                </div>
+                <p class="game-card-body" data-i18n="ladderConnectCardBody">
+                    Balls rain down a ladder of lanes. Draw, move and remove rungs on the
+                    fly to steer each colour into its matching basket — miss too many and
+                    the run ends.
+                </p>
+                <div class="game-card-footer">
+                    <div class="game-card-tags">
+                        <span class="tag" data-i18n="tagReflex">Reflex</span>
+                        <span class="tag" data-i18n="tagScore">Score chase</span>
+                    </div>
+                    <span class="badge badge-playable" data-i18n="playable">Playable</span>
+                </div>
+            </a>
+
+        </main>
+
+        <footer class="app-footer">
+            <p data-i18n="builtNote">Built as a static site — works offline, deployable on GitHub Pages.</p>
+        </footer>
+    </div>
+    <script src="./js/common.js"></script>
+</body>
+</html>
