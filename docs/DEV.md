@@ -130,8 +130,8 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   so the two ratios match. `pickColorForLane` keeps a ball's target
   within `CONFIG.reachMaxLanes` lanes of its spawn.
 - **Soft, complexity-based spawning.** `maxField(t)` is a log-paced,
-  asymptotic cap on the total "complexity" on the board (single ball = 1;
-  dual = 2 and fast = +1 once enabled). Each frame a spawn accumulator
+  asymptotic cap on the total "complexity" on the board (every ball = 1;
+  high-speed = +1, not yet enabled). Each frame a spawn accumulator
   grows by `rate × headroom^pow` (headroom = how far below the cap the
   board is), so a full board rarely spawns and an empty one fills up —
   it self-balances to the player's clear rate. A wave drops several balls

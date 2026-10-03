@@ -82,8 +82,13 @@ more balls of a colour than that colour has baskets, so every wave can
 be routed without a forced mistake; the opening wave starts about
 half-way down so you're not left waiting.
 
-*Planned (not yet enabled): dual-colour balls that accept either of two
-baskets, high-speed waves, and per-layout difficulty balancing.*
+On Normal and Hard (only on layouts that allow it), some balls are
+**two-colour** (split down the middle) and may be delivered into a basket
+of **either** colour — handy when the single matching basket is far. They
+appear more often the longer you play.
+
+*Planned (not yet enabled): high-speed waves and per-layout difficulty
+balancing.*
 
 ### Tuning
 

@@ -17,9 +17,9 @@
  * scores). Rendering is Canvas 2D at a fixed 600×760 portrait space.
  * All balance lives in CONFIG + DIFFICULTIES at the top.
  *
- * Step 1 scope: single-colour balls, multi-ball waves, no rung limit.
- * (Dual-colour balls and high-speed waves come next; the hooks are
- * stubbed with b.dual / b.fast so they slot in cleanly.)
+ * Implemented: difficulty presets, multi-ball waves, dual-colour balls
+ * (split, accept either colour), no rung limit. High-speed waves come
+ * next; the b.fast hook is stubbed so it slots in cleanly.
  */
 (function () {
     'use strict';
@@ -45,7 +45,7 @@
         lcStartHintHtml: 'Drag to draw a rung · tap a rung to remove · <kbd>P</kbd> pause',
         lcOverMsgHtml: (score) => `You scored <strong>${score}</strong>.`,
         lcOverHintHtml: 'Press <kbd>R</kbd> or the button to play again.',
-        lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the same colour at the bottom.',
+        lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the same colour at the bottom. A two-colour ball fits <strong>either</strong> of its colours.',
         lcHelp2Html: 'Drag from a dot to a neighbouring dot on the same row to <strong>draw a rung</strong>. A ball crossing a rung swaps to the next lane.',
         lcHelp3Html: 'Tap a rung you drew to <strong>remove</strong> it. Draw as many as you like — there\u2019s no limit.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
@@ -61,7 +61,7 @@
         lcStartHintHtml: '拖曳畫橫線 · 點橫線移除 · <kbd>P</kbd> 暫停',
         lcOverMsgHtml: (score) => `你得了 <strong>${score}</strong> 分。`,
         lcOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
-        lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部同色的籃子。',
+        lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部同色的籃子。雙色球可進<strong>任一</strong>種顏色的籃子。',
         lcHelp2Html: '在同一排、相鄰兩點之間拖曳可<strong>畫出橫線</strong>。球碰到橫線會換到隔壁線。',
         lcHelp3Html: '點一下自己畫的橫線可<strong>移除</strong>。想畫幾條都行，沒有上限。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
@@ -87,7 +87,7 @@
     // Difficulty presets. `combos` = layouts (one chosen at random per run).
     // `dual` on a combo marks layouts allowed to use dual-colour balls (a
     // later step). `field` is the rising on-board complexity cap that drives
-    // spawning. Single-colour ball = complexity 1 (dual = 2, fast = +1).
+    // spawning. Each ball = complexity 1 (high-speed adds +1 later).
     const DIFFICULTIES = {
         easy: {
             combos: [{ lanes: 3, colors: 3 }, { lanes: 4, colors: 2 }],
@@ -99,13 +99,13 @@
             combos: [{ lanes: 4, colors: 4, dual: true }, { lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 3 }],
             rows: 11, lives: 5, fallBase: 43,
             field: { base: 2, cap: 5, tau: 110 },
-            dual: { enabled: true }, fast: { enabled: true },
+            dual: { enabled: true, chanceCap: 0.5, startT: 20, tau: 90 }, fast: { enabled: true },
         },
         hard: {
             combos: [{ lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 6, dual: true }, { lanes: 7, colors: 7, dual: true }],
             rows: 12, lives: 4, fallBase: 46,
             field: { base: 2, cap: 6, tau: 100 },
-            dual: { enabled: true }, fast: { enabled: true },
+            dual: { enabled: true, chanceCap: 0.65, startT: 10, tau: 80 }, fast: { enabled: true },
         },
     };
     const DIFF_ORDER = ['easy', 'normal', 'hard'];
@@ -210,6 +210,14 @@
         const f = G.diffCfg.field;
         return f.base + (f.cap - f.base) * timePressure(f.tau);
     }
+    // Probability a ball is two-colour this wave — 0 unless the layout allows
+    // it; gated after a start time, then rising log-paced toward a cap.
+    function dualChance() {
+        if (!G.allowDual) return 0;
+        const d = G.diffCfg.dual;
+        if (G.elapsed < (d.startT || 0)) return 0;
+        return (d.chanceCap || 0) * timePressure(d.tau || 90);
+    }
 
     // =================================================================
     // Rungs (no budget — unlimited)
@@ -263,7 +271,7 @@
     // Balls + waves (soft complexity-based spawning)
     // =================================================================
 
-    function ballComplexity(b) { return 1 + (b.dual ? 1 : 0) + (b.fast ? 1 : 0); }
+    function ballComplexity(b) { return 1 + (b.fast ? 1 : 0); } // dual costs the same as single
 
     function fieldComplexity() {
         let c = 0;
@@ -275,31 +283,45 @@
         return AC.math.clamp((m - fieldComplexity()) / m, 0, 1);
     }
 
-    // Build a wave of up to `want` balls on distinct lanes. Each ball's colour
-    // is kept near its lane AND capped so the count of any one colour never
-    // exceeds that colour's basket count — otherwise a ball in the wave (they
-    // share a height, so they stay on distinct lanes) would be forced into a
-    // wrong basket. `startY` lets the opening wave begin partway down.
+    // Build a wave on distinct lanes until its added complexity reaches the
+    // field budget (each ball counts 1). Rule: EVERY colour must stay
+    // within its basket count across the wave — a colour can't appear in more
+    // balls than it has baskets, and a dual ball's TWO colours each use up one
+    // of their colour's slots. That keeps every wave fully routable with no
+    // forced wrong basket. `startY` lets the opening wave begin partway down.
     function spawnWave(startY) {
         const y = (startY == null) ? TOP_SPAWN_Y : startY;
-        const want = AC.math.clamp(Math.round(maxField() - fieldComplexity()),
-            1, Math.min(G.lanes, CONFIG.waveMaxBalls));
+        const budget = Math.max(1, maxField() - fieldComplexity());
+        const maxBalls = Math.min(G.lanes, CONFIG.waveMaxBalls);
         const lanesShuffled = AC.rng.shuffle(
             Array.from({ length: G.lanes }, (_, i) => i), G.rng);
-        const used = {};
-        const hasCap = (c) => (used[c] || 0) < G.basketCountByColor[c];
-        let placed = 0;
-        for (let i = 0; i < lanesShuffled.length && placed < want; i++) {
+        const cnt = G.basketCountByColor;
+        const appear = {};                       // balls in this wave containing each colour
+        const canUse = (c) => (appear[c] || 0) < cnt[c];
+        const dc = dualChance();
+        let added = 0, placed = 0;
+        for (let i = 0; i < lanesShuffled.length && placed < maxBalls; i++) {
+            if (placed >= 1 && added >= budget) break;
             const lane = lanesShuffled[i];
-            let cand = nearColors(lane).filter(hasCap);
-            if (!cand.length) cand = Object.keys(G.basketCountByColor).filter(hasCap);
-            if (!cand.length) break;
-            const color = AC.rng.one(G.rng, cand);
-            used[color] = (used[color] || 0) + 1;
+            const nearOK = nearColors(lane).filter(canUse);
+            const anyOK = nearOK.length ? nearOK : Object.keys(cnt).filter(canUse);
+            if (!anyOK.length) break;
+            let color = null, color2 = null, dual = false;
+            if (dc > 0 && G.rng() < dc) {
+                const c1 = AC.rng.one(G.rng, anyOK);
+                const pool = nearColors(lane).filter((c) => c !== c1 && canUse(c));
+                const src = pool.length ? pool
+                    : Object.keys(cnt).filter((c) => c !== c1 && canUse(c));
+                if (src.length) { color = c1; color2 = AC.rng.one(G.rng, src); dual = true; }
+            }
+            if (!dual) color = AC.rng.one(G.rng, anyOK);
+            appear[color] = (appear[color] || 0) + 1;
+            if (dual) appear[color2] = (appear[color2] || 0) + 1;
             G.balls.push({
-                x: LANE_X[lane], y, lane, color,
-                dual: false, fast: false, nextRow: 0, delivered: false,
+                x: LANE_X[lane], y, lane, color, color2, dual,
+                fast: false, nextRow: 0, delivered: false,
             });
+            added += 1;
             placed++;
         }
     }
@@ -526,13 +548,21 @@
         ctx.shadowColor = b.color;
         ctx.shadowBlur = 10;
         if (b.dual) {
-            // Left half b.color, right half b.color2 (future).
+            // Two-colour ball: left half b.color, right half b.color2.
             ctx.beginPath(); ctx.arc(b.x, b.y, r, Math.PI / 2, Math.PI * 1.5); ctx.fillStyle = b.color; ctx.fill();
             ctx.beginPath(); ctx.arc(b.x, b.y, r, -Math.PI / 2, Math.PI / 2); ctx.fillStyle = b.color2; ctx.fill();
         } else {
             ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, PI2); ctx.fillStyle = b.color; ctx.fill();
         }
         ctx.restore();
+        if (b.dual) {   // divider so the two halves read clearly
+            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.moveTo(b.x, b.y - r);
+            ctx.lineTo(b.x, b.y + r);
+            ctx.stroke();
+        }
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.beginPath();
         ctx.arc(b.x - r * 0.32, b.y - r * 0.32, r * 0.3, 0, PI2);
