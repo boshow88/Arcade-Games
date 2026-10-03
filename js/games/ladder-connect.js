@@ -79,8 +79,8 @@
         fallMult: 1.75,         // fall speed asymptotes toward base × mult …
         fallTau: 90,            // … at this log pace
         laneSlowPerLane: 3,     // px/s slower per lane beyond 4 (wider board → gentler)
-        waveMaxBalls: 3,        // cap balls in a single wave
-        spawn: { rate: 0.75, pow: 1.5, minGap: 0.45 }, // soft spawn: rate × headroom^pow
+        waveMaxBalls: 2,        // cap balls per wave (smaller waves …)
+        spawn: { rate: 1.2, pow: 1.5, minGap: 0.3 },   // … more often (higher base frequency)
         scorePerCorrect: 100,
     };
 
@@ -114,11 +114,13 @@
     // subset), so a given layout always uses easy-to-tell-apart colours.
     const COLOR_SETS = {
         2: ['#ff5d6c', '#4aa3ff'],
-        3: ['#ff5d6c', '#46d07f', '#4aa3ff'],
-        4: ['#ff5d6c', '#ffcf3f', '#46d07f', '#4aa3ff'],
-        5: ['#ff5d6c', '#ffcf3f', '#46d07f', '#4aa3ff', '#b57bff'],
-        6: ['#ff5d6c', '#ff9f45', '#ffcf3f', '#46d07f', '#4aa3ff', '#b57bff'],
-        7: ['#ff5d6c', '#ff9f45', '#ffcf3f', '#46d07f', '#4aa3ff', '#b57bff', '#ff78c8'],
+        3: ['#ff5d6c', '#3fcf6b', '#4aa3ff'],
+        4: ['#ff5d6c', '#ffd23a', '#3fcf6b', '#4aa3ff'],
+        5: ['#ff5d6c', '#ffd23a', '#3fcf6b', '#4aa3ff', '#b57bff'],
+        // 6 & 7 include both orange and yellow, so keep them clearly apart
+        // (orange #ff8a2e vs yellow #ffe23a); 7 adds teal for extra spread.
+        6: ['#ff5d6c', '#ff8a2e', '#ffe23a', '#3fcf6b', '#4aa3ff', '#b57bff'],
+        7: ['#ff5d6c', '#ff8a2e', '#ffe23a', '#3fcf6b', '#22c5c9', '#4aa3ff', '#b57bff'],
     };
 
     // =================================================================
@@ -435,7 +437,14 @@
         if (!DIFFICULTIES[d] || d === staged) return;
         staged = d;
         AC.prefs.set('ladder-connect', { difficulty: d });
-        syncDiffButtons();
+        if (shell && shell.state === 'idle') {
+            // On the ready screen, apply immediately so the frozen preview
+            // (and the scene Start will play) matches the chosen difficulty.
+            resetRun();
+            render();
+        } else {
+            syncDiffButtons();   // staged; applied on the next restart
+        }
     }
 
     // =================================================================
@@ -733,9 +742,9 @@
         G.shake = 0;
         G.ended = false;
         drag = null;
-        // Head start: the opening wave is already about halfway down, so the
-        // player isn't left waiting for the first balls to arrive.
-        spawnWave((TOP_SPAWN_Y + DELIVER_Y) / 2);
+        // Opening wave sits at the top of the ladder (just above the first
+        // rung), frozen on the ready screen until the player starts.
+        spawnWave(POINT_TOP - CONFIG.ballRadius * 2);
         G.spawnAccum = 0;
         G.lastWaveT = START_T;
         updateHud();

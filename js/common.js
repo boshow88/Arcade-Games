@@ -892,7 +892,10 @@
         function start() {
             audio.unlock();
             lastResult = null;
-            reset();
+            // With restartToReady the idle "ready" screen already shows a
+            // prepared, frozen scene — play that exact one. (From 'over',
+            // i.e. play-again, build a fresh scene.)
+            if (!(restartToReady && state === 'idle')) reset();
             state = 'playing';
             hideOverlay();
             syncButtons();
