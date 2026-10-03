@@ -80,7 +80,7 @@
         fallTau: 90,            // … at this log pace
         laneSlowPerLane: 3,     // px/s slower per lane beyond 4 (wider board → gentler)
         waveMaxBalls: 2,        // cap balls per wave (smaller waves …)
-        spawn: { rate: 1.2, pow: 1.5, minGap: 0.3 },   // … more often (higher base frequency)
+        spawn: { rate: 1.5, pow: 1.5, minGap: 0.3 },   // … more often (higher base frequency)
         scorePerCorrect: 100,
     };
 
@@ -92,7 +92,7 @@
         easy: {
             combos: [{ lanes: 3, colors: 3 }, { lanes: 4, colors: 2 }],
             rows: 9, lives: 5, fallBase: 42,
-            field: { base: 1, cap: 2, tau: 120 },
+            field: { base: 2, cap: 3, tau: 90 },
             dual: { enabled: false }, fast: { enabled: false },
         },
         normal: {
@@ -253,10 +253,13 @@
     // =================================================================
 
     function makeBaskets(lanes, colorsCount) {
-        const set = COLOR_SETS[colorsCount] || COLOR_SETS[4];
+        // Shuffle the colour set once, then lay it down as a stable repeating
+        // cycle across the lanes (e.g. blue-red-yellow-blue-red-yellow), so a
+        // colour with multiple baskets alternates predictably.
+        const set = AC.rng.shuffle((COLOR_SETS[colorsCount] || COLOR_SETS[4]).slice(), G.rng);
         const arr = [];
         for (let i = 0; i < lanes; i++) arr.push(set[i % set.length]);
-        return AC.rng.shuffle(arr, G.rng); // fixed colours, random lane placement
+        return arr;
     }
 
     // Distinct basket colours within reachMaxLanes of `lane`.
