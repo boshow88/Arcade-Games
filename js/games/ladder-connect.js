@@ -76,8 +76,8 @@
         ballRadius: 15,
         basketGapRatio: 2.5,    // basket width : gap — kept constant across lane counts
         reachMaxLanes: 3,       // soft: a ball's matching basket is within N lanes of its spawn
-        fallMult: 1.75,         // fall speed asymptotes toward base × mult …
-        fallTau: 90,            // … at this log pace
+        fallMult: 1.35,         // fall speed asymptotes toward base × mult …
+        fallTau: 90,            // … at this log pace (higher start, ~same terminal)
         laneSlowPerLane: 3,     // px/s slower per lane beyond 4 (wider board → gentler)
         waveMaxBalls: 2,        // cap balls per wave (smaller waves …)
         spawn: { rate: 1.5, pow: 1.5, minGap: 0.3 },   // … more often (higher base frequency)
@@ -91,19 +91,19 @@
     const DIFFICULTIES = {
         easy: {
             combos: [{ lanes: 3, colors: 3 }, { lanes: 4, colors: 2 }],
-            rows: 9, lives: 5, fallBase: 42,
+            rows: 9, lives: 5, fallBase: 54,
             field: { base: 2, cap: 3, tau: 90 },
             dual: { enabled: false }, fast: { enabled: false },
         },
         normal: {
             combos: [{ lanes: 4, colors: 4, dual: true }, { lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 3 }],
-            rows: 11, lives: 5, fallBase: 43,
+            rows: 11, lives: 5, fallBase: 56,
             field: { base: 2, cap: 5, tau: 110 },
             dual: { enabled: true, chanceCap: 0.5, startT: 20, tau: 90 }, fast: { enabled: true },
         },
         hard: {
             combos: [{ lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 6, dual: true }, { lanes: 7, colors: 7, dual: true }],
-            rows: 12, lives: 4, fallBase: 46,
+            rows: 12, lives: 4, fallBase: 60,
             field: { base: 2, cap: 6, tau: 100 },
             dual: { enabled: true, chanceCap: 0.65, startT: 10, tau: 80 }, fast: { enabled: true },
         },
