@@ -137,7 +137,7 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   it self-balances to the player's clear rate. A wave drops several balls
   at the same height on distinct lanes; a wave never gives a colour more
   balls than it has baskets (always fully routable), and the opening wave
-  starts about half-way down.
+  starts at the top of the ladder.
 - **Difficulty over time** is all asymptotic (`timePressure`): fall speed
   approaches `base × CONFIG.fallMult`, and `maxField` approaches its cap
   — neither is ever actually reached.

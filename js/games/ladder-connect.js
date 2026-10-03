@@ -80,7 +80,7 @@
         fallTau: 90,            // … at this log pace (higher start, ~same terminal)
         laneSlowPerLane: 3,     // px/s slower per lane beyond 4 (wider board → gentler)
         waveMaxBalls: 2,        // cap balls per wave (smaller waves …)
-        spawn: { rate: 1.5, pow: 1.5, minGap: 0.3 },   // … more often (higher base frequency)
+        spawn: { rate: 2.0, pow: 1.2, minGap: 0.3 },   // … more often (higher base frequency)
         scorePerCorrect: 100,
     };
 
@@ -92,20 +92,20 @@
         easy: {
             combos: [{ lanes: 3, colors: 3 }, { lanes: 4, colors: 2 }],
             rows: 9, lives: 5, fallBase: 54,
-            field: { base: 2, cap: 3, tau: 90 },
+            field: { base: 3, cap: 4, tau: 90 },
             dual: { enabled: false }, fast: { enabled: false },
         },
         normal: {
             combos: [{ lanes: 4, colors: 4, dual: true }, { lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 3 }],
             rows: 11, lives: 5, fallBase: 56,
-            field: { base: 2, cap: 5, tau: 110 },
+            field: { base: 3, cap: 5, tau: 110 },
             dual: { enabled: true, chanceCap: 0.5, startT: 20, tau: 90 },
             fast: { enabled: true, chanceCap: 0.35, startT: 40, tau: 100, mul: 1.5 },
         },
         hard: {
             combos: [{ lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 6, dual: true }, { lanes: 7, colors: 7, dual: true }],
             rows: 12, lives: 4, fallBase: 60,
-            field: { base: 2, cap: 6, tau: 100 },
+            field: { base: 3, cap: 6, tau: 100 },
             dual: { enabled: true, chanceCap: 0.65, startT: 10, tau: 80 },
             fast: { enabled: true, chanceCap: 0.5, startT: 25, tau: 85, mul: 1.6 },
         },

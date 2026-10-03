@@ -79,8 +79,8 @@ without ever reaching it** (a log-paced curve). Spawning is **soft**: the
 more total "complexity" already on the board, the less likely a new wave
 — so the pressure adapts to how fast you clear. A wave never contains
 more balls of a colour than that colour has baskets, so every wave can
-be routed without a forced mistake; the opening wave starts about
-half-way down so you're not left waiting.
+be routed without a forced mistake; the opening wave starts at the top
+of the ladder.
 
 On Normal and Hard (only on layouts that allow it), some balls are
 **two-colour** (split down the middle) and may be delivered into a basket
