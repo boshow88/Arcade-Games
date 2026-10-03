@@ -20,7 +20,8 @@ All games share the same chrome and lifecycle:
 - **Start**: from the overlay button, or press `Space` / `Enter`.
 - **Pause / Resume**: `P` or `Esc` (also the Pause button). Switching
   browser tabs auto-pauses.
-- **Restart**: `R` or the Restart button — an instant fresh run.
+- **Restart**: `R` or the Restart button. Some games (e.g. Ladder
+  Connect) return to the ready screen first; others restart instantly.
 - **Sound**: `M` toggles mute (also the speaker button). The choice is
   remembered across games.
 - **HUD**: a row of stat pills plus any per-game gauges. Each game owns
@@ -76,7 +77,10 @@ A layout is chosen at random each run:
 Over time the board gets busier and faster, both **approaching a cap
 without ever reaching it** (a log-paced curve). Spawning is **soft**: the
 more total "complexity" already on the board, the less likely a new wave
-— so the pressure adapts to how fast you clear.
+— so the pressure adapts to how fast you clear. A wave never contains
+more balls of a colour than that colour has baskets, so every wave can
+be routed without a forced mistake; the opening wave starts about
+half-way down so you're not left waiting.
 
 *Planned (not yet enabled): dual-colour balls that accept either of two
 baskets, high-speed waves, and per-layout difficulty balancing.*

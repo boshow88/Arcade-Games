@@ -779,6 +779,9 @@
         const update = opts.update || function () {};
         const render = opts.render || function () {};
         const reset = opts.reset || function () {};
+        // When true, Restart (button / R) returns to the ready overlay
+        // instead of launching straight into a new run.
+        const restartToReady = !!opts.restartToReady;
 
         const dom = {
             overlay: document.getElementById('overlay'),
@@ -885,6 +888,18 @@
             loop.start();
         }
 
+        // Return to the ready/idle screen (fresh board behind the overlay)
+        // instead of launching straight into play. Used by Restart when the
+        // game sets restartToReady.
+        function goIdle() {
+            loop.stop();
+            reset();
+            state = 'idle';
+            render(0);
+            showOverlay('idle');
+            syncButtons();
+        }
+
         function pause() {
             if (state !== 'playing') return;
             state = 'paused';
@@ -970,7 +985,10 @@
             dom.pauseBtn.addEventListener('click', () => { audio.play('click'); togglePause(); });
         }
         if (dom.restartBtn) {
-            dom.restartBtn.addEventListener('click', () => { audio.play('click'); start(); });
+            dom.restartBtn.addEventListener('click', () => {
+                audio.play('click');
+                restartToReady ? goIdle() : start();
+            });
         }
         if (dom.soundBtn) {
             dom.soundBtn.addEventListener('click', () => {
@@ -992,7 +1010,7 @@
                 return;
             }
             if (k === 'r' || k === 'R') {
-                if (state !== 'idle') start();
+                if (state !== 'idle') (restartToReady ? goIdle() : start());
                 return;
             }
             if (k === 'm' || k === 'M') {

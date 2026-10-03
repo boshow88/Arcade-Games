@@ -61,7 +61,7 @@ ends. It intentionally knows nothing about the game's own HUD.
 
 Config keys: `gameId`, `mode()` (leaderboard bucket), `step`,
 `preventKeys`, `update`, `render`, `reset`, `onStart` / `onPause` /
-`onResume` / `onGameOver`, and `overlayContent(state, result)` returning
+`onResume` / `onGameOver`, `restartToReady` (Restart → ready screen), and `overlayContent(state, result)` returning
 `{ badge, title, message, button, hint }`.
 
 DOM ids the shell looks for (all optional): `#overlay`,
@@ -69,7 +69,8 @@ DOM ids the shell looks for (all optional): `#overlay`,
 `#overlay-hint`, `#pause-btn`, `#restart-btn`, `#sound-btn`, `#best`.
 
 Global shortcuts: `Space`/`Enter` start from idle/over, `P`/`Esc` pause,
-`R` restart, `M` mute. Switching tabs mid-run auto-pauses.
+`R` restart (to the ready screen if `restartToReady`), `M` mute.
+Switching tabs mid-run auto-pauses.
 
 ### i18n conventions
 
@@ -134,7 +135,9 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   grows by `rate × headroom^pow` (headroom = how far below the cap the
   board is), so a full board rarely spawns and an empty one fills up —
   it self-balances to the player's clear rate. A wave drops several balls
-  at the same height on distinct lanes.
+  at the same height on distinct lanes; a wave never gives a colour more
+  balls than it has baskets (always fully routable), and the opening wave
+  starts about half-way down.
 - **Difficulty over time** is all asymptotic (`timePressure`): fall speed
   approaches `base × CONFIG.fallMult`, and `maxField` approaches its cap
   — neither is ever actually reached.

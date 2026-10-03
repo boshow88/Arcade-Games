@@ -78,7 +78,7 @@
         reachMaxLanes: 3,       // soft: a ball's matching basket is within N lanes of its spawn
         fallMult: 1.75,         // fall speed asymptotes toward base × mult …
         fallTau: 90,            // … at this log pace
-        laneSlowPerLane: 5,     // px/s slower per lane beyond 4 (wider board → gentler)
+        laneSlowPerLane: 3,     // px/s slower per lane beyond 4 (wider board → gentler)
         waveMaxBalls: 3,        // cap balls in a single wave
         spawn: { rate: 0.75, pow: 1.5, minGap: 0.45 }, // soft spawn: rate × headroom^pow
         scorePerCorrect: 100,
@@ -91,19 +91,19 @@
     const DIFFICULTIES = {
         easy: {
             combos: [{ lanes: 3, colors: 3 }, { lanes: 4, colors: 2 }],
-            rows: 9, lives: 5, fallBase: 70,
+            rows: 9, lives: 5, fallBase: 42,
             field: { base: 1, cap: 2, tau: 120 },
             dual: { enabled: false }, fast: { enabled: false },
         },
         normal: {
             combos: [{ lanes: 4, colors: 4, dual: true }, { lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 3 }],
-            rows: 11, lives: 5, fallBase: 72,
+            rows: 11, lives: 5, fallBase: 43,
             field: { base: 2, cap: 5, tau: 110 },
             dual: { enabled: true }, fast: { enabled: true },
         },
         hard: {
             combos: [{ lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 6, dual: true }, { lanes: 7, colors: 7, dual: true }],
-            rows: 12, lives: 4, fallBase: 76,
+            rows: 12, lives: 4, fallBase: 46,
             field: { base: 2, cap: 6, tau: 100 },
             dual: { enabled: true }, fast: { enabled: true },
         },
@@ -126,11 +126,11 @@
     // =================================================================
 
     const W = 600, H = 760;
-    const TOP_SPAWN_Y = 46;
+    const TOP_SPAWN_Y = -30;        // off-screen: balls slide in from above the top edge
     const POINT_TOP = 140;
     const POINT_BOTTOM = 584;
     const DELIVER_Y = 648;
-    const LANE_TOP = POINT_TOP - 24;
+    const LANE_TOP = 0;             // lanes run from the very top of the play area
     const BASKET_TOP = 656;
     const BASKET_BOTTOM = 742;
 
@@ -183,6 +183,7 @@
         side: [],            // [row][lane]: +1 left-endpoint (go right), -1 right-endpoint, 0 none
         rungs: [],           // { row, lane }
         basketColor: [],
+        basketCountByColor: {},
         spawnAccum: 0,
         lastWaveT: 0,
         shake: 0,
@@ -248,15 +249,14 @@
         return AC.rng.shuffle(arr, G.rng); // fixed colours, random lane placement
     }
 
-    // A colour whose matching basket is within reachMaxLanes of `lane`.
-    function pickColorForLane(lane) {
+    // Distinct basket colours within reachMaxLanes of `lane`.
+    function nearColors(lane) {
         const N = CONFIG.reachMaxLanes;
         const near = [];
         for (let j = Math.max(0, lane - N); j <= Math.min(G.lanes - 1, lane + N); j++) {
             near.push(G.basketColor[j]);
         }
-        const uniq = [...new Set(near)];
-        return AC.rng.one(G.rng, uniq.length ? uniq : G.basketColor);
+        return [...new Set(near)];
     }
 
     // =================================================================
@@ -275,19 +275,32 @@
         return AC.math.clamp((m - fieldComplexity()) / m, 0, 1);
     }
 
-    function spawnWave() {
-        const remaining = maxField() - fieldComplexity();
-        const cap = Math.min(G.lanes, CONFIG.waveMaxBalls);
-        const count = AC.math.clamp(Math.round(remaining), 1, cap);
+    // Build a wave of up to `want` balls on distinct lanes. Each ball's colour
+    // is kept near its lane AND capped so the count of any one colour never
+    // exceeds that colour's basket count — otherwise a ball in the wave (they
+    // share a height, so they stay on distinct lanes) would be forced into a
+    // wrong basket. `startY` lets the opening wave begin partway down.
+    function spawnWave(startY) {
+        const y = (startY == null) ? TOP_SPAWN_Y : startY;
+        const want = AC.math.clamp(Math.round(maxField() - fieldComplexity()),
+            1, Math.min(G.lanes, CONFIG.waveMaxBalls));
         const lanesShuffled = AC.rng.shuffle(
             Array.from({ length: G.lanes }, (_, i) => i), G.rng);
-        for (let i = 0; i < count; i++) {
+        const used = {};
+        const hasCap = (c) => (used[c] || 0) < G.basketCountByColor[c];
+        let placed = 0;
+        for (let i = 0; i < lanesShuffled.length && placed < want; i++) {
             const lane = lanesShuffled[i];
-            const color = pickColorForLane(lane);
+            let cand = nearColors(lane).filter(hasCap);
+            if (!cand.length) cand = Object.keys(G.basketCountByColor).filter(hasCap);
+            if (!cand.length) break;
+            const color = AC.rng.one(G.rng, cand);
+            used[color] = (used[color] || 0) + 1;
             G.balls.push({
-                x: LANE_X[lane], y: TOP_SPAWN_Y, lane, color,
+                x: LANE_X[lane], y, lane, color,
                 dual: false, fast: false, nextRow: 0, delivered: false,
             });
+            placed++;
         }
     }
 
@@ -679,17 +692,22 @@
 
         computeLayout(G.lanes, G.rows);
         G.basketColor = makeBaskets(G.lanes, G.colors);
+        G.basketCountByColor = {};
+        for (const c of G.basketColor) G.basketCountByColor[c] = (G.basketCountByColor[c] || 0) + 1;
         G.side = emptyGrid(G.rows, G.lanes);
         G.rungs = [];
         G.balls = [];
         G.floaters.length = 0;
         G.score = 0;
         G.elapsed = START_T;   // [DEBUG-HOOK] ?t=<sec> jumps the difficulty clock
-        G.spawnAccum = 0.5;    // first wave soon, not instant
-        G.lastWaveT = START_T;
         G.shake = 0;
         G.ended = false;
         drag = null;
+        // Head start: the opening wave is already about halfway down, so the
+        // player isn't left waiting for the first balls to arrive.
+        spawnWave((TOP_SPAWN_Y + DELIVER_Y) / 2);
+        G.spawnAccum = 0;
+        G.lastWaveT = START_T;
         updateHud();
         if (shell) shell.refreshBest();  // Best now reflects the committed difficulty
         syncDiffButtons();               // committed == staged again
@@ -713,6 +731,7 @@
             render,
             reset: resetRun,
             overlayContent,
+            restartToReady: true,   // Restart returns to the ready screen
         });
 
         canvas.addEventListener('pointerdown', onPointerDown);
