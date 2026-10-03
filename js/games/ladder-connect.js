@@ -18,8 +18,8 @@
  * All balance lives in CONFIG + DIFFICULTIES at the top.
  *
  * Implemented: difficulty presets, multi-ball waves, dual-colour balls
- * (split, accept either colour), no rung limit. High-speed waves come
- * next; the b.fast hook is stubbed so it slots in cleanly.
+ * (split, accept either colour), no rung limit, and high-speed balls
+ * (at most one per wave, faster, from Normal up). Per-layout balancing next.
  */
 (function () {
     'use strict';
@@ -87,7 +87,7 @@
     // Difficulty presets. `combos` = layouts (one chosen at random per run).
     // `dual` on a combo marks layouts allowed to use dual-colour balls (a
     // later step). `field` is the rising on-board complexity cap that drives
-    // spawning. Each ball = complexity 1 (high-speed adds +1 later).
+    // spawning. Each ball = complexity 1; a high-speed ball adds +1 (= 2).
     const DIFFICULTIES = {
         easy: {
             combos: [{ lanes: 3, colors: 3 }, { lanes: 4, colors: 2 }],
@@ -99,13 +99,15 @@
             combos: [{ lanes: 4, colors: 4, dual: true }, { lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 3 }],
             rows: 11, lives: 5, fallBase: 56,
             field: { base: 2, cap: 5, tau: 110 },
-            dual: { enabled: true, chanceCap: 0.5, startT: 20, tau: 90 }, fast: { enabled: true },
+            dual: { enabled: true, chanceCap: 0.5, startT: 20, tau: 90 },
+            fast: { enabled: true, chanceCap: 0.35, startT: 40, tau: 100, mul: 1.5 },
         },
         hard: {
             combos: [{ lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 6, dual: true }, { lanes: 7, colors: 7, dual: true }],
             rows: 12, lives: 4, fallBase: 60,
             field: { base: 2, cap: 6, tau: 100 },
-            dual: { enabled: true, chanceCap: 0.65, startT: 10, tau: 80 }, fast: { enabled: true },
+            dual: { enabled: true, chanceCap: 0.65, startT: 10, tau: 80 },
+            fast: { enabled: true, chanceCap: 0.5, startT: 25, tau: 85, mul: 1.6 },
         },
     };
     const DIFF_ORDER = ['easy', 'normal', 'hard'];
@@ -220,6 +222,14 @@
         if (G.elapsed < (d.startT || 0)) return 0;
         return (d.chanceCap || 0) * timePressure(d.tau || 90);
     }
+    // Probability a wave includes one high-speed ball — gated after a start
+    // time, then rising log-paced toward a cap. At most one fast ball per wave.
+    function fastChance() {
+        const f = G.diffCfg.fast;
+        if (!f || !f.enabled) return 0;
+        if (G.elapsed < (f.startT || 0)) return 0;
+        return (f.chanceCap || 0) * timePressure(f.tau || 90);
+    }
 
     // =================================================================
     // Rungs (no budget — unlimited)
@@ -303,7 +313,13 @@
         const cnt = G.basketCountByColor;
         const appear = {};                       // balls in this wave containing each colour
         const canUse = (c) => (appear[c] || 0) < cnt[c];
-        const dc = dualChance();
+        const dc = dualChance();                 // dual-colour balls may appear in any wave
+        // At most one high-speed ball per wave (two at once is brutal); dual
+        // balls are still allowed alongside it.
+        const fc = fastChance();
+        const wantFast = fc > 0 && G.rng() < fc;
+        const fastMul = G.diffCfg.fast ? (G.diffCfg.fast.mul || 1.5) : 1;
+        let fastUsed = false;
         let added = 0, placed = 0;
         for (let i = 0; i < lanesShuffled.length && placed < maxBalls; i++) {
             if (placed >= 1 && added >= budget) break;
@@ -322,11 +338,13 @@
             if (!dual) color = AC.rng.one(G.rng, anyOK);
             appear[color] = (appear[color] || 0) + 1;
             if (dual) appear[color2] = (appear[color2] || 0) + 1;
+            const fast = wantFast && !fastUsed;   // exactly one fast ball per wave
+            if (fast) fastUsed = true;
             G.balls.push({
                 x: LANE_X[lane], y, lane, color, color2, dual,
-                fast: false, nextRow: 0, delivered: false,
+                fast, speedMul: fast ? fastMul : 1, nextRow: 0, delivered: false,
             });
-            added += 1;
+            added += fast ? 2 : 1;          // high-speed ball costs 2 complexity
             placed++;
         }
     }
@@ -375,7 +393,7 @@
 
         const v = fallSpeed();
         for (const b of G.balls) {
-            b.y += v * dt;
+            b.y += v * (b.speedMul || 1) * dt;
             while (b.nextRow < G.rows && b.y >= ROW_Y[b.nextRow]) {
                 const s = G.side[b.nextRow][b.lane];
                 if (s > 0) b.lane++;
@@ -556,6 +574,16 @@
 
     function drawBall(b) {
         const r = CONFIG.ballRadius;
+        if (b.fast) {   // motion trail above the ball so high-speed reads clearly
+            ctx.fillStyle = b.color;
+            for (let k = 1; k <= 2; k++) {
+                ctx.globalAlpha = 0.3 / k;
+                ctx.beginPath();
+                ctx.arc(b.x, b.y - k * r * 0.95, r * (1 - k * 0.12), 0, PI2);
+                ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
         ctx.save();
         ctx.shadowColor = b.color;
         ctx.shadowBlur = 10;
@@ -579,8 +607,8 @@
         ctx.beginPath();
         ctx.arc(b.x - r * 0.32, b.y - r * 0.32, r * 0.3, 0, PI2);
         ctx.fill();
-        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = 2;
+        ctx.strokeStyle = b.fast ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = b.fast ? 2.5 : 2;
         ctx.beginPath();
         ctx.arc(b.x, b.y, r, 0, PI2);
         ctx.stroke();

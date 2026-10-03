@@ -131,7 +131,7 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   within `CONFIG.reachMaxLanes` lanes of its spawn.
 - **Soft, complexity-based spawning.** `maxField(t)` is a log-paced,
   asymptotic cap on the total "complexity" on the board (every ball = 1;
-  high-speed = +1, not yet enabled). Each frame a spawn accumulator
+  a high-speed ball = 2). Each frame a spawn accumulator
   grows by `rate × headroom^pow` (headroom = how far below the cap the
   board is), so a full board rarely spawns and an empty one fills up —
   it self-balances to the player's clear rate. A wave drops several balls
@@ -141,6 +141,10 @@ on its page) and scale the backing store by `devicePixelRatio` in a
 - **Difficulty over time** is all asymptotic (`timePressure`): fall speed
   approaches `base × CONFIG.fallMult`, and `maxField` approaches its cap
   — neither is ever actually reached.
+- **High-speed balls** (Normal/Hard, `DIFFICULTIES.*.fast`): gated after
+  `startT`, then a per-wave chance rising log-paced toward `chanceCap` that a
+  wave includes **one** fast ball (at most one). It gets `speedMul = fast.mul`
+  and counts as 2 complexity; dual-colour balls may appear in any wave.
 - **Delivery** compares the ball's colour to its final lane's basket:
   correct → fixed score + `+score` floater; wrong → a life lost; zero
   lives ends the run. (No combo system.)

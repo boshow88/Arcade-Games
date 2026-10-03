@@ -87,8 +87,12 @@ On Normal and Hard (only on layouts that allow it), some balls are
 of **either** colour — handy when the single matching basket is far. They
 appear more often the longer you play.
 
-*Planned (not yet enabled): high-speed waves and per-layout difficulty
-balancing.*
+Also on Normal and Hard, the longer you play the more often a wave includes
+one **high-speed ball** — it falls noticeably faster and trails a motion
+blur. At most one per wave (two at once would be brutal), and it counts as
+double on the board; it can still be two-colour like any other ball.
+
+*Planned: per-layout difficulty balancing.*
 
 ### Tuning
 
