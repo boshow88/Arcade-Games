@@ -279,6 +279,8 @@
         ladder:
             '<path d="M8 3v18"/><path d="M16 3v18"/>'
             + '<path d="M8 8h8"/><path d="M8 13h8"/><path d="M8 18h8"/>',
+        puzzle:
+            '<path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 19.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/>',
         skull:
             '<circle cx="9" cy="12" r="1"/><circle cx="15" cy="12" r="1"/>'
             + '<path d="M8 20v2h8v-2"/>'
@@ -362,6 +364,11 @@
             // Launcher
             appSubtitle: 'A collection of fast, pick-up-and-play arcade games.',
             playable: 'Playable',
+            visitLink: 'Visit \u2197',
+            puzzleGamesName: 'Puzzle Games',
+            puzzleGamesTagline: 'A collection of logic puzzles.',
+            puzzleGamesCardBody:
+                'Sudoku, Tango, Patches, Queens and more logic puzzles.',
             wip: 'WIP',
             builtNote: 'Built as a static site — works offline, deployable on GitHub Pages.',
             tagReflex: 'Reflex',
@@ -406,6 +413,11 @@
 
             appSubtitle: '一組節奏明快、隨開隨玩的街機小遊戲。',
             playable: '可玩',
+            visitLink: '前往 \u2197',
+            puzzleGamesName: 'Puzzle Games',
+            puzzleGamesTagline: '邏輯解謎合輯。',
+            puzzleGamesCardBody:
+                '數獨、Tango、Patches、Queens 等邏輯謎題。',
             wip: '開發中',
             builtNote: '純靜態網站 — 可離線使用，也可部署於 GitHub Pages。',
             tagReflex: '反應',

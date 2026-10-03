@@ -351,6 +351,7 @@ button {
 /* Per-game accent overrides — must match the `--game-color` declared
    in each per-game HTML so the launcher card and game page agree. */
 .game-card.ladder-connect { --game-color: #5ad0e0; }
+.game-card.puzzle-link    { --game-color: #a78bfa; }
 
 /* ----------------------------------------------------------------
    Toast (transient bottom-centre notice)
