@@ -40,7 +40,9 @@ to steer each ball into the basket of its own colour.
 ### The board
 
 - **Lanes**: vertical lines the balls fall down.
-- **Slots**: a rung can sit between any two neighbouring lanes, at any row.
+- **Rung zone**: on each lane the brighter segment (with a cap at the top and
+  bottom) marks where rungs live; a rung can sit between any two neighbouring
+  lanes, at any height within that band.
 - **Baskets**: one per lane at the bottom, each a **distinct** colour for
   the run (lanes = colours). Every ball's colour matches one of them.
 
@@ -51,12 +53,13 @@ to steer each ball into the basket of its own colour.
 - There is a **fixed number** of rungs per difficulty — you **move** them,
   never add or remove any.
 - **Pick up / drop**: press and hold a rung (mouse or touch), drag it, and
-  release to drop it in a new slot. While you hold it the rung stays where it
-  was (still steering balls) and a translucent **ghost** shows the target.
-- Rungs **never block each other**: each lane's left-side and right-side rung
-  endpoints are staggered in height (a brick pattern), so neighbouring rungs
-  sit at slightly different heights and never conflict. A drop is only refused
-  if the exact target slot is already taken (the ghost turns red).
+  release to drop it. You can place it at **any height** — not just on a node.
+  While you hold it the rung stays where it was (still steering balls) and a
+  translucent **ghost** shows where it will land.
+- **Auto-dodge**: if the ghost gets too close to another rung that shares a
+  lane, it slides to the nearest free height to make room, so rungs never
+  conflict. Only if a column is completely full does the ghost turn red (and
+  the rung snaps back on release).
 
 ### Goal & scoring
 

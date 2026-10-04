@@ -54,8 +54,8 @@
         lcOverMsgHtml: (score) => `You scored <strong>${score}</strong>.`,
         lcOverHintHtml: 'Press <kbd>R</kbd> or the button to play again.',
         lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the same colour at the bottom. A two-colour ball fits <strong>either</strong> of its colours.',
-        lcHelp2Html: 'Press and hold a <strong>rung</strong>, drag it, and release to drop it in a new slot. A ball crossing a rung swaps to the next lane.',
-        lcHelp3Html: 'There is a <strong>fixed</strong> number of rungs \u2014 you <strong>move</strong> them, you can\u2019t add or remove any. A drop only fails if that exact spot is already taken.',
+        lcHelp2Html: 'Press and hold a <strong>rung</strong>, drag it, and release to drop it at a new spot. A ball crossing a rung swaps to the next lane.',
+        lcHelp3Html: 'There is a <strong>fixed</strong> number of rungs \u2014 you <strong>move</strong> them, you can\u2019t add or remove any. Drop one at any height; it nudges aside if it would overlap another.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
         lcHelp5Html: 'Balls come more often over time \u2014 the fall speed stays the same throughout. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
@@ -71,7 +71,7 @@
         lcOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部同色的籃子。雙色球可進<strong>任一</strong>種顏色的籃子。',
         lcHelp2Html: '按住一條<strong>橋</strong>拖曳，放手即可放到新位置。球碰到橋會換到隔壁線。',
-        lcHelp3Html: '橋的數量<strong>固定</strong>——只能<strong>移動</strong>，不能新增或移除。只有目標格已被佔用時才會放不下。',
+        lcHelp3Html: '橋的數量<strong>固定</strong>——只能<strong>移動</strong>，不能新增或移除。可放在任意高度；若太靠近別的橋會自動稍微讓開。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
         lcHelp5Html: '出球會隨時間越來越頻繁 \u2014 球速始終不變。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
@@ -88,8 +88,9 @@
         ballSpeed: 72,           // constant fall speed — the SAME for every difficulty
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
-        rungStagger: 0.5,        // odd gaps' rungs sit this fraction of a row lower (brick pattern)
+        rungStagger: 0.5,        // opening layout only: odd gaps start half a row lower
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
+        rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         scorePerCorrect: 100,
     };
 
@@ -159,9 +160,9 @@
         ROW_Y = Array.from({ length: rows }, (_, i) => POINT_TOP + i * ROW_SP);
     }
 
-    // A rung's vertical centre. Odd gaps are nudged half a row lower so the
-    // left-side and right-side endpoints on any lane never sit at the same
-    // height — adjacent rungs can't conflict (the "brick" stagger).
+    // A staggered grid height — only used to lay out the opening rungs so they
+    // start spread out and conflict-free (odd gaps nudged half a row lower).
+    // After that, rungs move freely to any height.
     function rungY(gap, row) {
         return ROW_Y[row] + (gap % 2 ? ROW_SP * CONFIG.rungStagger : 0);
     }
@@ -197,7 +198,7 @@
         lanes: 3, colors: 3, rows: 9, allowDual: false,
         score: 0, lives: 0, elapsed: 0,
         balls: [], floaters: [],
-        rungs: [],           // fixed set of { gap, row } — moved, never added/removed
+        rungs: [],           // fixed set of { gap, y } — moved freely, never added/removed
         basketColor: [],
         spawnAcc: 0,         // wave accumulator
         lastWaveT: 0,        // min-gap guard
@@ -232,17 +233,35 @@
     // Rungs (fixed set — moved, never added or removed)
     // =================================================================
 
-    // True if a rung other than `exceptIdx` already sits in this exact slot.
-    // (Adjacent slots are fine — the brick stagger keeps them conflict-free.)
-    function slotOccupied(gap, row, exceptIdx) {
+    // Rungs are placed freely (continuous y). Two rungs that share a lane
+    // (same gap, or adjacent gaps) must stay `rungMinSep` apart in height.
+    // Given a desired drop, return the nearest free y (dodging conflicts), or
+    // null if this gap column has no room. `exceptIdx` is the rung being moved.
+    function resolveDropY(gap, desiredY, exceptIdx) {
+        const SEP = CONFIG.rungMinSep;
+        const yMin = POINT_TOP, yMax = POINT_BOTTOM;
+        const want = AC.math.clamp(desiredY, yMin, yMax);
+        const obs = [];
         for (let i = 0; i < G.rungs.length; i++) {
             if (i === exceptIdx) continue;
-            if (G.rungs[i].gap === gap && G.rungs[i].row === row) return true;
+            if (Math.abs(G.rungs[i].gap - gap) <= 1) obs.push(G.rungs[i].y);
         }
-        return false;
+        const blocked = (yy) => obs.some((o) => Math.abs(yy - o) < SEP - 0.01);
+        if (!blocked(want)) return want;
+        // The nearest free y is at an obstacle boundary (o ± SEP) or a bound.
+        const cands = [yMin, yMax];
+        for (const o of obs) { cands.push(o - SEP, o + SEP); }
+        let best = null, bestD = Infinity;
+        for (let c of cands) {
+            c = AC.math.clamp(c, yMin, yMax);
+            if (blocked(c)) continue;
+            const d = Math.abs(c - want);
+            if (d < bestD) { bestD = d; best = c; }
+        }
+        return best;   // null if the column is too full to fit
     }
 
-    // Lay the fixed set of rungs at random distinct slots at the start of a run.
+    // Lay the fixed set of rungs at random distinct (staggered) node slots.
     function initRungs() {
         G.rungs = [];
         const K = G.diffCfg.rungs || G.lanes;
@@ -250,7 +269,10 @@
         for (let g = 0; g < G.lanes - 1; g++)
             for (let r = 0; r < G.rows; r++) slots.push({ gap: g, row: r });
         AC.rng.shuffle(slots, G.rng);
-        for (let i = 0; i < Math.min(K, slots.length); i++) G.rungs.push(slots[i]);
+        for (let i = 0; i < Math.min(K, slots.length); i++) {
+            const s = slots[i];
+            G.rungs.push({ gap: s.gap, y: rungY(s.gap, s.row) });
+        }
     }
 
     // =================================================================
@@ -383,7 +405,7 @@
                 for (let i = 0; i < G.rungs.length; i++) {
                     const rg = G.rungs[i];
                     if (rg.gap !== b.lane && rg.gap !== b.lane - 1) continue;
-                    const h = rungY(rg.gap, rg.row);
+                    const h = rg.y;
                     if (h > b.y && h <= yEnd && h < bestH) { bestH = h; best = i; }
                 }
                 if (best < 0) break;
@@ -472,7 +494,6 @@
         }
         drawBackground();
         drawLanes();
-        drawNodes();
         drawRungs();
         drawDragGhost();
         drawBaskets();
@@ -490,40 +511,29 @@
         ctx.fillRect(0, 0, W, H);
     }
 
+    // Lanes: a faint full-height rail the balls ride, with a brighter segment
+    // marking the band where rungs can be placed (capped top and bottom).
     function drawLanes() {
-        ctx.strokeStyle = 'rgba(255,255,255,0.10)';
-        ctx.lineWidth = 3;
         for (let i = 0; i < G.lanes; i++) {
-            ctx.beginPath();
-            ctx.moveTo(LANE_X[i], LANE_TOP);
-            ctx.lineTo(LANE_X[i], DELIVER_Y);
-            ctx.stroke();
-        }
-    }
+            const x = LANE_X[i];
+            ctx.strokeStyle = 'rgba(255,255,255,0.07)';
+            ctx.lineWidth = 3;
+            ctx.beginPath(); ctx.moveTo(x, LANE_TOP); ctx.lineTo(x, DELIVER_Y); ctx.stroke();
 
-    // Nodes = rung endpoints. Each has a direction (the way its rung would
-    // extend), so draw it as a faint little stub reaching that way — like the
-    // broken-off stub of a rung. A placed rung then bridges the two stubs.
-    function drawNodes() {
-        const stub = Math.min(13, LANE_SP * 0.16);
-        ctx.save();
-        ctx.strokeStyle = 'rgba(170,176,189,0.18)';
-        ctx.lineWidth = 5;
-        ctx.lineCap = 'round';
-        for (let g = 0; g < G.lanes - 1; g++) {
-            for (let r = 0; r < G.rows; r++) {
-                const y = rungY(g, r);
-                ctx.beginPath(); ctx.moveTo(LANE_X[g], y); ctx.lineTo(LANE_X[g] + stub, y); ctx.stroke();
-                ctx.beginPath(); ctx.moveTo(LANE_X[g + 1], y); ctx.lineTo(LANE_X[g + 1] - stub, y); ctx.stroke();
-            }
+            ctx.strokeStyle = 'rgba(255,255,255,0.16)';
+            ctx.beginPath(); ctx.moveTo(x, POINT_TOP); ctx.lineTo(x, POINT_BOTTOM); ctx.stroke();
+
+            ctx.strokeStyle = 'rgba(255,255,255,0.22)';
+            ctx.lineWidth = 2;
+            ctx.beginPath(); ctx.moveTo(x - 5, POINT_TOP); ctx.lineTo(x + 5, POINT_TOP); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x - 5, POINT_BOTTOM); ctx.lineTo(x + 5, POINT_BOTTOM); ctx.stroke();
         }
-        ctx.restore();
     }
 
     const RUNG_COLOR = '#aab0bd'; // neutral grey — balls carry the colour
-    function drawRung(gap, row, opts) {
+    function drawRung(gap, y, opts) {
         opts = opts || {};
-        const y = rungY(gap, row), x0 = LANE_X[gap], x1 = LANE_X[gap + 1];
+        const x0 = LANE_X[gap], x1 = LANE_X[gap + 1];
         const color = opts.color || RUNG_COLOR;
         const w = opts.width != null ? opts.width : 7;
         const dotR = opts.dotR != null ? opts.dotR : 6;
@@ -551,19 +561,20 @@
             const rg = G.rungs[i];
             // The rung being dragged stays put but dims; its ghost shows the target.
             const held = drag && drag.index === i;
-            drawRung(rg.gap, rg.row, { alpha: held ? 0.3 : 1 });
+            drawRung(rg.gap, rg.y, { alpha: held ? 0.3 : 1 });
         }
     }
 
-    // Faint, thin, finely-dashed preview of where the held rung would land
-    // (red if the slot is blocked) — kept clearly "lighter" than real rungs.
+    // Faint, thin, finely-dashed preview of where the held rung would land —
+    // kept clearly "lighter" than real rungs. It auto-dodges conflicts; if the
+    // column has no room it shows red at the clamped desired spot.
     function drawDragGhost() {
-        if (!drag || drag.index == null || !drag.target) return;
-        const t = drag.target;
-        const ok = !slotOccupied(t.gap, t.row, drag.index);
-        drawRung(t.gap, t.row, {
+        if (!drag || drag.index == null) return;
+        const ok = drag.resolvedY != null;
+        const y = ok ? drag.resolvedY : AC.math.clamp(drag.desiredY, POINT_TOP, POINT_BOTTOM);
+        drawRung(drag.gap, y, {
             color: ok ? '#dfe8ff' : '#ff6b81',
-            alpha: 0.45, width: 4, dotR: 2.5, dash: [3, 9],
+            alpha: 0.5, width: 4, dotR: 2.5, dash: [3, 9],
         });
     }
 
@@ -654,7 +665,7 @@
     // Input — pick up a rung, drop it in a new slot
     // =================================================================
 
-    let drag = null;   // { index, target } while a rung is held
+    let drag = null;   // { index, gap, desiredY, resolvedY } while a rung is held
 
     function toLogical(e) {
         const rect = canvas.getBoundingClientRect();
@@ -667,18 +678,14 @@
     function rungIndexAt(x, y) {
         for (let i = G.rungs.length - 1; i >= 0; i--) {
             const rg = G.rungs[i];
-            if (Math.abs(y - rungY(rg.gap, rg.row)) > CONFIG.rungGrabY) continue;
+            if (Math.abs(y - rg.y) > CONFIG.rungGrabY) continue;
             if (x >= LANE_X[rg.gap] - 10 && x <= LANE_X[rg.gap + 1] + 10) return i;
         }
         return -1;
     }
-    // Nearest valid slot (gap, row) to a point.
-    function nearestSlot(x, y) {
-        let gap = Math.round((x - LANE_X[0] - LANE_SP / 2) / LANE_SP);
-        gap = AC.math.clamp(gap, 0, G.lanes - 2);
-        const off = (gap % 2) ? ROW_SP * CONFIG.rungStagger : 0;
-        const row = AC.math.clamp(Math.round((y - POINT_TOP - off) / ROW_SP), 0, G.rows - 1);
-        return { gap, row };
+    // Gap (pair of lanes) nearest a horizontal position.
+    function nearestGap(x) {
+        return AC.math.clamp(Math.round((x - LANE_X[0] - LANE_SP / 2) / LANE_SP), 0, G.lanes - 2);
     }
 
     function onPointerDown(e) {
@@ -687,22 +694,24 @@
         const p = toLogical(e);
         const idx = rungIndexAt(p.x, p.y);
         if (idx < 0) { drag = null; return; }   // only rungs are grabbable
-        drag = { index: idx, target: { gap: G.rungs[idx].gap, row: G.rungs[idx].row } };
+        const rg = G.rungs[idx];
+        drag = { index: idx, gap: rg.gap, desiredY: rg.y, resolvedY: rg.y };
         AC.audio.play('grab');
     }
     function onPointerMove(e) {
         if (!drag) return;
         const p = toLogical(e);
-        drag.target = nearestSlot(p.x, p.y);
+        drag.gap = nearestGap(p.x);
+        drag.desiredY = AC.math.clamp(p.y, POINT_TOP, POINT_BOTTOM);
+        drag.resolvedY = resolveDropY(drag.gap, drag.desiredY, drag.index);
     }
     function onPointerUp() {
         if (!drag) return;
-        const t = drag.target;
-        // Commit the move only if the target slot is free (adjacency is allowed).
-        if (t && !slotOccupied(t.gap, t.row, drag.index)) {
+        // Commit if there's a dodged spot; otherwise leave the rung where it was.
+        if (drag.resolvedY != null) {
             const rg = G.rungs[drag.index];
-            if (rg.gap !== t.gap || rg.row !== t.row) {
-                rg.gap = t.gap; rg.row = t.row;
+            if (rg.gap !== drag.gap || rg.y !== drag.resolvedY) {
+                rg.gap = drag.gap; rg.y = drag.resolvedY;
                 AC.audio.play('click');
             }
         }

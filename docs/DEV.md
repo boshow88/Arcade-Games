@@ -119,18 +119,21 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   per-difficulty (`shell.mode` returns `G.difficulty`). Each preset has one
   **fixed layout** where `lanes === colors`, so every basket is a distinct
   colour.
-- **Ladder model.** `G.rungs` is a fixed list of `{ gap, row }` (gap = the
-  left lane of the pair). `rungY(gap, row)` nudges odd gaps half a row lower
-  (`CONFIG.rungStagger`) so a lane's left- and right-side endpoints never share
-  a height — adjacent rungs can't conflict. A ball tracks its logical `lane`
-  and each frame crosses any adjacent rung it passes (in height order), easing
-  its `x` toward the lane centre (`CONFIG.xEase`) for a diagonal slide.
+- **Ladder model.** `G.rungs` is a fixed list of `{ gap, y }` (gap = the left
+  lane of the pair; `y` = a free, continuous height). A ball tracks its logical
+  `lane` and each frame crosses any adjacent rung it passes (in height order),
+  easing its `x` toward the lane centre (`CONFIG.xEase`) for a diagonal slide.
+  `rungY(gap, row)` (with `CONFIG.rungStagger`) is only used to spread the
+  opening rungs out. Lanes draw a faint full-height rail plus a brighter capped
+  segment marking the rung band (`POINT_TOP`–`POINT_BOTTOM`).
 - **Rungs move, never add/remove.** `initRungs` seeds a fixed count
-  (`DIFFICULTIES.*.rungs`) at random distinct slots. Pointer input grabs the
-  rung under the cursor (`rungIndexAt`), previews a target (`nearestSlot`), and
-  on release commits the move if the slot is free (`slotOccupied`); the held
-  rung keeps working at its old spot until then, shown behind a translucent
-  ghost (`drawDragGhost`).
+  (`DIFFICULTIES.*.rungs`) at staggered node positions. Pointer input grabs the
+  rung under the cursor (`rungIndexAt`); while held it is placed freely — the
+  gap snaps to the nearest pair (`nearestGap`) and the height follows the
+  cursor. `resolveDropY` dodges conflicts: rungs that share a lane (same or
+  adjacent gap) must stay `CONFIG.rungMinSep` apart, so the ghost slides to the
+  nearest free height (or turns red / snaps back if the column is full). The
+  held rung keeps steering balls at its old spot until release (`drawDragGhost`).
 - **Baskets** (`makeBaskets`) lay the layout's colours across the lanes;
   `nearColors(lane)` lists basket colours within `CONFIG.reachMaxLanes` of a
   lane, and a spawning ball always takes a reachable colour, so it can always
