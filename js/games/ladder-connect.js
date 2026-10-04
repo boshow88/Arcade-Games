@@ -7,19 +7,21 @@
  * own colour to score; a wrong basket costs a life. Lives at zero ends
  * the run.
  *
- * Difficulty is a named preset (easy / normal / hard). Each preset owns
- * a set of lane/colour layouts (one picked at random per run), the row
- * count, base fall speed, lives, and a rising "field-complexity" cap
- * that drives spawning. Spawning is soft: the fuller the board, the
- * less likely a new wave — so it self-balances to how fast you clear.
+ * Difficulty is a named preset (easy / normal / hard) with a FIXED layout:
+ * easy 3×3, normal 4×4, hard 5×5 (lanes × colours). Every ball falls at the
+ * SAME constant speed; difficulty comes from lane count, how often balls
+ * spawn, and the wave makeup:
+ *   - easy:   waves of a single ball, all single-colour.
+ *   - normal: same spawn-rate curve as easy, but a wave is occasionally two
+ *             balls (still single-colour).
+ *   - hard:   two-ball waves more often, sometimes two-colour balls, and a
+ *             slightly higher spawn rate overall.
+ * The spawn rate rises steadily over time (log-paced, approaching a cap it
+ * never reaches); the rhythm itself stays even.
  *
  * Built on window.ArcadeCommon (shell / loop / input / audio / i18n /
  * scores). Rendering is Canvas 2D at a fixed 600×760 portrait space.
  * All balance lives in CONFIG + DIFFICULTIES at the top.
- *
- * Implemented: difficulty presets, multi-ball waves, dual-colour balls
- * (split, accept either colour), no rung limit, and high-speed balls
- * (at most one per wave, faster, from Normal up). Per-layout balancing next.
  */
 (function () {
     'use strict';
@@ -49,7 +51,7 @@
         lcHelp2Html: 'Drag from a dot to a neighbouring dot on the same row to <strong>draw a rung</strong>. A ball crossing a rung swaps to the next lane.',
         lcHelp3Html: 'Tap a rung you drew to <strong>remove</strong> it. Draw as many as you like — there\u2019s no limit.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
-        lcHelp5Html: 'It speeds up and gets busier over time. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
+        lcHelp5Html: 'Balls come more often over time \u2014 the fall speed stays the same throughout. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
 
     Object.assign(AC.i18n.STRINGS.zh, {
@@ -65,7 +67,7 @@
         lcHelp2Html: '在同一排、相鄰兩點之間拖曳可<strong>畫出橫線</strong>。球碰到橫線會換到隔壁線。',
         lcHelp3Html: '點一下自己畫的橫線可<strong>移除</strong>。想畫幾條都行，沒有上限。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
-        lcHelp5Html: '隨時間會越來越快、越來越忙。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
+        lcHelp5Html: '出球會隨時間越來越頻繁 \u2014 球速始終不變。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
 
     // =================================================================
@@ -74,40 +76,36 @@
 
     const CONFIG = {
         ballRadius: 15,
-        basketGapRatio: 2.5,    // basket width : gap — kept constant across lane counts
-        reachMaxLanes: 3,       // soft: a ball's matching basket is within N lanes of its spawn
-        fallMult: 1.35,         // fall speed asymptotes toward base × mult …
-        fallTau: 90,            // … at this log pace (higher start, ~same terminal)
-        laneSlowPerLane: 3,     // px/s slower per lane beyond 4 (wider board → gentler)
-        waveMaxBalls: 2,        // cap balls per wave (smaller waves …)
-        spawn: { rate: 2.0, pow: 1.2, minGap: 0.3 },   // … more often (higher base frequency)
+        basketGapRatio: 2.5,     // basket width : gap — kept constant across lane counts
+        reachMaxLanes: 3,        // soft: a ball's matching basket is within N lanes of its spawn
+        xEase: 14,               // how fast a ball slides toward its lane centre
+        ballSpeed: 72,           // constant fall speed — the SAME for every difficulty
+        waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
+        laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
         scorePerCorrect: 100,
     };
 
-    // Difficulty presets. `combos` = layouts (one chosen at random per run).
-    // `dual` on a combo marks layouts allowed to use dual-colour balls (a
-    // later step). `field` is the rising on-board complexity cap that drives
-    // spawning. Each ball = complexity 1; a high-speed ball adds +1 (= 2).
+    // Difficulty presets — each has ONE fixed layout (lanes = colours, so every
+    // basket is a distinct colour). Every ball falls at CONFIG.ballSpeed. A
+    // spawn is one ball, or two (on distinct lanes) with probability `twoBall`.
+    // `dual` is the share of two-colour balls (0 = none). `freq` is the wave
+    // rate (waves/sec), ramping `start`→`end` over `tau` (log-paced). Easy and
+    // Normal share the same `freq`; Hard is a touch higher.
     const DIFFICULTIES = {
         easy: {
-            combos: [{ lanes: 3, colors: 3 }, { lanes: 4, colors: 2 }],
-            rows: 9, lives: 5, fallBase: 54,
-            field: { base: 3, cap: 4, tau: 90 },
-            dual: { enabled: false }, fast: { enabled: false },
+            lanes: 3, colors: 3, rows: 9, lives: 5,
+            twoBall: 0, dual: 0,
+            freq: { start: 0.25, end: 0.5, tau: 55 },
         },
         normal: {
-            combos: [{ lanes: 4, colors: 4, dual: true }, { lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 3 }],
-            rows: 11, lives: 5, fallBase: 56,
-            field: { base: 3, cap: 5, tau: 110 },
-            dual: { enabled: true, chanceCap: 0.5, startT: 20, tau: 90 },
-            fast: { enabled: true, chanceCap: 0.35, startT: 40, tau: 100, mul: 1.5 },
+            lanes: 4, colors: 4, rows: 11, lives: 5,
+            twoBall: 0.25, dual: 0,
+            freq: { start: 0.25, end: 0.5, tau: 55 },   // same curve as easy
         },
         hard: {
-            combos: [{ lanes: 5, colors: 5, dual: true }, { lanes: 6, colors: 6, dual: true }, { lanes: 7, colors: 7, dual: true }],
-            rows: 12, lives: 4, fallBase: 60,
-            field: { base: 3, cap: 6, tau: 100 },
-            dual: { enabled: true, chanceCap: 0.65, startT: 10, tau: 80 },
-            fast: { enabled: true, chanceCap: 0.5, startT: 25, tau: 85, mul: 1.6 },
+            lanes: 5, colors: 5, rows: 12, lives: 4,
+            twoBall: 0.5, dual: 0.3,
+            freq: { start: 0.3, end: 0.55, tau: 55 },   // slightly higher overall
         },
     };
     const DIFF_ORDER = ['easy', 'normal', 'hard'];
@@ -180,16 +178,14 @@
     const G = {
         difficulty: 'easy',
         diffCfg: null,
-        lanes: 4, colors: 2, rows: 11, allowDual: false,
-        effFallBase: 70,
+        lanes: 3, colors: 3, rows: 9, allowDual: false,
         score: 0, lives: 0, elapsed: 0,
         balls: [], floaters: [],
         side: [],            // [row][lane]: +1 left-endpoint (go right), -1 right-endpoint, 0 none
         rungs: [],           // { row, lane }
         basketColor: [],
-        basketCountByColor: {},
-        spawnAccum: 0,
-        lastWaveT: 0,
+        spawnAcc: 0,         // wave accumulator
+        lastWaveT: 0,        // min-gap guard
         shake: 0,
         ended: false,
         rng: AC.rng.make(1),
@@ -207,28 +203,14 @@
         const l = Math.log(1 + G.elapsed / tauSec);
         return l / (1 + l);
     }
-    function fallSpeed() {
-        return G.effFallBase * (1 + (CONFIG.fallMult - 1) * timePressure(CONFIG.fallTau));
+    // Current wave spawn rate (waves/sec), ramping start→end (log-paced).
+    function waveRate() {
+        const f = G.diffCfg.freq;
+        return AC.math.lerp(f.start, f.end, timePressure(f.tau));
     }
-    function maxField() {
-        const f = G.diffCfg.field;
-        return f.base + (f.cap - f.base) * timePressure(f.tau);
-    }
-    // Probability a ball is two-colour this wave — 0 unless the layout allows
-    // it; gated after a start time, then rising log-paced toward a cap.
-    function dualChance() {
-        if (!G.allowDual) return 0;
-        const d = G.diffCfg.dual;
-        if (G.elapsed < (d.startT || 0)) return 0;
-        return (d.chanceCap || 0) * timePressure(d.tau || 90);
-    }
-    // Probability a wave includes one high-speed ball — gated after a start
-    // time, then rising log-paced toward a cap. At most one fast ball per wave.
-    function fastChance() {
-        const f = G.diffCfg.fast;
-        if (!f || !f.enabled) return 0;
-        if (G.elapsed < (f.startT || 0)) return 0;
-        return (f.chanceCap || 0) * timePressure(f.tau || 90);
+    // Stable share of two-colour balls (constant over time; 0 = none).
+    function dualRatio() {
+        return G.allowDual ? (G.diffCfg.dual || 0) : 0;
     }
 
     // =================================================================
@@ -283,70 +265,57 @@
     }
 
     // =================================================================
-    // Balls + waves (soft complexity-based spawning)
+    // Balls — steady waves of one or two (same constant speed)
     // =================================================================
 
-    function ballComplexity(b) { return 1 + (b.fast ? 1 : 0); } // dual costs the same as single
-
-    function fieldComplexity() {
-        let c = 0;
-        for (const b of G.balls) if (!b.delivered) c += ballComplexity(b);
-        return c;
-    }
-    function headroom() {
-        const m = maxField();
-        return AC.math.clamp((m - fieldComplexity()) / m, 0, 1);
-    }
-
-    // Build a wave on distinct lanes until its added complexity reaches the
-    // field budget (each ball counts 1). Rule: EVERY colour must stay
-    // within its basket count across the wave — a colour can't appear in more
-    // balls than it has baskets, and a dual ball's TWO colours each use up one
-    // of their colour's slots. That keeps every wave fully routable with no
-    // forced wrong basket. `startY` lets the opening wave begin partway down.
-    function spawnWave(startY) {
-        const y = (startY == null) ? TOP_SPAWN_Y : startY;
-        const budget = Math.max(1, maxField() - fieldComplexity());
-        const maxBalls = Math.min(G.lanes, CONFIG.waveMaxBalls);
-        const lanesShuffled = AC.rng.shuffle(
-            Array.from({ length: G.lanes }, (_, i) => i), G.rng);
-        const cnt = G.basketCountByColor;
-        const appear = {};                       // balls in this wave containing each colour
-        const canUse = (c) => (appear[c] || 0) < cnt[c];
-        const dc = dualChance();                 // dual-colour balls may appear in any wave
-        // At most one high-speed ball per wave (two at once is brutal); dual
-        // balls are still allowed alongside it.
-        const fc = fastChance();
-        const wantFast = fc > 0 && G.rng() < fc;
-        const fastMul = G.diffCfg.fast ? (G.diffCfg.fast.mul || 1.5) : 1;
-        let fastUsed = false;
-        let added = 0, placed = 0;
-        for (let i = 0; i < lanesShuffled.length && placed < maxBalls; i++) {
-            if (placed >= 1 && added >= budget) break;
-            const lane = lanesShuffled[i];
-            const nearOK = nearColors(lane).filter(canUse);
-            const anyOK = nearOK.length ? nearOK : Object.keys(cnt).filter(canUse);
-            if (!anyOK.length) break;
-            let color = null, color2 = null, dual = false;
-            if (dc > 0 && G.rng() < dc) {
-                const c1 = AC.rng.one(G.rng, anyOK);
-                const pool = nearColors(lane).filter((c) => c !== c1 && canUse(c));
-                const src = pool.length ? pool
-                    : Object.keys(cnt).filter((c) => c !== c1 && canUse(c));
-                if (src.length) { color = c1; color2 = AC.rng.one(G.rng, src); dual = true; }
-            }
-            if (!dual) color = AC.rng.one(G.rng, anyOK);
-            appear[color] = (appear[color] || 0) + 1;
-            if (dual) appear[color2] = (appear[color2] || 0) + 1;
-            const fast = wantFast && !fastUsed;   // exactly one fast ball per wave
-            if (fast) fastUsed = true;
-            G.balls.push({
-                x: LANE_X[lane], y, lane, color, color2, dual,
-                fast, speedMul: fast ? fastMul : 1, nextRow: 0, delivered: false,
-            });
-            added += fast ? 2 : 1;          // high-speed ball costs 2 complexity
-            placed++;
+    // A lane is "blocked" for spawning while it still has a ball near the top,
+    // so fresh balls never pop in on top of one another.
+    function laneBlockedAtTop(lane) {
+        for (const b of G.balls) {
+            if (b.lane === lane && b.y < CONFIG.laneClearY) return true;
         }
+        return false;
+    }
+
+    // Create one ball in `lane` at height `y`. `used` (a Set of colours already
+    // placed this wave) biases toward a DIFFERENT colour so two balls in a wave
+    // don't chase the same basket. Dual balls (Hard) accept either colour.
+    function createBall(lane, y, used) {
+        const reach = nearColors(lane);
+        let pool = used ? reach.filter((c) => !used.has(c)) : reach;
+        if (!pool.length) pool = reach;
+        let color = AC.rng.one(G.rng, pool), color2 = null, dual = false;
+        if (dualRatio() > 0 && G.rng() < dualRatio()) {
+            const p2 = reach.filter((c) => c !== color);
+            if (p2.length) { color2 = AC.rng.one(G.rng, p2); dual = true; }
+        }
+        if (used) { used.add(color); if (dual) used.add(color2); }
+        G.balls.push({ x: LANE_X[lane], y, lane, color, color2, dual, nextRow: 0, delivered: false });
+    }
+
+    // One spawn event: a single ball, or two (on distinct free lanes) with the
+    // preset's `twoBall` probability. Returns false if no lane is free.
+    function spawnWave() {
+        const free = [];
+        for (let i = 0; i < G.lanes; i++) if (!laneBlockedAtTop(i)) free.push(i);
+        if (!free.length) return false;
+        AC.rng.shuffle(free, G.rng);
+        let count = 1;
+        if (G.diffCfg.twoBall > 0 && G.rng() < G.diffCfg.twoBall) count = 2;
+        count = Math.min(count, free.length);
+        const used = new Set();
+        for (let k = 0; k < count; k++) createBall(free[k], TOP_SPAWN_Y, used);
+        return true;
+    }
+
+    // Seed the opening wave at the top of the ladder so the ready screen isn't
+    // empty (two balls on Hard, one otherwise).
+    function seedOpeningBalls() {
+        const free = AC.rng.shuffle(Array.from({ length: G.lanes }, (_, i) => i), G.rng);
+        const count = Math.min(G.lanes >= 5 ? 2 : 1, free.length);
+        const y0 = POINT_TOP - CONFIG.ballRadius * 2;
+        const used = new Set();
+        for (let k = 0; k < count; k++) createBall(free[k], y0, used);
     }
 
     function deliver(b) {
@@ -383,24 +352,23 @@
         if (G.shake > 0) G.shake = Math.max(0, G.shake - dt);
         updateFloaters(dt);
 
-        // Soft spawn: accumulate at a rate that falls as the board fills.
-        G.spawnAccum += dt * CONFIG.spawn.rate * Math.pow(headroom(), CONFIG.spawn.pow);
-        if (G.spawnAccum >= 1 && (G.elapsed - G.lastWaveT) >= CONFIG.spawn.minGap) {
-            spawnWave();
-            G.spawnAccum = 0;
-            G.lastWaveT = G.elapsed;
+        // Spawn scheduling: a single, steady wave accumulator — the rate ramps
+        // up over time but the rhythm stays even (no jitter).
+        G.spawnAcc += dt * waveRate();
+        if (G.spawnAcc >= 1 && (G.elapsed - G.lastWaveT) >= CONFIG.waveMinGap) {
+            if (spawnWave()) { G.spawnAcc = 0; G.lastWaveT = G.elapsed; }
         }
+        if (G.spawnAcc > 1.5) G.spawnAcc = 1.5;   // avoid runaway while lanes stay blocked
 
-        const v = fallSpeed();
         for (const b of G.balls) {
-            b.y += v * (b.speedMul || 1) * dt;
+            b.y += CONFIG.ballSpeed * dt;
             while (b.nextRow < G.rows && b.y >= ROW_Y[b.nextRow]) {
                 const s = G.side[b.nextRow][b.lane];
                 if (s > 0) b.lane++;
                 else if (s < 0) b.lane--;
                 b.nextRow++;
             }
-            b.x += (LANE_X[b.lane] - b.x) * Math.min(1, dt * 14);
+            b.x += (LANE_X[b.lane] - b.x) * Math.min(1, dt * CONFIG.xEase);
             if (b.y >= DELIVER_Y) { deliver(b); b.delivered = true; }
             if (G.ended) break;
         }
@@ -574,16 +542,6 @@
 
     function drawBall(b) {
         const r = CONFIG.ballRadius;
-        if (b.fast) {   // motion trail above the ball so high-speed reads clearly
-            ctx.fillStyle = b.color;
-            for (let k = 1; k <= 2; k++) {
-                ctx.globalAlpha = 0.3 / k;
-                ctx.beginPath();
-                ctx.arc(b.x, b.y - k * r * 0.95, r * (1 - k * 0.12), 0, PI2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
-        }
         ctx.save();
         ctx.shadowColor = b.color;
         ctx.shadowBlur = 10;
@@ -607,8 +565,8 @@
         ctx.beginPath();
         ctx.arc(b.x - r * 0.32, b.y - r * 0.32, r * 0.3, 0, PI2);
         ctx.fill();
-        ctx.strokeStyle = b.fast ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.3)';
-        ctx.lineWidth = b.fast ? 2.5 : 2;
+        ctx.strokeStyle = 'rgba(0,0,0,0.3)';
+        ctx.lineWidth = 2;
         ctx.beginPath();
         ctx.arc(b.x, b.y, r, 0, PI2);
         ctx.stroke();
@@ -752,18 +710,14 @@
         G.rng = AC.rng.make(seedCounter++);
         G.difficulty = staged;        // commit the staged difficulty for this run
         G.diffCfg = DIFFICULTIES[G.difficulty];
-        const combo = AC.rng.one(G.rng, G.diffCfg.combos);
-        G.lanes = combo.lanes;
-        G.colors = combo.colors;
-        G.allowDual = !!combo.dual && G.diffCfg.dual.enabled; // used in a later step
+        G.lanes = G.diffCfg.lanes;
+        G.colors = G.diffCfg.colors;
+        G.allowDual = (G.diffCfg.dual || 0) > 0;
         G.rows = G.diffCfg.rows;
         G.lives = G.diffCfg.lives;
-        G.effFallBase = G.diffCfg.fallBase - Math.max(0, G.lanes - 4) * CONFIG.laneSlowPerLane;
 
         computeLayout(G.lanes, G.rows);
         G.basketColor = makeBaskets(G.lanes, G.colors);
-        G.basketCountByColor = {};
-        for (const c of G.basketColor) G.basketCountByColor[c] = (G.basketCountByColor[c] || 0) + 1;
         G.side = emptyGrid(G.rows, G.lanes);
         G.rungs = [];
         G.balls = [];
@@ -773,11 +727,10 @@
         G.shake = 0;
         G.ended = false;
         drag = null;
-        // Opening wave sits at the top of the ladder (just above the first
-        // rung), frozen on the ready screen until the player starts.
-        spawnWave(POINT_TOP - CONFIG.ballRadius * 2);
-        G.spawnAccum = 0;
+        G.spawnAcc = 0;
         G.lastWaveT = START_T;
+        // Opening ball(s) at the top of the ladder, frozen on the ready screen.
+        seedOpeningBalls();
         updateHud();
         if (shell) shell.refreshBest();  // Best now reflects the committed difficulty
         syncDiffButtons();               // committed == staged again
@@ -834,8 +787,8 @@
             'DEBUG  [' + G.difficulty + ']',
             't = ' + G.elapsed.toFixed(0) + 's',
             'layout = ' + G.lanes + 'x' + G.colors,
-            'fall = ' + fallSpeed().toFixed(0),
-            'field = ' + fieldComplexity().toFixed(1) + ' / ' + maxField().toFixed(1),
+            'rate = ' + (waveRate() * 10).toFixed(1) + ' waves/10s',
+            'twoBall = ' + (G.diffCfg.twoBall || 0),
             'balls = ' + G.balls.length,
         ];
         ctx.save();
@@ -864,8 +817,8 @@
                 return {
                     difficulty: G.difficulty, layout: G.lanes + 'x' + G.colors, rows: G.rows,
                     t: +G.elapsed.toFixed(1), score: G.score, lives: G.lives,
-                    balls: G.balls.length, field: +fieldComplexity().toFixed(1),
-                    maxField: +maxField().toFixed(1), fall: +fallSpeed().toFixed(0),
+                    balls: G.balls.length, wavesPer10s: +(waveRate() * 10).toFixed(2),
+                    twoBall: G.diffCfg.twoBall || 0,
                 };
             },
         };

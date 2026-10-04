@@ -111,40 +111,42 @@ on its page) and scale the backing store by `devicePixelRatio` in a
 
 ## Ladder Connect internals
 
-- **Tuning lives up top** in `CONFIG` (shared) + `DIFFICULTIES` (per
-  preset: layout combos, rows, lives, base fall speed, the rising
-  field-complexity cap). Change balance there.
+- **Tuning lives up top** in `CONFIG` (shared: `ballSpeed`, wave gap, …) +
+  `DIFFICULTIES` (per preset: the fixed layout, rows, lives, `twoBall` chance,
+  `dual` ratio, and the `freq` wave-rate curve). Change balance there.
 - **Difficulty** is a preset (`easy` / `normal` / `hard`), chosen with
   the on-page selector and stored in prefs; high scores are kept
-  per-difficulty (`shell.mode` returns `G.difficulty`). Each run picks
-  one of the preset's `combos` (lane×colour layouts) at random.
+  per-difficulty (`shell.mode` returns `G.difficulty`). Each preset has one
+  **fixed layout** where `lanes === colors`, so every basket is a distinct
+  colour.
 - **Ladder model.** `G.side[row][lane]` is `+1` if a lane is a rung's
   left endpoint (a ball there goes right), `-1` for the right endpoint,
   `0` otherwise. A ball tracks its logical `lane` and eases its `x`
-  toward it, so crossing a rung reads as a diagonal slide.
+  toward it (`CONFIG.xEase`), so crossing a rung reads as a diagonal slide.
 - **Rungs are unlimited.** `addRung` / `removeRungAt` keep `G.side` and
   the `G.rungs` list in sync. (Fixed/pre-placed rungs are a kept-but-off
   feature; player rungs are drawn by dragging, removed by tapping.)
-- **Baskets** (`makeBaskets`) assign the layout's colours across the
-  lanes (every colour present); ball colours are drawn from the baskets,
-  so the two ratios match. `pickColorForLane` keeps a ball's target
-  within `CONFIG.reachMaxLanes` lanes of its spawn.
-- **Soft, complexity-based spawning.** `maxField(t)` is a log-paced,
-  asymptotic cap on the total "complexity" on the board (every ball = 1;
-  a high-speed ball = 2). Each frame a spawn accumulator
-  grows by `rate × headroom^pow` (headroom = how far below the cap the
-  board is), so a full board rarely spawns and an empty one fills up —
-  it self-balances to the player's clear rate. A wave drops several balls
-  at the same height on distinct lanes; a wave never gives a colour more
-  balls than it has baskets (always fully routable), and the opening wave
-  starts at the top of the ladder.
-- **Difficulty over time** is all asymptotic (`timePressure`): fall speed
-  approaches `base × CONFIG.fallMult`, and `maxField` approaches its cap
-  — neither is ever actually reached.
-- **High-speed balls** (Normal/Hard, `DIFFICULTIES.*.fast`): gated after
-  `startT`, then a per-wave chance rising log-paced toward `chanceCap` that a
-  wave includes **one** fast ball (at most one). It gets `speedMul = fast.mul`
-  and counts as 2 complexity; dual-colour balls may appear in any wave.
+- **Baskets** (`makeBaskets`) lay the layout's colours across the lanes;
+  `nearColors(lane)` lists basket colours within `CONFIG.reachMaxLanes` of a
+  lane, and a spawning ball always takes a reachable colour, so it can always
+  be routed home.
+- **Steady wave spawning.** `waveRate()` ramps `freq.start → freq.end` over
+  `freq.tau` (log-paced). A single accumulator (`G.spawnAcc`) fires a wave when
+  it crosses 1 and `CONFIG.waveMinGap` has passed; the rhythm stays even (no
+  jitter). `spawnWave` drops one ball, or two (on distinct free lanes) with
+  `DIFFICULTIES.*.twoBall` probability — never more than two.
+- **Constant speed.** Every ball falls at `CONFIG.ballSpeed`, the same for all
+  difficulties and unchanging over time.
+- **No overlap at spawn.** `laneBlockedAtTop` keeps a lane clear until its top
+  ball descends past `CONFIG.laneClearY`; within a two-ball wave `createBall`'s
+  `used` set biases toward two different colours so the pair don't chase the
+  same basket.
+- **Difficulty over time** is only the wave rate rising (`timePressure`),
+  approaching `freq.end` but never reaching it. Easy and Normal share one
+  curve; Hard's is slightly higher.
+- **Dual balls** (`dualRatio`): a stable share (`DIFFICULTIES.*.dual`, `0` =
+  none — only Hard) that does **not** change over time; a dual ball accepts
+  either colour.
 - **Delivery** compares the ball's colour to its final lane's basket:
   correct → fixed score + `+score` floater; wrong → a life lost; zero
   lives ends the run. (No combo system.)
@@ -159,7 +161,7 @@ All gated behind `?debug=1` on the game page and tagged in code with a
 | Flag | Effect |
 | --- | --- |
 | `?debug=1` | Enables the debug overlay, keyboard shortcuts and the `window.LC` console API. |
-| `?t=<seconds>` | Starts every run at that elapsed time — jumps the difficulty (fall speed, spawn rate) to that moment. Works with or without `?debug`. |
+| `?t=<seconds>` | Starts every run at that elapsed time — jumps the difficulty (wave rate) to that moment. Works with or without `?debug`. |
 
 Example: `games/ladder-connect.html?debug=1&t=120`.
 
@@ -175,8 +177,8 @@ Example: `games/ladder-connect.html?debug=1&t=120`.
 ### Debug keys (debug only)
 
 `]` +30s difficulty · `[` −30s difficulty · `L` +1 life. A readout in
-the top-right shows difficulty, elapsed, layout, fall speed, field
-complexity vs cap, and ball count.
+the top-right shows difficulty, elapsed, layout, wave rate (waves/10s), the
+two-ball chance, and ball count.
 
 ### Stripping the debug code later
 

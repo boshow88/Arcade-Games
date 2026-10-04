@@ -41,9 +41,8 @@ the fly to steer each ball into the basket of its own colour.
 
 - **Lanes**: vertical lines the balls fall down.
 - **Rows of dots**: the only places a rung may sit.
-- **Baskets**: one per lane at the bottom, each a fixed colour for the
-  run. Every colour in play is represented, and ball colours are drawn
-  from the baskets, so the two always match in proportion.
+- **Baskets**: one per lane at the bottom, each a **distinct** colour for
+  the run (lanes = colours). Every ball's colour matches one of them.
 
 ### Rungs
 
@@ -66,33 +65,25 @@ the fly to steer each ball into the basket of its own colour.
 ### Difficulty
 
 Pick **Easy / Normal / Hard** on the game page (each keeps its own Best).
-A layout is chosen at random each run:
+Each difficulty has one **fixed layout** (lanes = colours, so every basket is
+a distinct colour). **Every ball falls at the same constant speed** — the same
+across all three difficulties — so difficulty comes from the layout, how often
+balls spawn, and the wave makeup:
 
-- **Easy**: 3×3 or 4×2 lanes×colours, single-colour balls, fewer rows.
-- **Normal**: 4×4, 5×5, or 6×3 (6×3 stays single-colour; others may use
-  dual-colour balls).
-- **Hard**: 5×5, 6×6, or 7×7 — all may use dual-colour balls; wider
-  boards fall a little slower to stay fair.
+- **Easy**: 3×3. Every wave is a single ball, all one colour.
+- **Normal**: 4×4. A wave is **occasionally two** balls (still single-colour);
+  same spawn-rate curve as Easy.
+- **Hard**: 5×5. Two-ball waves come **more often**, some balls are
+  **two-colour**, and the overall spawn rate is a little higher.
 
-Over time the board gets busier and faster, both **approaching a cap
-without ever reaching it** (a log-paced curve). Spawning is **soft**: the
-more total "complexity" already on the board, the less likely a new wave
-— so the pressure adapts to how fast you clear. A wave never contains
-more balls of a colour than that colour has baskets, so every wave can
-be routed without a forced mistake; the opening wave starts at the top
-of the ladder.
+A wave is never more than **two** balls, and the two take different lanes (and
+usually different colours). The spawn rate **rises steadily over time** toward
+a cap it approaches but never reaches (a log-paced curve); the rhythm itself
+stays even. A ball or two is seeded at the top of the ladder at the start so
+the first seconds aren't empty.
 
-On Normal and Hard (only on layouts that allow it), some balls are
-**two-colour** (split down the middle) and may be delivered into a basket
-of **either** colour — handy when the single matching basket is far. They
-appear more often the longer you play.
-
-Also on Normal and Hard, the longer you play the more often a wave includes
-one **high-speed ball** — it falls noticeably faster and trails a motion
-blur. At most one per wave (two at once would be brutal), and it counts as
-double on the board; it can still be two-colour like any other ball.
-
-*Planned: per-layout difficulty balancing.*
+A **two-colour** ball (Hard) is split down the middle and may be delivered into
+a basket of **either** colour — handy when the matching basket is far.
 
 ### Tuning
 
