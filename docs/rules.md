@@ -34,25 +34,29 @@ All games share the same chrome and lifecycle:
 ## Ladder Connect
 
 A real-time **ghost leg** (amidakuji). Colour-coded balls fall down a
-ladder of vertical lanes; you draw and remove horizontal **rungs** on
-the fly to steer each ball into the basket of its own colour.
+ladder of vertical lanes; you **move** a fixed set of horizontal **rungs**
+to steer each ball into the basket of its own colour.
 
 ### The board
 
 - **Lanes**: vertical lines the balls fall down.
-- **Rows of dots**: the only places a rung may sit.
+- **Slots**: a rung can sit between any two neighbouring lanes, at any row.
 - **Baskets**: one per lane at the bottom, each a **distinct** colour for
   the run (lanes = colours). Every ball's colour matches one of them.
 
 ### Rungs
 
-- A **rung** is a horizontal bar joining two neighbouring lanes at one
-  row. A ball reaching a rung **swaps to the next lane**.
-- **Draw**: drag from a dot to the neighbouring dot on the same row.
-- **Remove**: tap a rung you drew.
-- There is **no limit** on how many rungs you place.
-- A dot can be the endpoint of only one rung, so rungs never overlap at
-  a row.
+- A **rung** is a horizontal bar joining two neighbouring lanes. A ball
+  reaching a rung **swaps to the next lane**.
+- There is a **fixed number** of rungs per difficulty — you **move** them,
+  never add or remove any.
+- **Pick up / drop**: press and hold a rung (mouse or touch), drag it, and
+  release to drop it in a new slot. While you hold it the rung stays where it
+  was (still steering balls) and a translucent **ghost** shows the target.
+- Rungs **never block each other**: each lane's left-side and right-side rung
+  endpoints are staggered in height (a brick pattern), so neighbouring rungs
+  sit at slightly different heights and never conflict. A drop is only refused
+  if the exact target slot is already taken (the ghost turns red).
 
 ### Goal & scoring
 

@@ -119,13 +119,18 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   per-difficulty (`shell.mode` returns `G.difficulty`). Each preset has one
   **fixed layout** where `lanes === colors`, so every basket is a distinct
   colour.
-- **Ladder model.** `G.side[row][lane]` is `+1` if a lane is a rung's
-  left endpoint (a ball there goes right), `-1` for the right endpoint,
-  `0` otherwise. A ball tracks its logical `lane` and eases its `x`
-  toward it (`CONFIG.xEase`), so crossing a rung reads as a diagonal slide.
-- **Rungs are unlimited.** `addRung` / `removeRungAt` keep `G.side` and
-  the `G.rungs` list in sync. (Fixed/pre-placed rungs are a kept-but-off
-  feature; player rungs are drawn by dragging, removed by tapping.)
+- **Ladder model.** `G.rungs` is a fixed list of `{ gap, row }` (gap = the
+  left lane of the pair). `rungY(gap, row)` nudges odd gaps half a row lower
+  (`CONFIG.rungStagger`) so a lane's left- and right-side endpoints never share
+  a height — adjacent rungs can't conflict. A ball tracks its logical `lane`
+  and each frame crosses any adjacent rung it passes (in height order), easing
+  its `x` toward the lane centre (`CONFIG.xEase`) for a diagonal slide.
+- **Rungs move, never add/remove.** `initRungs` seeds a fixed count
+  (`DIFFICULTIES.*.rungs`) at random distinct slots. Pointer input grabs the
+  rung under the cursor (`rungIndexAt`), previews a target (`nearestSlot`), and
+  on release commits the move if the slot is free (`slotOccupied`); the held
+  rung keeps working at its old spot until then, shown behind a translucent
+  ghost (`drawDragGhost`).
 - **Baskets** (`makeBaskets`) lay the layout's colours across the lanes;
   `nearColors(lane)` lists basket colours within `CONFIG.reachMaxLanes` of a
   lane, and a spawning ball always takes a reachable colour, so it can always
