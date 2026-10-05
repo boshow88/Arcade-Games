@@ -152,6 +152,10 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   `DIFFICULTIES.*.twoBall` probability — never more than two.
 - **Constant speed.** Every ball falls at `CONFIG.ballSpeed`, the same for all
   difficulties and unchanging over time.
+- **Opening countdown.** `onStart` sets `G.countdown` (`CONFIG.countdownSec`);
+  while it ticks down `update` freezes the scene (no spawning or falling) and
+  `drawCountdown` paints a 3‑2‑1 overlay, so play doesn't start the instant you
+  press Start. The difficulty clock (`G.elapsed`) only begins afterwards.
 - **No overlap at spawn.** `laneBlockedAtTop` keeps a lane clear until its top
   ball descends past `CONFIG.laneClearY`; within a two-ball wave `createBall`'s
   `used` set forces two different colours (so two colours are live at once and

@@ -89,8 +89,9 @@ balls spawn, and the wave makeup:
 A wave is never more than **two** balls, and the two take different lanes and
 **different colours** (so you need two different rungs at once). The spawn rate
 **rises steadily over time** toward a cap it approaches but never reaches (a
-log-paced curve); the rhythm itself stays even. A ball or two is seeded at the
-top of the ladder at the start so the first seconds aren't empty.
+log-paced curve); the rhythm itself stays even. Each run opens with a short
+**3‑2‑1 countdown** over the frozen board, and a ball or two is seeded at the
+top of the ladder, so the first moments aren't a scramble.
 
 Because each rung deflects every colour but its own, every rung on the board
 acts on the balls at once — you juggle the whole set, dropping a ball's

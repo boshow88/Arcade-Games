@@ -51,6 +51,7 @@
         lcNormal: 'Normal',
         lcHard: 'Hard',
         lcReady: 'Ready',
+        lcGetReady: 'Get ready',
         lcIntro: 'Colour-coded balls fall down the ladder. Each coloured rung deflects every ball EXCEPT its own colour (that colour slips straight through). Move the rungs to send every ball into its matching-colour basket. Press and hold a rung, then drop it elsewhere.',
         lcStartHintHtml: 'Hold a rung and drop it elsewhere · <kbd>P</kbd> pause',
         lcOverMsgHtml: (score) => `You scored <strong>${score}</strong>.`,
@@ -67,6 +68,7 @@
         lcNormal: '普通',
         lcHard: '困難',
         lcReady: '準備開始',
+        lcGetReady: '準備',
         lcIntro: '彩色球會沿著直線往下掉。每座彩色的橋會攔下「除了自己顏色以外」的所有球（同色球直接穿過）。移動橋，把每顆球導進同色的籃子。按住一條橋、放手放到新位置。',
         lcStartHintHtml: '按住橋拖到別處放下 · <kbd>P</kbd> 暫停',
         lcOverMsgHtml: (score) => `你得了 <strong>${score}</strong> 分。`,
@@ -91,6 +93,7 @@
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
+        countdownSec: 3,         // "get ready" countdown before a run starts
         scorePerCorrect: 100,
     };
 
@@ -192,6 +195,7 @@
         basketColor: [],
         spawnAcc: 0,         // wave accumulator
         lastWaveT: 0,        // min-gap guard
+        countdown: 0,        // "get ready" timer at the start of a run
         shake: 0,
         ended: false,
         rng: AC.rng.make(1),
@@ -364,6 +368,8 @@
 
     function update(dt) {
         if (G.ended) return;
+        // Freeze the opening scene during the "get ready" countdown.
+        if (G.countdown > 0) { G.countdown = Math.max(0, G.countdown - dt); return; }
         G.elapsed += dt;
         if (G.shake > 0) G.shake = Math.max(0, G.shake - dt);
         updateFloaters(dt);
@@ -482,6 +488,7 @@
         drawBalls();
         drawFloaters();
         ctx.restore();
+        if (G.countdown > 0) drawCountdown();
         if (DEBUG) drawDebugOverlay(); // [DEBUG-HOOK]
     }
 
@@ -638,6 +645,26 @@
         ctx.globalAlpha = 1;
     }
 
+    // "Get ready" 3-2-1 overlay shown while the opening scene is frozen.
+    function drawCountdown() {
+        const n = Math.max(1, Math.ceil(G.countdown));
+        const frac = G.countdown - Math.floor(G.countdown);   // pulses each second
+        ctx.save();
+        ctx.fillStyle = 'rgba(8,6,18,0.5)';
+        ctx.fillRect(0, 0, W, H);
+        ctx.textAlign = 'center';
+        ctx.textBaseline = 'middle';
+        ctx.globalAlpha = 0.4 + 0.6 * frac;
+        ctx.fillStyle = '#eaf0ff';
+        ctx.font = `800 120px ${getFont()}`;
+        ctx.fillText(String(n), W / 2, H / 2 - 8);
+        ctx.globalAlpha = 1;
+        ctx.fillStyle = 'rgba(234,240,255,0.85)';
+        ctx.font = `700 22px ${getFont()}`;
+        ctx.fillText(AC.i18n.t('lcGetReady'), W / 2, H / 2 + 66);
+        ctx.restore();
+    }
+
     let fontCache = null;
     function getFont() {
         if (!fontCache) {
@@ -790,6 +817,7 @@
             update,
             render,
             reset: resetRun,
+            onStart: () => { G.countdown = CONFIG.countdownSec; },   // brief "get ready" before play
             overlayContent,
             restartToReady: true,   // Restart returns to the ready screen
         });
