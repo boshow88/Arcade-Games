@@ -86,10 +86,9 @@
         ballRadius: 15,
         basketGapRatio: 2.5,     // basket width : gap — kept constant across lane counts
         xEase: 14,               // how fast a ball slides toward its lane centre
-        ballSpeed: 72,           // constant fall speed — the SAME for every difficulty
+        ballSpeed: 56,           // constant fall speed — the SAME for every difficulty
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
-        rungStagger: 0.5,        // opening layout only: odd gaps start half a row lower
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         scorePerCorrect: 100,
@@ -103,19 +102,19 @@
     // Easy and Normal share the same `freq`; Hard is a touch higher.
     const DIFFICULTIES = {
         easy: {
-            lanes: 3, colors: 3, rows: 9, lives: 5,
+            lanes: 3, colors: 3, lives: 5,
             twoBall: 0,
-            freq: { start: 0.25, end: 0.5, tau: 55 },
+            freq: { start: 0.15, end: 0.75, tau: 55 },
         },
         normal: {
-            lanes: 4, colors: 4, rows: 11, lives: 5,
-            twoBall: 0.25,
-            freq: { start: 0.25, end: 0.5, tau: 55 },   // same curve as easy
+            lanes: 4, colors: 4, lives: 5,
+            twoBall: 0.18,
+            freq: { start: 0.15, end: 0.6, tau: 55 },
         },
         hard: {
-            lanes: 5, colors: 5, rows: 12, lives: 4,
-            twoBall: 0.5,
-            freq: { start: 0.3, end: 0.55, tau: 55 },   // slightly higher overall
+            lanes: 5, colors: 5, lives: 4,
+            twoBall: 0.4,
+            freq: { start: 0.12, end: 0.5, tau: 55 },
         },
     };
     const DIFF_ORDER = ['easy', 'normal', 'hard'];
@@ -134,7 +133,7 @@
     };
 
     // =================================================================
-    // Geometry (fixed logical space; lane/row counts vary per run)
+    // Geometry (fixed logical space; lane count varies per run)
     // =================================================================
 
     const W = 600, H = 760;
@@ -146,25 +145,16 @@
     const BASKET_TOP = 656;
     const BASKET_BOTTOM = 742;
 
-    let LANE_X = [], ROW_Y = [], LANE_SP = 0, ROW_SP = 0, BASKET_W = 0;
+    let LANE_X = [], LANE_SP = 0, BASKET_W = 0;
     // The width splits as gap / basket / gap / basket / … / gap, keeping the
     // basket-width : gap ratio the SAME for every lane count (more lanes just
     // scale everything down). Lanes sit on the basket centres.
-    function computeLayout(lanes, rows) {
+    function computeLayout(lanes) {
         const R = CONFIG.basketGapRatio;
         const gap = W / (lanes * R + lanes + 1);         // N baskets (= R·gap) + (N+1) gaps = W
         BASKET_W = R * gap;
         LANE_SP = gap + BASKET_W;
         LANE_X = Array.from({ length: lanes }, (_, i) => gap + BASKET_W / 2 + i * LANE_SP);
-        ROW_SP = (POINT_BOTTOM - POINT_TOP) / (rows - 1);
-        ROW_Y = Array.from({ length: rows }, (_, i) => POINT_TOP + i * ROW_SP);
-    }
-
-    // A staggered grid height — only used to lay out the opening rungs so they
-    // start spread out and conflict-free (odd gaps nudged half a row lower).
-    // After that, rungs move freely to any height.
-    function rungY(gap, row) {
-        return ROW_Y[row] + (gap % 2 ? ROW_SP * CONFIG.rungStagger : 0);
     }
 
     // =================================================================
@@ -195,7 +185,7 @@
     const G = {
         difficulty: 'easy',
         diffCfg: null,
-        lanes: 3, colors: 3, rows: 9,
+        lanes: 3, colors: 3,
         score: 0, lives: 0, elapsed: 0,
         balls: [], floaters: [],
         rungs: [],           // fixed set of { gap, y } — moved freely, never added/removed
@@ -257,17 +247,26 @@
     }
 
     // Lay out the fixed set: ONE colour-locked rung per colour (so every colour
-    // is always steerable), at random distinct staggered slots.
+    // is always steerable). Each drops at a random continuous height in the
+    // legal band, nudged to a clear spot (resolveDropY) so none conflict.
     function initRungs() {
         G.rungs = [];
         const palette = (COLOR_SETS[G.colors] || COLOR_SETS[4]).slice();
-        const slots = [];
-        for (let g = 0; g < G.lanes - 1; g++)
-            for (let r = 0; r < G.rows; r++) slots.push({ gap: g, row: r });
-        AC.rng.shuffle(slots, G.rng);
-        for (let i = 0; i < palette.length && i < slots.length; i++) {
-            const s = slots[i];
-            G.rungs.push({ gap: s.gap, y: rungY(s.gap, s.row), color: palette[i] });
+        for (const color of palette) {
+            let placed = false;
+            for (let attempt = 0; attempt < 40 && !placed; attempt++) {
+                const gap = AC.rng.int(G.rng, 0, G.lanes - 1);
+                const y = resolveDropY(gap, AC.rng.float(G.rng, POINT_TOP, POINT_BOTTOM), -1);
+                if (y != null) { G.rungs.push({ gap, y, color }); placed = true; }
+            }
+            if (!placed) {   // fallback: scan for any free spot
+                for (let gap = 0; gap < G.lanes - 1 && !placed; gap++) {
+                    for (let yy = POINT_TOP; yy <= POINT_BOTTOM && !placed; yy += CONFIG.rungMinSep) {
+                        const y = resolveDropY(gap, yy, -1);
+                        if (y != null) { G.rungs.push({ gap, y, color }); placed = true; }
+                    }
+                }
+            }
         }
     }
 
@@ -753,10 +752,9 @@
         G.diffCfg = DIFFICULTIES[G.difficulty];
         G.lanes = G.diffCfg.lanes;
         G.colors = G.diffCfg.colors;
-        G.rows = G.diffCfg.rows;
         G.lives = G.diffCfg.lives;
 
-        computeLayout(G.lanes, G.rows);
+        computeLayout(G.lanes);
         G.basketColor = makeBaskets(G.lanes, G.colors);
         initRungs();
         G.balls = [];
@@ -854,7 +852,7 @@
             diff(d) { setDifficulty(d); return G.difficulty; },
             info() {
                 return {
-                    difficulty: G.difficulty, layout: G.lanes + 'x' + G.colors, rows: G.rows,
+                    difficulty: G.difficulty, layout: G.lanes + 'x' + G.colors,
                     t: +G.elapsed.toFixed(1), score: G.score, lives: G.lives,
                     balls: G.balls.length, wavesPer10s: +(waveRate() * 10).toFixed(2),
                     twoBall: G.diffCfg.twoBall || 0,

@@ -112,8 +112,8 @@ on its page) and scale the backing store by `devicePixelRatio` in a
 ## Ladder Connect internals
 
 - **Tuning lives up top** in `CONFIG` (shared: `ballSpeed`, wave gap, …) +
-  `DIFFICULTIES` (per preset: the fixed layout, rows, lives, `twoBall` chance,
-  and the `freq` wave-rate curve). Change balance there.
+  `DIFFICULTIES` (per preset: the fixed layout `lanes`=`colors`, `lives`,
+  `twoBall` chance, and the `freq` wave-rate curve). Change balance there.
 - **Difficulty** is a preset (`easy` / `normal` / `hard`), chosen with
   the on-page selector and stored in prefs; high scores are kept
   per-difficulty (`shell.mode` returns `G.difficulty`). Each preset has one
@@ -125,11 +125,11 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   crosses any adjacent rung whose colour differs from it (in height order) —
   a ball slips straight through rungs of its own colour — easing its `x`
   toward the lane centre (`CONFIG.xEase`) for a diagonal slide.
-  `rungY(gap, row)` (with `CONFIG.rungStagger`) is only used to spread the
-  opening rungs out. Lanes draw a faint full-height rail plus a brighter capped
-  segment marking the rung band (`POINT_TOP`–`POINT_BOTTOM`).
+  Lanes draw a faint full-height rail plus a brighter capped segment marking
+  the rung band (`POINT_TOP`–`POINT_BOTTOM`).
 - **Colour-gate rungs.** `initRungs` seeds **one rung per colour**
-  (`COLOR_SETS[G.colors]`) at random distinct staggered slots. A rung deflects
+  (`COLOR_SETS[G.colors]`) at random continuous heights, nudged apart by
+  `resolveDropY`. A rung deflects
   every colour EXCEPT its own (a ball passes straight through its own colour's
   rungs), so every rung interacts with almost every ball — managing those side
   effects is the puzzle, and an own-colour rung is a "safe gate". Drawn as a
