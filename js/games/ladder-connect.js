@@ -85,7 +85,7 @@
     const CONFIG = {
         ballRadius: 15,
         basketGapRatio: 2.5,     // basket width : gap — kept constant across lane counts
-        xEase: 14,               // how fast a ball slides toward its lane centre
+        xEase: 30,               // how fast a ball slides across to its lane (high = hugs the rung)
         ballSpeed: 56,           // constant fall speed — the SAME for every difficulty
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
