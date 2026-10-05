@@ -2,8 +2,9 @@
  * Ladder Connect — a real-time "ghost leg" (amidakuji).
  *
  * Colour-coded balls fall down a ladder of vertical lanes. A fixed set of
- * horizontal rungs can be picked up and dropped elsewhere (never added or
- * removed); a ball crossing a rung swaps to the neighbouring lane. Land each
+ * coloured rungs can be picked up and dropped elsewhere (never added or
+ * removed); a rung deflects every ball EXCEPT its own colour (which slips
+ * straight through), stepping the rest to the neighbouring lane. Land each
  * ball in the basket of its own colour to score; a wrong basket costs a life.
  * Lives at zero ends the run.
  *
@@ -11,19 +12,20 @@
  * easy 3×3, normal 4×4, hard 5×5 (lanes × colours). Every ball falls at the
  * SAME constant speed; difficulty comes from lane count, how often balls
  * spawn, and the wave makeup:
- *   - easy:   waves of a single ball, all single-colour.
+ *   - easy:   waves of a single ball.
  *   - normal: same spawn-rate curve as easy, but a wave is occasionally two
- *             balls (still single-colour).
- *   - hard:   two-ball waves more often, sometimes two-colour balls, and a
- *             slightly higher spawn rate overall.
+ *             balls (different colours).
+ *   - hard:   two-ball waves more often and a slightly higher spawn rate.
  * The spawn rate rises steadily over time (log-paced, approaching a cap it
  * never reaches); the rhythm itself stays even.
  *
- * Rungs: a fixed number per difficulty. Press/hold a rung to pick it up and
- * drop it in a new slot (same on desktop and touch); while held the original
- * stays put and a translucent ghost previews the target. The left/right rung
- * endpoints on each lane are staggered in height (a brick pattern), so rungs
- * can sit side by side without ever conflicting.
+ * Rungs: one per colour, a fixed set. Each rung deflects every colour EXCEPT
+ * its own — a ball of the rung's colour passes straight through — so a rung is
+ * both a redirector for other colours and a "safe gate" for its own. Press/
+ * hold a rung to pick it up and drop it elsewhere; placement is free (height)
+ * and a held rung auto-dodges to the nearest clear height so rungs sharing a
+ * lane never overlap. While held, the original keeps working and a translucent
+ * ghost previews the target.
  *
  * Built on window.ArcadeCommon (shell / loop / input / audio / i18n /
  * scores). Rendering is Canvas 2D at a fixed 600×760 portrait space.
@@ -49,12 +51,12 @@
         lcNormal: 'Normal',
         lcHard: 'Hard',
         lcReady: 'Ready',
-        lcIntro: 'Colour-coded balls fall down the ladder. A fixed set of rungs can be moved — press and hold a rung, then release it on a new spot to steer the balls. Land each ball in its matching-colour basket.',
+        lcIntro: 'Colour-coded balls fall down the ladder. Each coloured rung deflects every ball EXCEPT its own colour (that colour slips straight through). Move the rungs to send every ball into its matching-colour basket. Press and hold a rung, then drop it elsewhere.',
         lcStartHintHtml: 'Hold a rung and drop it elsewhere · <kbd>P</kbd> pause',
         lcOverMsgHtml: (score) => `You scored <strong>${score}</strong>.`,
         lcOverHintHtml: 'Press <kbd>R</kbd> or the button to play again.',
-        lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the same colour at the bottom. A two-colour ball fits <strong>either</strong> of its colours.',
-        lcHelp2Html: 'Press and hold a <strong>rung</strong>, drag it, and release to drop it at a new spot. A ball crossing a rung swaps to the next lane.',
+        lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the <strong>same colour</strong> at the bottom.',
+        lcHelp2Html: 'Press and hold a <strong>rung</strong> and drop it elsewhere. A rung deflects <strong>every colour except its own</strong> — a ball of the rung\u2019s colour slips straight through.',
         lcHelp3Html: 'There is a <strong>fixed</strong> number of rungs \u2014 you <strong>move</strong> them, you can\u2019t add or remove any. Drop one at any height; it nudges aside if it would overlap another.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
         lcHelp5Html: 'Balls come more often over time \u2014 the fall speed stays the same throughout. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
@@ -65,12 +67,12 @@
         lcNormal: '普通',
         lcHard: '困難',
         lcReady: '準備開始',
-        lcIntro: '彩色球會沿著直線往下掉。場上有固定數量的橫線（橋），可移動——按住一條橋、放手放到新位置，藉此引導球。把每顆球導進同色的籃子。',
+        lcIntro: '彩色球會沿著直線往下掉。每座彩色的橋會攔下「除了自己顏色以外」的所有球（同色球直接穿過）。移動橋，把每顆球導進同色的籃子。按住一條橋、放手放到新位置。',
         lcStartHintHtml: '按住橋拖到別處放下 · <kbd>P</kbd> 暫停',
         lcOverMsgHtml: (score) => `你得了 <strong>${score}</strong> 分。`,
         lcOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
-        lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部同色的籃子。雙色球可進<strong>任一</strong>種顏色的籃子。',
-        lcHelp2Html: '按住一條<strong>橋</strong>拖曳，放手即可放到新位置。球碰到橋會換到隔壁線。',
+        lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部<strong>同色</strong>的籃子。',
+        lcHelp2Html: '按住一條<strong>橋</strong>放到別處。橋會攔下<strong>除了自己顏色以外</strong>的球——同色的球會直接穿過。',
         lcHelp3Html: '橋的數量<strong>固定</strong>——只能<strong>移動</strong>，不能新增或移除。可放在任意高度；若太靠近別的橋會自動稍微讓開。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
         lcHelp5Html: '出球會隨時間越來越頻繁 \u2014 球速始終不變。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
@@ -83,7 +85,6 @@
     const CONFIG = {
         ballRadius: 15,
         basketGapRatio: 2.5,     // basket width : gap — kept constant across lane counts
-        reachMaxLanes: 3,        // soft: a ball's matching basket is within N lanes of its spawn
         xEase: 14,               // how fast a ball slides toward its lane centre
         ballSpeed: 72,           // constant fall speed — the SAME for every difficulty
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
@@ -96,25 +97,24 @@
 
     // Difficulty presets — each has ONE fixed layout (lanes = colours, so every
     // basket is a distinct colour). Every ball falls at CONFIG.ballSpeed. A
-    // spawn is one ball, or two (on distinct lanes) with probability `twoBall`.
-    // `dual` is the share of two-colour balls (0 = none). `rungs` is the fixed
-    // number of movable rungs. `freq` is the wave rate (waves/sec), ramping
-    // `start`→`end` over `tau` (log-paced). Easy and Normal share the same
-    // `freq`; Hard is a touch higher.
+    // spawn is one ball, or two (distinct lanes, different colours) with
+    // probability `twoBall`. There is one colour-locked rung per colour. `freq`
+    // is the wave rate (waves/sec), ramping `start`→`end` over `tau` (log-paced).
+    // Easy and Normal share the same `freq`; Hard is a touch higher.
     const DIFFICULTIES = {
         easy: {
-            lanes: 3, colors: 3, rows: 9, lives: 5, rungs: 3,
-            twoBall: 0, dual: 0,
+            lanes: 3, colors: 3, rows: 9, lives: 5,
+            twoBall: 0,
             freq: { start: 0.25, end: 0.5, tau: 55 },
         },
         normal: {
-            lanes: 4, colors: 4, rows: 11, lives: 5, rungs: 4,
-            twoBall: 0.25, dual: 0,
+            lanes: 4, colors: 4, rows: 11, lives: 5,
+            twoBall: 0.25,
             freq: { start: 0.25, end: 0.5, tau: 55 },   // same curve as easy
         },
         hard: {
-            lanes: 5, colors: 5, rows: 12, lives: 4, rungs: 5,
-            twoBall: 0.5, dual: 0.3,
+            lanes: 5, colors: 5, rows: 12, lives: 4,
+            twoBall: 0.5,
             freq: { start: 0.3, end: 0.55, tau: 55 },   // slightly higher overall
         },
     };
@@ -195,7 +195,7 @@
     const G = {
         difficulty: 'easy',
         diffCfg: null,
-        lanes: 3, colors: 3, rows: 9, allowDual: false,
+        lanes: 3, colors: 3, rows: 9,
         score: 0, lives: 0, elapsed: 0,
         balls: [], floaters: [],
         rungs: [],           // fixed set of { gap, y } — moved freely, never added/removed
@@ -224,11 +224,6 @@
         const f = G.diffCfg.freq;
         return AC.math.lerp(f.start, f.end, timePressure(f.tau));
     }
-    // Stable share of two-colour balls (constant over time; 0 = none).
-    function dualRatio() {
-        return G.allowDual ? (G.diffCfg.dual || 0) : 0;
-    }
-
     // =================================================================
     // Rungs (fixed set — moved, never added or removed)
     // =================================================================
@@ -261,17 +256,18 @@
         return best;   // null if the column is too full to fit
     }
 
-    // Lay the fixed set of rungs at random distinct (staggered) node slots.
+    // Lay out the fixed set: ONE colour-locked rung per colour (so every colour
+    // is always steerable), at random distinct staggered slots.
     function initRungs() {
         G.rungs = [];
-        const K = G.diffCfg.rungs || G.lanes;
+        const palette = (COLOR_SETS[G.colors] || COLOR_SETS[4]).slice();
         const slots = [];
         for (let g = 0; g < G.lanes - 1; g++)
             for (let r = 0; r < G.rows; r++) slots.push({ gap: g, row: r });
         AC.rng.shuffle(slots, G.rng);
-        for (let i = 0; i < Math.min(K, slots.length); i++) {
+        for (let i = 0; i < palette.length && i < slots.length; i++) {
             const s = slots[i];
-            G.rungs.push({ gap: s.gap, y: rungY(s.gap, s.row) });
+            G.rungs.push({ gap: s.gap, y: rungY(s.gap, s.row), color: palette[i] });
         }
     }
 
@@ -289,16 +285,6 @@
         return arr;
     }
 
-    // Distinct basket colours within reachMaxLanes of `lane`.
-    function nearColors(lane) {
-        const N = CONFIG.reachMaxLanes;
-        const near = [];
-        for (let j = Math.max(0, lane - N); j <= Math.min(G.lanes - 1, lane + N); j++) {
-            near.push(G.basketColor[j]);
-        }
-        return [...new Set(near)];
-    }
-
     // =================================================================
     // Balls — steady waves of one or two (same constant speed)
     // =================================================================
@@ -312,20 +298,16 @@
         return false;
     }
 
-    // Create one ball in `lane` at height `y`. `used` (a Set of colours already
-    // placed this wave) biases toward a DIFFERENT colour so two balls in a wave
-    // don't chase the same basket. Dual balls (Hard) accept either colour.
+    // Create one ball in `lane` at height `y`. Its colour is both its
+    // destination (the same-colour basket) and the colour of rung that can
+    // steer it. `used` (colours already placed this wave) biases toward a
+    // DIFFERENT colour, so a two-ball wave needs two different rungs at once.
     function createBall(lane, y, used) {
-        const reach = nearColors(lane);
-        let pool = used ? reach.filter((c) => !used.has(c)) : reach;
-        if (!pool.length) pool = reach;
-        let color = AC.rng.one(G.rng, pool), color2 = null, dual = false;
-        if (dualRatio() > 0 && G.rng() < dualRatio()) {
-            const p2 = reach.filter((c) => c !== color);
-            if (p2.length) { color2 = AC.rng.one(G.rng, p2); dual = true; }
-        }
-        if (used) { used.add(color); if (dual) used.add(color2); }
-        G.balls.push({ x: LANE_X[lane], y, lane, color, color2, dual, delivered: false });
+        let pool = G.basketColor.filter((c) => !used || !used.has(c));
+        if (!pool.length) pool = G.basketColor.slice();
+        const color = AC.rng.one(G.rng, pool);
+        if (used) used.add(color);
+        G.balls.push({ x: LANE_X[lane], y, lane, color, delivered: false });
     }
 
     // One spawn event: a single ball, or two (on distinct free lanes) with the
@@ -356,7 +338,7 @@
     function deliver(b) {
         const lane = b.lane;
         const base = G.basketColor[lane];
-        const ok = b.dual ? (base === b.color || base === b.color2) : (base === b.color);
+        const ok = (base === b.color);
         if (ok) {
             G.score += CONFIG.scorePerCorrect;
             spawnFloater(LANE_X[lane], DELIVER_Y - 12, '+' + AC.format.score(CONFIG.scorePerCorrect), b.color);
@@ -404,6 +386,7 @@
                 let best = -1, bestH = Infinity;
                 for (let i = 0; i < G.rungs.length; i++) {
                     const rg = G.rungs[i];
+                    if (rg.color === b.color) continue;          // a ball slips through its own colour's rung
                     if (rg.gap !== b.lane && rg.gap !== b.lane - 1) continue;
                     const h = rg.y;
                     if (h > b.y && h <= yEnd && h < bestH) { bestH = h; best = i; }
@@ -530,28 +513,35 @@
         }
     }
 
-    const RUNG_COLOR = '#aab0bd'; // neutral grey — balls carry the colour
+    const RUNG_COLOR = '#aab0bd';   // neutral grey — the bar deflects other colours
+    const HOLE_FILL = '#0d0b1d';    // punched-hole colour (≈ background)
+    // A rung is a neutral bar (deflects every other colour) with a coloured
+    // "gate" ring at each end — the one colour that slips straight through.
     function drawRung(gap, y, opts) {
         opts = opts || {};
         const x0 = LANE_X[gap], x1 = LANE_X[gap + 1];
-        const color = opts.color || RUNG_COLOR;
+        const gate = opts.color || RUNG_COLOR;
         const w = opts.width != null ? opts.width : 7;
-        const dotR = opts.dotR != null ? opts.dotR : 6;
+        const ringR = opts.dotR != null ? opts.dotR : 7;
         ctx.save();
         ctx.globalAlpha = opts.alpha != null ? opts.alpha : 1;
-        if (opts.dash) ctx.setLineDash(opts.dash);
-        ctx.strokeStyle = color;
-        ctx.lineWidth = w;
         ctx.lineCap = 'round';
+        if (opts.dash) ctx.setLineDash(opts.dash);
+        ctx.strokeStyle = RUNG_COLOR;
+        ctx.lineWidth = w;
         ctx.beginPath();
         ctx.moveTo(x0, y);
         ctx.lineTo(x1, y);
         ctx.stroke();
         ctx.setLineDash([]);
-        if (dotR > 0) {
-            ctx.fillStyle = color;
-            ctx.beginPath(); ctx.arc(x0, y, dotR, 0, PI2); ctx.fill();
-            ctx.beginPath(); ctx.arc(x1, y, dotR, 0, PI2); ctx.fill();
+        if (ringR > 0) {
+            ctx.lineWidth = Math.max(2.5, w * 0.55);
+            for (const gx of [x0, x1]) {
+                ctx.fillStyle = HOLE_FILL;                       // punch a hole in the bar
+                ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.fill();
+                ctx.strokeStyle = gate;                          // ring = the colour that passes
+                ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.stroke();
+            }
         }
         ctx.restore();
     }
@@ -561,7 +551,7 @@
             const rg = G.rungs[i];
             // The rung being dragged stays put but dims; its ghost shows the target.
             const held = drag && drag.index === i;
-            drawRung(rg.gap, rg.y, { alpha: held ? 0.3 : 1 });
+            drawRung(rg.gap, rg.y, { color: rg.color, alpha: held ? 0.3 : 1 });
         }
     }
 
@@ -572,10 +562,9 @@
         if (!drag || drag.index == null) return;
         const ok = drag.resolvedY != null;
         const y = ok ? drag.resolvedY : AC.math.clamp(drag.desiredY, POINT_TOP, POINT_BOTTOM);
-        drawRung(drag.gap, y, {
-            color: ok ? '#dfe8ff' : '#ff6b81',
-            alpha: 0.5, width: 4, dotR: 2.5, dash: [3, 9],
-        });
+        const held = G.rungs[drag.index];
+        const color = ok ? ((held && held.color) || '#dfe8ff') : '#ff6b81';
+        drawRung(drag.gap, y, { color, alpha: 0.55, width: 4, dotR: 2.5, dash: [3, 9] });
     }
 
     function drawBaskets() {
@@ -594,38 +583,45 @@
         }
     }
 
-    function drawBall(b) {
+    function drawBall(b, dx) {
         const r = CONFIG.ballRadius;
+        const cx = b.x + (dx || 0);
         ctx.save();
         ctx.shadowColor = b.color;
         ctx.shadowBlur = 10;
-        if (b.dual) {
-            // Two-colour ball: left half b.color, right half b.color2.
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, Math.PI / 2, Math.PI * 1.5); ctx.fillStyle = b.color; ctx.fill();
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, -Math.PI / 2, Math.PI / 2); ctx.fillStyle = b.color2; ctx.fill();
-        } else {
-            ctx.beginPath(); ctx.arc(b.x, b.y, r, 0, PI2); ctx.fillStyle = b.color; ctx.fill();
-        }
+        ctx.beginPath(); ctx.arc(cx, b.y, r, 0, PI2); ctx.fillStyle = b.color; ctx.fill();
         ctx.restore();
-        if (b.dual) {   // divider so the two halves read clearly
-            ctx.strokeStyle = 'rgba(0,0,0,0.25)';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.moveTo(b.x, b.y - r);
-            ctx.lineTo(b.x, b.y + r);
-            ctx.stroke();
-        }
         ctx.fillStyle = 'rgba(255,255,255,0.5)';
         ctx.beginPath();
-        ctx.arc(b.x - r * 0.32, b.y - r * 0.32, r * 0.3, 0, PI2);
+        ctx.arc(cx - r * 0.32, b.y - r * 0.32, r * 0.3, 0, PI2);
         ctx.fill();
         ctx.strokeStyle = 'rgba(0,0,0,0.3)';
         ctx.lineWidth = 2;
         ctx.beginPath();
-        ctx.arc(b.x, b.y, r, 0, PI2);
+        ctx.arc(cx, b.y, r, 0, PI2);
         ctx.stroke();
     }
-    function drawBalls() { for (const b of G.balls) drawBall(b); }
+    // Balls that share a lane and overlap vertically are spread side by side so
+    // they stay readable (colour-locked rungs let balls pass through and meet).
+    function drawBalls() {
+        const byLane = new Map();
+        for (const b of G.balls) {
+            if (!byLane.has(b.lane)) byLane.set(b.lane, []);
+            byLane.get(b.lane).push(b);
+        }
+        for (const list of byLane.values()) {
+            list.sort((a, b) => a.y - b.y);
+            let i = 0;
+            while (i < list.length) {
+                let j = i;
+                while (j + 1 < list.length && list[j + 1].y - list[j].y < CONFIG.ballRadius * 2) j++;
+                const n = j - i + 1;
+                for (let k = 0; k < n; k++) list[i + k]._dx = (k - (n - 1) / 2) * (CONFIG.ballRadius * 1.3);
+                i = j + 1;
+            }
+        }
+        for (const b of G.balls) drawBall(b, b._dx || 0);
+    }
 
     function drawFloaters() {
         ctx.textAlign = 'center';
@@ -757,7 +753,6 @@
         G.diffCfg = DIFFICULTIES[G.difficulty];
         G.lanes = G.diffCfg.lanes;
         G.colors = G.diffCfg.colors;
-        G.allowDual = (G.diffCfg.dual || 0) > 0;
         G.rows = G.diffCfg.rows;
         G.lives = G.diffCfg.lives;
 

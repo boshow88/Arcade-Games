@@ -48,10 +48,13 @@ to steer each ball into the basket of its own colour.
 
 ### Rungs
 
-- A **rung** is a horizontal bar joining two neighbouring lanes. A ball
-  reaching a rung **swaps to the next lane**.
-- There is a **fixed number** of rungs per difficulty — you **move** them,
-  never add or remove any.
+- A **rung** is a coloured bar joining two neighbouring lanes. It **deflects
+  every colour except its own** — a ball of the rung's colour slips straight
+  through — and a deflected ball steps to the next lane.
+- There is **one rung per colour**, a fixed set — you **move** them, never add
+  or remove any. Since each rung touches every colour but its own, the whole
+  set is always interacting with the falling balls; a ball's own-colour rung is
+  a **safe gate** you can use to let it carry on straight.
 - **Pick up / drop**: press and hold a rung (mouse or touch), drag it, and
   release to drop it. You can place it at **any height** — not just on a node.
   While you hold it the rung stays where it was (still steering balls) and a
@@ -77,20 +80,21 @@ a distinct colour). **Every ball falls at the same constant speed** — the same
 across all three difficulties — so difficulty comes from the layout, how often
 balls spawn, and the wave makeup:
 
-- **Easy**: 3×3. Every wave is a single ball, all one colour.
-- **Normal**: 4×4. A wave is **occasionally two** balls (still single-colour);
-  same spawn-rate curve as Easy.
-- **Hard**: 5×5. Two-ball waves come **more often**, some balls are
-  **two-colour**, and the overall spawn rate is a little higher.
+- **Easy**: 3×3. Every wave is a single ball.
+- **Normal**: 4×4. A wave is **occasionally two** balls; same spawn-rate curve
+  as Easy.
+- **Hard**: 5×5. Two-ball waves come **more often**, and the overall spawn rate
+  is a little higher.
 
-A wave is never more than **two** balls, and the two take different lanes (and
-usually different colours). The spawn rate **rises steadily over time** toward
-a cap it approaches but never reaches (a log-paced curve); the rhythm itself
-stays even. A ball or two is seeded at the top of the ladder at the start so
-the first seconds aren't empty.
+A wave is never more than **two** balls, and the two take different lanes and
+**different colours** (so you need two different rungs at once). The spawn rate
+**rises steadily over time** toward a cap it approaches but never reaches (a
+log-paced curve); the rhythm itself stays even. A ball or two is seeded at the
+top of the ladder at the start so the first seconds aren't empty.
 
-A **two-colour** ball (Hard) is split down the middle and may be delivered into
-a basket of **either** colour — handy when the matching basket is far.
+Because each rung deflects every colour but its own, every rung on the board
+acts on the balls at once — you juggle the whole set, dropping a ball's
+own-colour rung in its path when you need it to pass straight through.
 
 ### Tuning
 

@@ -113,31 +113,38 @@ on its page) and scale the backing store by `devicePixelRatio` in a
 
 - **Tuning lives up top** in `CONFIG` (shared: `ballSpeed`, wave gap, …) +
   `DIFFICULTIES` (per preset: the fixed layout, rows, lives, `twoBall` chance,
-  `dual` ratio, and the `freq` wave-rate curve). Change balance there.
+  and the `freq` wave-rate curve). Change balance there.
 - **Difficulty** is a preset (`easy` / `normal` / `hard`), chosen with
   the on-page selector and stored in prefs; high scores are kept
   per-difficulty (`shell.mode` returns `G.difficulty`). Each preset has one
   **fixed layout** where `lanes === colors`, so every basket is a distinct
   colour.
-- **Ladder model.** `G.rungs` is a fixed list of `{ gap, y }` (gap = the left
-  lane of the pair; `y` = a free, continuous height). A ball tracks its logical
-  `lane` and each frame crosses any adjacent rung it passes (in height order),
-  easing its `x` toward the lane centre (`CONFIG.xEase`) for a diagonal slide.
+- **Ladder model.** `G.rungs` is a fixed list of `{ gap, y, color }` (gap = the
+  left lane of the pair; `y` = a free, continuous height; `color` = the one
+  colour it does NOT affect). A ball tracks its logical `lane` and each frame
+  crosses any adjacent rung whose colour differs from it (in height order) —
+  a ball slips straight through rungs of its own colour — easing its `x`
+  toward the lane centre (`CONFIG.xEase`) for a diagonal slide.
   `rungY(gap, row)` (with `CONFIG.rungStagger`) is only used to spread the
   opening rungs out. Lanes draw a faint full-height rail plus a brighter capped
   segment marking the rung band (`POINT_TOP`–`POINT_BOTTOM`).
-- **Rungs move, never add/remove.** `initRungs` seeds a fixed count
-  (`DIFFICULTIES.*.rungs`) at staggered node positions. Pointer input grabs the
-  rung under the cursor (`rungIndexAt`); while held it is placed freely — the
-  gap snaps to the nearest pair (`nearestGap`) and the height follows the
-  cursor. `resolveDropY` dodges conflicts: rungs that share a lane (same or
-  adjacent gap) must stay `CONFIG.rungMinSep` apart, so the ghost slides to the
-  nearest free height (or turns red / snaps back if the column is full). The
-  held rung keeps steering balls at its old spot until release (`drawDragGhost`).
-- **Baskets** (`makeBaskets`) lay the layout's colours across the lanes;
-  `nearColors(lane)` lists basket colours within `CONFIG.reachMaxLanes` of a
-  lane, and a spawning ball always takes a reachable colour, so it can always
-  be routed home.
+- **Colour-gate rungs.** `initRungs` seeds **one rung per colour**
+  (`COLOR_SETS[G.colors]`) at random distinct staggered slots. A rung deflects
+  every colour EXCEPT its own (a ball passes straight through its own colour's
+  rungs), so every rung interacts with almost every ball — managing those side
+  effects is the puzzle, and an own-colour rung is a "safe gate". Drawn as a
+  neutral bar with coloured end-rings (`drawRung`). Rungs move, never add/remove.
+  Pointer input grabs the rung under the cursor (`rungIndexAt`); while held it
+  is placed freely — the gap snaps to the nearest pair (`nearestGap`) and the
+  height follows the cursor. `resolveDropY` dodges conflicts: rungs that share a
+  lane (same or adjacent gap) must stay `CONFIG.rungMinSep` apart, so the ghost
+  slides to the nearest free height (or turns red / snaps back if the column is
+  full). The held rung keeps steering at its old spot until release
+  (`drawDragGhost`).
+- **Baskets** (`makeBaskets`) lay the layout's distinct colours across the
+  lanes (one per lane). A ball's colour (chosen uniformly, differing within a
+  wave) is both its destination (the same-colour basket) and the rung colour
+  that can move it.
 - **Steady wave spawning.** `waveRate()` ramps `freq.start → freq.end` over
   `freq.tau` (log-paced). A single accumulator (`G.spawnAcc`) fires a wave when
   it crosses 1 and `CONFIG.waveMinGap` has passed; the rhythm stays even (no
@@ -147,14 +154,12 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   difficulties and unchanging over time.
 - **No overlap at spawn.** `laneBlockedAtTop` keeps a lane clear until its top
   ball descends past `CONFIG.laneClearY`; within a two-ball wave `createBall`'s
-  `used` set biases toward two different colours so the pair don't chase the
-  same basket.
+  `used` set forces two different colours (so two colours are live at once and
+  two rungs are needed). Balls that still converge into one lane are spread
+  side by side for readability (`drawBalls`).
 - **Difficulty over time** is only the wave rate rising (`timePressure`),
   approaching `freq.end` but never reaching it. Easy and Normal share one
   curve; Hard's is slightly higher.
-- **Dual balls** (`dualRatio`): a stable share (`DIFFICULTIES.*.dual`, `0` =
-  none — only Hard) that does **not** change over time; a dual ball accepts
-  either colour.
 - **Delivery** compares the ball's colour to its final lane's basket:
   correct → fixed score + `+score` floater; wrong → a life lost; zero
   lives ends the run. (No combo system.)
