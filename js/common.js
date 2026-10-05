@@ -380,9 +380,9 @@
 
             // Ladder Connect card (real-time ghost-leg / amidakuji)
             ladderConnectName: 'Ladder Connect',
-            ladderConnectTagline: 'Draw rungs, route the balls.',
+            ladderConnectTagline: 'Move the rungs, route the balls.',
             ladderConnectCardBody:
-                'Balls rain down a ladder of lanes. Draw, move and remove rungs on the fly to steer each colour into its matching basket — miss too many and the run ends.',
+                'Balls rain down a ladder of lanes. Move the coloured rungs to steer each one into its matching-colour basket — miss too many and the run ends.',
 
         },
         zh: {
@@ -428,9 +428,9 @@
             tagEndless: '無盡',
 
             ladderConnectName: '接球梯',
-            ladderConnectTagline: '畫橫線，把球導到對的籃子。',
+            ladderConnectTagline: '移動橫線，把球導到對的籃子。',
             ladderConnectCardBody:
-                '球沿著一排排直線往下掉。即時畫上、移動、移除橫線，把每顆球導進同色的籃子 — 失誤太多就結束。',
+                '球沿著一排排直線往下掉。移動彩色的橋，把每顆球導進同色的籃子 — 失誤太多就結束。',
         },
     };
 
