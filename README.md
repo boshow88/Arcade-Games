@@ -13,7 +13,7 @@ retry.
 
 | Game           | Status   | Notes                                                               |
 | -------------- | -------- | ------------------------------------------------------------------- |
-| Ladder Connect | Playable | Real-time ghost-leg: draw rungs to route colour balls into baskets |
+| Colour Ladder | WIP | Real-time ghost-leg: move colour-gated rungs to route colour balls into baskets |
 | Bamboo Dash    | WIP      | One-tap endless runner                                             |
 | Beat Bamboo    | WIP      | Rhythm tapper                                                      |
 

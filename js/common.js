@@ -344,12 +344,12 @@
             levelClear: 'Level Clear!',
 
             // Launcher
-            appSubtitle: 'A collection of fast, pick-up-and-play arcade games.',
+            appSubtitle: 'A collection of pick-up-and-play arcade games.',
             visitLink: 'Visit \u2197',
             puzzleGamesName: 'Puzzle Games',
-            puzzleGamesTagline: 'A collection of logic puzzles.',
+            puzzleGamesTagline: 'Another site',
             puzzleGamesCardBody:
-                'Sudoku, Tango, Patches, Queens and more logic puzzles.',
+                'A collection of logic puzzles.',
             wip: 'WIP',
             builtNote: 'Built as a static site — works offline, deployable on GitHub Pages.',
             tagReflex: 'Reflex',
@@ -359,11 +359,11 @@
             tagRhythm: 'Rhythm',
             tagEndless: 'Endless',
 
-            // Ladder Connect card (real-time ghost-leg / amidakuji)
-            ladderConnectName: 'Ladder Connect',
+            // Colour Ladder card (real-time ghost-leg / amidakuji)
+            ladderConnectName: 'Colour Ladder',
             ladderConnectTagline: 'Move the rungs, route the balls.',
             ladderConnectCardBody:
-                'Balls rain down a ladder of lanes. Move the coloured rungs to steer each one into its matching-colour basket — miss too many and the run ends.',
+                'Balls rain down a ladder of lanes. Move the coloured rungs to steer each one into its matching-colour basket.',
 
         },
         zh: {
@@ -392,12 +392,12 @@
             youWin: '你贏了！',
             levelClear: '過關！',
 
-            appSubtitle: '一組節奏明快、隨開隨玩的街機小遊戲。',
+            appSubtitle: '一組隨開隨玩的街機小遊戲。',
             visitLink: '前往 \u2197',
             puzzleGamesName: 'Puzzle Games',
-            puzzleGamesTagline: '邏輯解謎合輯。',
+            puzzleGamesTagline: '另一個網站',
             puzzleGamesCardBody:
-                '數獨、Tango、Patches、Queens 等邏輯謎題。',
+                '收錄邏輯謎題。',
             wip: '開發中',
             builtNote: '純靜態網站 — 可離線使用，也可部署於 GitHub Pages。',
             tagReflex: '反應',
@@ -407,10 +407,10 @@
             tagRhythm: '節奏',
             tagEndless: '無盡',
 
-            ladderConnectName: '接球梯',
+            ladderConnectName: '彩球梯',
             ladderConnectTagline: '移動橫線，把球導到對的籃子。',
             ladderConnectCardBody:
-                '球沿著一排排直線往下掉。移動彩色的橋，把每顆球導進同色的籃子 — 失誤太多就結束。',
+                '球沿著一排排直線往下掉。移動彩色的橋，把每顆球導進同色的籃子。',
         },
     };
 

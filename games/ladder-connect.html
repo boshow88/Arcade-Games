@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Ladder Connect · Arcade Games</title>
+    <title>Colour Ladder · Arcade Games</title>
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/game.css">
@@ -22,7 +22,7 @@
             </a>
             <div class="game-title">
                 <span class="game-icon" data-icon="ladder" aria-hidden="true"></span>
-                <span data-i18n="ladderConnectName">Ladder Connect</span>
+                <span data-i18n="ladderConnectName">Colour Ladder</span>
             </div>
             <div class="lang-toggle" id="lang-toggle" role="radiogroup" data-i18n-aria-label="language">
                 <button type="button" data-lang="en" role="radio" aria-checked="true">EN</button>
@@ -31,6 +31,14 @@
         </header>
 
         <div class="hud">
+            <div class="hud-stat">
+                <span class="hud-label"><span data-icon="clock" aria-hidden="true"></span><span data-i18n="time">Time</span></span>
+                <span class="hud-value" id="time">00:00</span>
+            </div>
+            <div class="hud-stat">
+                <span class="hud-label"><span data-icon="heart" aria-hidden="true"></span><span data-i18n="lives">Lives</span></span>
+                <span class="hud-value" id="lives">5</span>
+            </div>
             <div class="hud-stat accent">
                 <span class="hud-label"><span data-icon="coins" aria-hidden="true"></span><span data-i18n="score">Score</span></span>
                 <span class="hud-value" id="score">0</span>
@@ -38,14 +46,6 @@
             <div class="hud-stat">
                 <span class="hud-label"><span data-icon="trophy" aria-hidden="true"></span><span data-i18n="best">Best</span></span>
                 <span class="hud-value" id="best">0</span>
-            </div>
-            <div class="hud-stat">
-                <span class="hud-label"><span data-icon="heart" aria-hidden="true"></span><span data-i18n="lives">Lives</span></span>
-                <span class="hud-value" id="lives">5</span>
-            </div>
-            <div class="hud-stat">
-                <span class="hud-label"><span data-icon="clock" aria-hidden="true"></span><span data-i18n="time">Time</span></span>
-                <span class="hud-value" id="time">00:00</span>
             </div>
         </div>
 

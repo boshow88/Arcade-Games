@@ -104,12 +104,12 @@ Switching tabs mid-run auto-pauses.
    (EN + 中); per-game gameplay strings stay in the game file.
 6. Add a rules section to `docs/rules.md`.
 
-Canvas convention: render at a fixed logical resolution (Ladder Connect
+Canvas convention: render at a fixed logical resolution (Colour Ladder
 uses 600×760 portrait, capped/centred via a `.stage-wrap { max-width }`
 on its page) and scale the backing store by `devicePixelRatio` in a
 `fitCanvas()`.
 
-## Ladder Connect internals
+## Colour Ladder internals
 
 - **Tuning lives up top** in `CONFIG` (shared: `ballSpeed`, wave gap, …) +
   `DIFFICULTIES` (per preset: the fixed layout `lanes`=`colors`, `lives`,

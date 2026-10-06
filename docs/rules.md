@@ -20,8 +20,8 @@ All games share the same chrome and lifecycle:
 - **Start**: from the overlay button, or press `Space` / `Enter`.
 - **Pause / Resume**: `P` or `Esc` (also the Pause button). Switching
   browser tabs auto-pauses.
-- **Restart**: `R` or the Restart button. Some games (e.g. Ladder
-  Connect) return to the ready screen first; others restart instantly.
+- **Restart**: `R` or the Restart button. Some games (e.g. Colour
+  Ladder) return to the ready screen first; others restart instantly.
 - **Sound**: `M` toggles mute (also the speaker button). The choice is
   remembered across games.
 - **HUD**: a row of stat pills plus any per-game gauges. Each game owns
@@ -31,7 +31,7 @@ All games share the same chrome and lifecycle:
 
 ---
 
-## Ladder Connect
+## Colour Ladder
 
 A real-time **ghost leg** (amidakuji). Colour-coded balls fall down a
 ladder of vertical lanes; you **move** a fixed set of horizontal **rungs**

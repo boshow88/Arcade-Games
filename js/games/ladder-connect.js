@@ -1,5 +1,5 @@
 /**
- * Ladder Connect — a real-time "ghost leg" (amidakuji).
+ * Colour Ladder — a real-time "ghost leg" (amidakuji).
  *
  * Colour-coded balls fall down a ladder of vertical lanes. A fixed set of
  * coloured rungs can be picked up and dropped elsewhere (never added or
@@ -1028,7 +1028,7 @@
             else if (k === '[') window.LC.addTime(-30);
             else if (k === 'l' || k === 'L') window.LC.addLife(1);
         });
-        console.log('%c[Ladder Connect] debug on', 'color:#5ad0e0;font-weight:700');
+        console.log('%c[Colour Ladder] debug on', 'color:#5ad0e0;font-weight:700');
         console.log('LC.setTime(s) addTime(s) addLife(n) diff("easy"|"normal"|"hard") info()');
         console.log('keys:  ] +30s   [ -30s   L +life');
     }
