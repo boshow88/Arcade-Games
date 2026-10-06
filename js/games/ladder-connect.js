@@ -16,8 +16,9 @@
  *   - normal: same spawn-rate curve as easy, but a wave is occasionally two
  *             balls (different colours).
  *   - hard:   two-ball waves more often and a slightly higher spawn rate.
- * The spawn rate rises steadily over time (log-paced, approaching a cap it
- * never reaches); the rhythm itself stays even.
+ * The spawn rate rises over time on an unbounded, ever-gentler log curve
+ * (base + k·ln(1 + t/tau)) — it never plateaus but keeps slowing; the rhythm
+ * itself stays even.
  *
  * Rungs: one per colour, a fixed set. Each rung deflects every colour EXCEPT
  * its own — a ball of the rung's colour passes straight through — so a rung is
@@ -58,7 +59,7 @@
         lcOverHintHtml: 'Press <kbd>R</kbd> or the button to play again.',
         lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the <strong>same colour</strong> at the bottom.',
         lcHelp2Html: 'Press and hold a <strong>rung</strong> and drop it elsewhere. A rung deflects <strong>every colour except its own</strong> — a ball of the rung\u2019s colour slips straight through.',
-        lcHelp3Html: 'There is a <strong>fixed</strong> number of rungs \u2014 you <strong>move</strong> them, you can\u2019t add or remove any. Drop one at any height; it nudges aside if it would overlap another.',
+        lcHelp3Html: 'You get <strong>one movable rung per colour</strong> \u2014 drag it anywhere (it nudges aside near others). A few <strong>bolted grey</strong> rungs are fixed walls that deflect <strong>every</strong> colour; plan around them.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
         lcHelp5Html: 'Balls come more often over time \u2014 the fall speed stays the same throughout. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
@@ -75,7 +76,7 @@
         lcOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部<strong>同色</strong>的籃子。',
         lcHelp2Html: '按住一條<strong>橋</strong>放到別處。橋會攔下<strong>除了自己顏色以外</strong>的球——同色的球會直接穿過。',
-        lcHelp3Html: '橋的數量<strong>固定</strong>——只能<strong>移動</strong>，不能新增或移除。可放在任意高度；若太靠近別的橋會自動稍微讓開。',
+        lcHelp3Html: '每種顏色各有一座可<strong>移動</strong>的橋，隨處拖放（靠近別橋會自動讓開）。另有幾座<strong>灰色鉚釘</strong>的固定橋，會擋下<strong>所有</strong>顏色，需繞過它們。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
         lcHelp5Html: '出球會隨時間越來越頻繁 \u2014 球速始終不變。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
@@ -97,40 +98,42 @@
         scorePerCorrect: 100,
     };
 
-    // Difficulty presets — each has ONE fixed layout (lanes = colours, so every
-    // basket is a distinct colour). Every ball falls at CONFIG.ballSpeed. A
-    // spawn is one ball, or two (distinct lanes, different colours) with
-    // probability `twoBall`. There is one colour-locked rung per colour. `freq`
-    // is the wave rate (waves/sec), ramping `start`→`end` over `tau` (log-paced).
-    // Easy and Normal share the same `freq`; Hard is a touch higher.
+    // Difficulty presets — each has ONE fixed layout (lanes = colours, fixed
+    // colours in fixed order). Every ball falls at CONFIG.ballSpeed. A spawn is
+    // one ball, or two (with probability `twoBall`) — each ball independently
+    // picks a free lane, so a pair may land on the same lane by chance (always
+    // different colours, never an unavoidable loss). There is one movable
+    // colour-locked rung per colour,
+    // plus `fixedRungs` immovable obstacle rungs that block EVERY colour.
+    // `freq` is the wave rate (waves/sec) = base + k·ln(1 + t/tau):
+    //   base = starting rate · k = overall steepness · tau = start "drift".
     const DIFFICULTIES = {
         easy: {
-            lanes: 3, colors: 3, lives: 5,
-            twoBall: 0,
-            freq: { start: 0.15, end: 0.75, tau: 55 },
+            lanes: 3, colors: 3, lives: 5, fixedRungs: 2,
+            twoBall: 0.00,
+            freq: { base: 0.15, k: 0.40, tau: 2000 },
         },
         normal: {
-            lanes: 4, colors: 4, lives: 5,
-            twoBall: 0.18,
-            freq: { start: 0.15, end: 0.6, tau: 55 },
+            lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
+            twoBall: 0.00,
+            freq: { base: 0.15, k: 0.40, tau: 2000 },
         },
         hard: {
-            lanes: 5, colors: 5, lives: 4,
-            twoBall: 0.4,
-            freq: { start: 0.12, end: 0.5, tau: 55 },
+            lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
+            twoBall: 0.33,
+            freq: { base: 0.15, k: 0.40, tau: 2000 },
         },
     };
     const DIFF_ORDER = ['easy', 'normal', 'hard'];
 
-    // Fixed, well-separated colour sets chosen by colour count (not a random
-    // subset), so a given layout always uses easy-to-tell-apart colours.
+    // Fixed colours AND order per colour count — baskets always use these exact
+    // colours in this exact left-to-right order (no shuffle), so the board is
+    // consistent and learnable.
     const COLOR_SETS = {
-        2: ['#ff5d6c', '#4aa3ff'],
-        3: ['#ff5d6c', '#3fcf6b', '#4aa3ff'],
-        4: ['#ff5d6c', '#ffd23a', '#3fcf6b', '#4aa3ff'],
-        5: ['#ff5d6c', '#ffd23a', '#3fcf6b', '#4aa3ff', '#b57bff'],
-        // 6 & 7 include both orange and yellow, so keep them clearly apart
-        // (orange #ff8a2e vs yellow #ffe23a); 7 adds teal for extra spread.
+        2: ['#ff5d6c', '#4aa3ff'],                                   // red, blue
+        3: ['#ff5d6c', '#ffd23a', '#4aa3ff'],                        // red, yellow, blue
+        4: ['#ff5d6c', '#ffd23a', '#3fcf6b', '#4aa3ff'],             // red, yellow, green, blue
+        5: ['#ff5d6c', '#ff8a2e', '#ffd23a', '#3fcf6b', '#4aa3ff'],  // red, orange, yellow, green, blue
         6: ['#ff5d6c', '#ff8a2e', '#ffe23a', '#3fcf6b', '#4aa3ff', '#b57bff'],
         7: ['#ff5d6c', '#ff8a2e', '#ffe23a', '#3fcf6b', '#22c5c9', '#4aa3ff', '#b57bff'],
     };
@@ -206,17 +209,15 @@
     let staged = 'easy';   // difficulty picked in the toolbar; applied on next run (Puzzle-style)
 
     // =================================================================
-    // Difficulty ramp (log-paced, asymptotic — never actually reached)
+    // Difficulty ramp — unbounded, decelerating log curve (never plateaus)
     // =================================================================
 
-    function timePressure(tauSec) {
-        const l = Math.log(1 + G.elapsed / tauSec);
-        return l / (1 + l);
-    }
-    // Current wave spawn rate (waves/sec), ramping start→end (log-paced).
+    // Wave spawn rate (waves/sec): base + k·ln(1 + t/tau). It rises forever but
+    // ever more gently (so late-game stays fair and great players last long);
+    // `tau` drifts the start onto the flatter part so the opening isn't steep.
     function waveRate() {
         const f = G.diffCfg.freq;
-        return AC.math.lerp(f.start, f.end, timePressure(f.tau));
+        return f.base + f.k * Math.log(1 + G.elapsed / f.tau);
     }
     // =================================================================
     // Rungs (fixed set — moved, never added or removed)
@@ -272,6 +273,18 @@
                 }
             }
         }
+
+        // Immovable obstacle rungs: block EVERY colour, can't be picked up.
+        // Scattered upper-biased (near the top), one per gap where possible.
+        const nFixed = G.diffCfg.fixedRungs || 0;
+        const gaps = AC.rng.shuffle(Array.from({ length: G.lanes - 1 }, (_, i) => i), G.rng);
+        for (let i = 0; i < nFixed; i++) {
+            const gap = gaps[i % gaps.length];
+            const bell = (G.rng() + G.rng() + G.rng()) / 3;                 // ~bell around 0.5
+            const frac = AC.math.clamp(0.22 + (bell - 0.5) * 0.5, 0.02, 0.98);
+            const y = resolveDropY(gap, POINT_TOP + frac * (POINT_BOTTOM - POINT_TOP), -1);
+            if (y != null) G.rungs.push({ gap, y, fixed: true });
+        }
     }
 
     // =================================================================
@@ -279,13 +292,10 @@
     // =================================================================
 
     function makeBaskets(lanes, colorsCount) {
-        // Shuffle the colour set once, then lay it down as a stable repeating
-        // cycle across the lanes (e.g. blue-red-yellow-blue-red-yellow), so a
-        // colour with multiple baskets alternates predictably.
-        const set = AC.rng.shuffle((COLOR_SETS[colorsCount] || COLOR_SETS[4]).slice(), G.rng);
-        const arr = [];
-        for (let i = 0; i < lanes; i++) arr.push(set[i % set.length]);
-        return arr;
+        // Fixed colours in fixed order (no shuffle) — the layout is always the
+        // same, so players can learn where each colour's basket is.
+        const set = (COLOR_SETS[colorsCount] || COLOR_SETS[4]);
+        return Array.from({ length: lanes }, (_, i) => set[i % set.length]);
     }
 
     // =================================================================
@@ -315,27 +325,25 @@
 
     // One spawn event: a single ball, or two (on distinct free lanes) with the
     // preset's `twoBall` probability. Returns false if no lane is free.
-    function spawnWave() {
+    function spawnWave(y0) {
+        const y = (y0 == null) ? TOP_SPAWN_Y : y0;
         const free = [];
         for (let i = 0; i < G.lanes; i++) if (!laneBlockedAtTop(i)) free.push(i);
         if (!free.length) return false;
-        AC.rng.shuffle(free, G.rng);
-        let count = 1;
-        if (G.diffCfg.twoBall > 0 && G.rng() < G.diffCfg.twoBall) count = 2;
-        count = Math.min(count, free.length);
+        const two = G.diffCfg.twoBall > 0 && G.rng() < G.diffCfg.twoBall;
         const used = new Set();
-        for (let k = 0; k < count; k++) createBall(free[k], TOP_SPAWN_Y, used);
+        // Each ball independently picks a free lane, so a two-ball wave may land
+        // both on the same lane by chance (always different colours — a stacked
+        // pair is never an unavoidable loss).
+        createBall(AC.rng.one(G.rng, free), y, used);
+        if (two) createBall(AC.rng.one(G.rng, free), y, used);
         return true;
     }
 
-    // Seed the opening wave at the top of the ladder so the ready screen isn't
-    // empty (two balls on Hard, one otherwise).
+    // Opening wave at the top of the ladder (visible on the frozen ready
+    // screen) — just a normal wave, so it follows the preset's `twoBall` odds.
     function seedOpeningBalls() {
-        const free = AC.rng.shuffle(Array.from({ length: G.lanes }, (_, i) => i), G.rng);
-        const count = Math.min(G.lanes >= 5 ? 2 : 1, free.length);
-        const y0 = POINT_TOP - CONFIG.ballRadius * 2;
-        const used = new Set();
-        for (let k = 0; k < count; k++) createBall(free[k], y0, used);
+        spawnWave(POINT_TOP - CONFIG.ballRadius * 2);
     }
 
     function deliver(b) {
@@ -391,7 +399,7 @@
                 let best = -1, bestH = Infinity;
                 for (let i = 0; i < G.rungs.length; i++) {
                     const rg = G.rungs[i];
-                    if (rg.color === b.color) continue;          // a ball slips through its own colour's rung
+                    if (!rg.fixed && rg.color === b.color) continue;   // own colour passes gate rungs; fixed walls block all
                     if (rg.gap !== b.lane && rg.gap !== b.lane - 1) continue;
                     const h = rg.y;
                     if (h > b.y && h <= yEnd && h < bestH) { bestH = h; best = i; }
@@ -526,12 +534,22 @@
     function drawRung(gap, y, opts) {
         opts = opts || {};
         const x0 = LANE_X[gap], x1 = LANE_X[gap + 1];
-        const gate = opts.color || RUNG_COLOR;
-        const w = opts.width != null ? opts.width : 7;
-        const ringR = opts.dotR != null ? opts.dotR : 7;
         ctx.save();
         ctx.globalAlpha = opts.alpha != null ? opts.alpha : 1;
         ctx.lineCap = 'round';
+        if (opts.fixed) {
+            // Immovable obstacle wall: solid steel bar + square bolts, no gate.
+            ctx.strokeStyle = '#6b7280';
+            ctx.lineWidth = 8;
+            ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
+            ctx.fillStyle = '#aeb6c2';
+            for (const gx of [x0, x1]) ctx.fillRect(gx - 3, y - 3, 6, 6);
+            ctx.restore();
+            return;
+        }
+        const gate = opts.color || RUNG_COLOR;
+        const w = opts.width != null ? opts.width : 7;
+        const ringR = opts.dotR != null ? opts.dotR : 7;
         if (opts.dash) ctx.setLineDash(opts.dash);
         ctx.strokeStyle = RUNG_COLOR;
         ctx.lineWidth = w;
@@ -555,6 +573,7 @@
     function drawRungs() {
         for (let i = 0; i < G.rungs.length; i++) {
             const rg = G.rungs[i];
+            if (rg.fixed) { drawRung(rg.gap, rg.y, { fixed: true }); continue; }
             // The rung being dragged stays put but dims; its ghost shows the target.
             const held = drag && drag.index === i;
             drawRung(rg.gap, rg.y, { color: rg.color, alpha: held ? 0.3 : 1 });
@@ -700,6 +719,7 @@
     function rungIndexAt(x, y) {
         for (let i = G.rungs.length - 1; i >= 0; i--) {
             const rg = G.rungs[i];
+            if (rg.fixed) continue;                       // obstacle rungs can't be picked up
             if (Math.abs(y - rg.y) > CONFIG.rungGrabY) continue;
             if (x >= LANE_X[rg.gap] - 10 && x <= LANE_X[rg.gap + 1] + 10) return i;
         }

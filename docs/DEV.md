@@ -129,7 +129,10 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   the rung band (`POINT_TOP`–`POINT_BOTTOM`).
 - **Colour-gate rungs.** `initRungs` seeds **one rung per colour**
   (`COLOR_SETS[G.colors]`) at random continuous heights, nudged apart by
-  `resolveDropY`. A rung deflects
+  `resolveDropY`; it also scatters `DIFFICULTIES.*.fixedRungs` **immovable
+  obstacle rungs** (`fixed: true`, upper-biased) that deflect **every** colour
+  (crossing skips the colour test for them) and can't be grabbed (`rungIndexAt`
+  ignores them). A gate rung deflects
   every colour EXCEPT its own (a ball passes straight through its own colour's
   rungs), so every rung interacts with almost every ball — managing those side
   effects is the puzzle, and an own-colour rung is a "safe gate". Drawn as a
@@ -141,12 +144,12 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   slides to the nearest free height (or turns red / snaps back if the column is
   full). The held rung keeps steering at its old spot until release
   (`drawDragGhost`).
-- **Baskets** (`makeBaskets`) lay the layout's distinct colours across the
-  lanes (one per lane). A ball's colour (chosen uniformly, differing within a
-  wave) is both its destination (the same-colour basket) and the rung colour
-  that can move it.
-- **Steady wave spawning.** `waveRate()` ramps `freq.start → freq.end` over
-  `freq.tau` (log-paced). A single accumulator (`G.spawnAcc`) fires a wave when
+- **Baskets** (`makeBaskets`) lay the fixed colour set in a **fixed order** (no
+  shuffle, from `COLOR_SETS`), one per lane. A ball's colour (chosen uniformly,
+  differing within a wave) is both its destination (the same-colour basket) and
+  the rung colour that can move it.
+- **Steady wave spawning.** `waveRate()` = `freq.base + freq.k·ln(1 + t/freq.tau)`
+  — unbounded but decelerating. A single accumulator (`G.spawnAcc`) fires a wave when
   it crosses 1 and `CONFIG.waveMinGap` has passed; the rhythm stays even (no
   jitter). `spawnWave` drops one ball, or two (on distinct free lanes) with
   `DIFFICULTIES.*.twoBall` probability — never more than two.
@@ -158,12 +161,14 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   press Start. The difficulty clock (`G.elapsed`) only begins afterwards.
 - **No overlap at spawn.** `laneBlockedAtTop` keeps a lane clear until its top
   ball descends past `CONFIG.laneClearY`; within a two-ball wave `createBall`'s
-  `used` set forces two different colours (so two colours are live at once and
-  two rungs are needed). Balls that still converge into one lane are spread
-  side by side for readability (`drawBalls`).
-- **Difficulty over time** is only the wave rate rising (`timePressure`),
-  approaching `freq.end` but never reaching it. Easy and Normal share one
-  curve; Hard's is slightly higher.
+  `used` set forces two different colours. In a two-ball wave each ball picks a
+  free lane independently, so the pair may coincide (stacked — peel apart with a
+  colour rung) or not; stacked/converged balls are spread side by side for
+  readability (`drawBalls`).
+- **Difficulty over time** is only the wave rate rising, `base + k·ln(1 + t/tau)`:
+  unbounded (never plateaus) but ever gentler, so late game stays fair and good
+  players last long. `tau` drifts the gentle opening. Easy/Normal share a curve;
+  Hard's is a touch lower (its extra colours already carry the load).
 - **Delivery** compares the ball's colour to its final lane's basket:
   correct → fixed score + `+score` floater; wrong → a life lost; zero
   lives ends the run. (No combo system.)

@@ -43,8 +43,8 @@ to steer each ball into the basket of its own colour.
 - **Rung zone**: on each lane the brighter segment (with a cap at the top and
   bottom) marks where rungs live; a rung can sit between any two neighbouring
   lanes, at any height within that band.
-- **Baskets**: one per lane at the bottom, each a **distinct** colour for
-  the run (lanes = colours). Every ball's colour matches one of them.
+- **Baskets**: one per lane at the bottom, each a **distinct** colour in a
+  **fixed order** every run (lanes = colours). Every ball's colour matches one.
 
 ### Rungs
 
@@ -55,6 +55,8 @@ to steer each ball into the basket of its own colour.
   or remove any. Since each rung touches every colour but its own, the whole
   set is always interacting with the falling balls; a ball's own-colour rung is
   a **safe gate** you can use to let it carry on straight.
+- A few **fixed obstacle rungs** (bolted grey) are scattered near the top each
+  run. They **block every colour**, can't be moved, and you route around them.
 - **Pick up / drop**: press and hold a rung (mouse or touch), drag it, and
   release to drop it. You can place it at **any height** — not just on a node.
   While you hold it the rung stays where it was (still steering balls) and a
@@ -86,10 +88,11 @@ balls spawn, and the wave makeup:
 - **Hard**: 5×5. Two-ball waves come **more often**, and the overall spawn rate
   is a little higher.
 
-A wave is never more than **two** balls, and the two take different lanes and
-**different colours** (so you need two different rungs at once). The spawn rate
-**rises steadily over time** toward a cap it approaches but never reaches (a
-log-paced curve); the rhythm itself stays even. Each run opens with a short
+A wave is never more than **two** balls. In a two-ball wave each ball picks a
+lane independently (always different colours), so they sometimes land **stacked
+in one lane** — peel one off with its colour's rung — and sometimes on two. The spawn rate
+**rises over time** on an unbounded, ever-gentler curve — it never plateaus but
+keeps slowing, so the late game stays fair; the rhythm itself stays even. Each run opens with a short
 **3‑2‑1 countdown** over the frozen board, and a ball or two is seeded at the
 top of the ladder, so the first moments aren't a scramble.
 
