@@ -89,7 +89,9 @@
         ballRadius: 15,
         basketGapRatio: 2.5,     // basket width : gap — kept constant across lane counts
         xEase: 30,               // how fast a ball slides across to its lane (high = hugs the rung)
-        ballSpeed: 56,           // constant fall speed — the SAME for every difficulty
+        // Fall speed (px/s), SAME for every difficulty, as a gentle freq-style
+        // curve base + k·ln(1 + t/tau). k = 0 would hold it constant at base.
+        speed: { base: 56, k: 6, tau: 400 },
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
@@ -99,7 +101,8 @@
     };
 
     // Difficulty presets — each has ONE fixed layout (lanes = colours, fixed
-    // colours in fixed order). Every ball falls at CONFIG.ballSpeed. A spawn is
+    // colours in fixed order). Every ball falls at the shared CONFIG.speed
+    // curve (same for all difficulties). A spawn is
     // one ball, or two (with probability `twoBall`) — each ball independently
     // picks a free lane, so a pair may land on the same lane by chance (always
     // different colours, never an unavoidable loss). There is one movable
@@ -221,6 +224,11 @@
         const f = G.diffCfg.freq;
         return f.base + f.k * Math.log(1 + G.elapsed / f.tau);
     }
+    // Fall speed (px/s), same shape as waveRate; shared across difficulties.
+    function ballSpeed() {
+        const s = CONFIG.speed;
+        return s.base + s.k * Math.log(1 + G.elapsed / s.tau);
+    }
     // =================================================================
     // Rungs (fixed set — moved, never added or removed)
     // =================================================================
@@ -270,7 +278,7 @@
         const gaps = AC.rng.shuffle(Array.from({ length: G.lanes - 1 }, (_, i) => i), G.rng);
         const upperY = () => {
             const bell = (G.rng() + G.rng() + G.rng()) / 3;                 // ~bell around 0.5
-            const frac = AC.math.clamp(0.26 + (bell - 0.5) * 0.5, 0.02, 0.98);
+            const frac = AC.math.clamp(0.30 + (bell - 0.5) * 0.5, 0.02, 0.98);
             return RUNG_TOP + frac * (RUNG_BOTTOM - RUNG_TOP);
         };
         for (let i = 0; i < nFixed; i++) placeRungSpread(gaps[i % gaps.length], upperY, { fixed: true });
@@ -358,7 +366,7 @@
     // Opening wave at the top of the ladder (visible on the frozen ready
     // screen) — just a normal wave, so it follows the preset's `twoBall` odds.
     function seedOpeningBalls() {
-        spawnWave(POINT_TOP - CONFIG.ballRadius * 2);
+        spawnWave(POINT_TOP - CONFIG.ballRadius * 4);
     }
 
     function deliver(b) {
@@ -405,10 +413,11 @@
         }
         if (G.spawnAcc > 1.5) G.spawnAcc = 1.5;   // avoid runaway while lanes stay blocked
 
+        const v = ballSpeed();
         for (const b of G.balls) {
             // Advance, crossing any adjacent rungs in height order (rungs can be
             // at staggered heights, so step through them one at a time).
-            const yEnd = b.y + CONFIG.ballSpeed * dt;
+            const yEnd = b.y + v * dt;
             let guard = 0;
             while (guard++ < 16) {
                 let best = -1, bestH = Infinity;
@@ -889,6 +898,7 @@
             't = ' + G.elapsed.toFixed(0) + 's',
             'layout = ' + G.lanes + 'x' + G.colors,
             'rate = ' + (waveRate() * 10).toFixed(1) + ' waves/10s',
+            'speed = ' + ballSpeed().toFixed(1) + ' px/s',
             'twoBall = ' + (G.diffCfg.twoBall || 0),
             'balls = ' + G.balls.length,
         ];
@@ -919,7 +929,7 @@
                     difficulty: G.difficulty, layout: G.lanes + 'x' + G.colors,
                     t: +G.elapsed.toFixed(1), score: G.score, lives: G.lives,
                     balls: G.balls.length, wavesPer10s: +(waveRate() * 10).toFixed(2),
-                    twoBall: G.diffCfg.twoBall || 0,
+                    speed: +ballSpeed().toFixed(1), twoBall: G.diffCfg.twoBall || 0,
                 };
             },
         };
