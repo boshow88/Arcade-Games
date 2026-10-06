@@ -154,8 +154,14 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   it crosses 1 and `CONFIG.waveMinGap` has passed; the rhythm stays even (no
   jitter). `spawnWave` drops one ball, or two (on distinct free lanes) with
   `DIFFICULTIES.*.twoBall` probability — never more than two.
-- **Constant speed.** Every ball falls at `CONFIG.ballSpeed`, the same for all
-  difficulties and unchanging over time.
+- **Fall speed** is `ballSpeed()` = `CONFIG.speed.base + k·ln(1 + t/tau)`
+  (shared across difficulties), computed once per frame and applied to every
+  ball — the whole field accelerates together as it rises.
+- **Rung cooldown.** Moving a rung sets `rg.readyAt = elapsed +
+  cooldownDuration()`, where `cooldownDuration()` = `CONFIG.rungCooldown ×
+  speed(0)/speed(t)` (≈ `rungCooldown` s early, shorter as `ballSpeed` rises, so
+  moves-per-ball-drop stays roughly constant). While cooling, `rungIndexAt`
+  skips it (can't grab) and its end-rings draw as a sweeping recharge arc.
 - **Opening countdown.** `onStart` sets `G.countdown` (`CONFIG.countdownSec`);
   while it ticks down `update` freezes the scene (no spawning or falling) and
   `drawCountdown` paints a 3‑2‑1 overlay, so play doesn't start the instant you

@@ -59,7 +59,7 @@
         lcOverHintHtml: 'Press <kbd>R</kbd> or the button to play again.',
         lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the <strong>same colour</strong> at the bottom.',
         lcHelp2Html: 'Press and hold a <strong>rung</strong> and drop it elsewhere. A rung deflects <strong>every colour except its own</strong> — a ball of the rung\u2019s colour slips straight through.',
-        lcHelp3Html: 'You get <strong>one movable rung per colour</strong> \u2014 drag it anywhere (it nudges aside near others). A few <strong>faint grey</strong> cross-bars are fixed walls that deflect <strong>every</strong> colour; plan around them.',
+        lcHelp3Html: 'You get <strong>one movable rung per colour</strong> \u2014 drag it anywhere (it nudges aside near others). A moved rung briefly <strong>recharges</strong> before it can move again. A few <strong>faint grey</strong> cross-bars are fixed walls that deflect <strong>every</strong> colour; plan around them.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
         lcHelp5Html: 'Balls come more often over time \u2014 the fall speed stays the same throughout. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
@@ -76,7 +76,7 @@
         lcOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部<strong>同色</strong>的籃子。',
         lcHelp2Html: '按住一條<strong>橋</strong>放到別處。橋會攔下<strong>除了自己顏色以外</strong>的球——同色的球會直接穿過。',
-        lcHelp3Html: '每種顏色各有一座可<strong>移動</strong>的橋，隨處拖放（靠近別橋會自動讓開）。另有幾座<strong>淡灰</strong>的固定橫梁，會擋下<strong>所有</strong>顏色，需繞過它們。',
+        lcHelp3Html: '每種顏色各有一座可<strong>移動</strong>的橋，隨處拖放（靠近別橋會自動讓開）；橋移動後會短暫<strong>充能</strong>才能再動。另有幾座<strong>淡灰</strong>的固定橫梁，會擋下<strong>所有</strong>顏色，需繞過它們。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
         lcHelp5Html: '出球會隨時間越來越頻繁 \u2014 球速始終不變。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
@@ -97,6 +97,7 @@
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         countdownSec: 3,         // "get ready" countdown before a run starts
+        rungCooldown: 3,         // sec a just-moved rung stays locked at t=0 (scales as speed(0)/speed(t))
         scorePerCorrect: 100,
     };
 
@@ -228,6 +229,12 @@
     function ballSpeed() {
         const s = CONFIG.speed;
         return s.base + s.k * Math.log(1 + G.elapsed / s.tau);
+    }
+    // How long a just-moved rung stays locked — inversely proportional to the
+    // current fall speed, so it's ~rungCooldown at the start and shrinks as the
+    // balls speed up (keeps "moves per ball-drop distance" roughly constant).
+    function cooldownDuration() {
+        return CONFIG.rungCooldown * CONFIG.speed.base / ballSpeed();
     }
     // =================================================================
     // Rungs (fixed set — moved, never added or removed)
@@ -584,12 +591,21 @@
         ctx.stroke();
         ctx.setLineDash([]);
         if (ringR > 0) {
+            const cool = opts.cool != null ? opts.cool : 1;
             ctx.lineWidth = Math.max(2.5, w * 0.55);
             for (const gx of [x0, x1]) {
                 ctx.fillStyle = HOLE_FILL;                       // punch a hole in the bar
                 ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.fill();
-                ctx.strokeStyle = gate;                          // ring = the colour that passes
-                ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.stroke();
+                if (cool >= 1) {
+                    ctx.strokeStyle = gate;                      // ring = the colour that passes
+                    ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.stroke();
+                } else {
+                    // Recharging: faint full track + a clock arc sweeping to full.
+                    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+                    ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.stroke();
+                    ctx.strokeStyle = gate;
+                    ctx.beginPath(); ctx.arc(gx, y, ringR, -Math.PI / 2, -Math.PI / 2 + PI2 * cool); ctx.stroke();
+                }
             }
         }
         ctx.restore();
@@ -601,7 +617,12 @@
             if (rg.fixed) { drawRung(rg.gap, rg.y, { fixed: true }); continue; }
             // The rung being dragged stays put but dims; its ghost shows the target.
             const held = drag && drag.index === i;
-            drawRung(rg.gap, rg.y, { color: rg.color, alpha: held ? 0.3 : 1 });
+            const cooling = rg.readyAt && G.elapsed < rg.readyAt;
+            const cool = cooling ? 1 - (rg.readyAt - G.elapsed) / rg.coolDur : 1;  // 0→1 as it recharges
+            drawRung(rg.gap, rg.y, {
+                color: rg.color, cool,
+                alpha: held ? 0.3 : (cooling ? 0.5 : 1),
+            });
         }
     }
 
@@ -745,6 +766,7 @@
         for (let i = G.rungs.length - 1; i >= 0; i--) {
             const rg = G.rungs[i];
             if (rg.fixed) continue;                       // obstacle rungs can't be picked up
+            if (rg.readyAt && G.elapsed < rg.readyAt) continue;   // still cooling down
             if (Math.abs(y - rg.y) > CONFIG.rungGrabY) continue;
             if (x >= LANE_X[rg.gap] - 10 && x <= LANE_X[rg.gap + 1] + 10) return i;
         }
@@ -779,6 +801,8 @@
             const rg = G.rungs[drag.index];
             if (rg.gap !== drag.gap || rg.y !== drag.resolvedY) {
                 rg.gap = drag.gap; rg.y = drag.resolvedY;
+                rg.coolDur = cooldownDuration();          // lock it briefly (recharge)
+                rg.readyAt = G.elapsed + rg.coolDur;
                 AC.audio.play('click');
             }
         }
