@@ -169,6 +169,14 @@
     flex: 1 1 auto;
 }
 
+/* The action buttons (Pause / Restart / Sound) stay grouped so they never
+   split across lines mid-group when the row wraps. */
+.control-actions {
+    display: inline-flex;
+    align-items: center;
+    gap: var(--space-sm);
+}
+
 /* Grouped buttons (e.g. a difficulty selector) inside the control row. */
 .seg {
     display: inline-flex;
@@ -426,13 +434,52 @@
    ---------------------------------------------------------------- */
 
 @media (max-width: 560px) {
+    /* Keep every HUD stat on a single row — equal, shrinkable columns — so a
+       long Score/Best value can never push the "Best" pill onto its own line. */
+    .hud {
+        display: grid;
+        grid-auto-flow: column;
+        grid-auto-columns: minmax(0, 1fr);
+        gap: 6px;
+    }
     .hud-stat {
-        min-width: 74px;
-        padding: 6px 10px;
+        min-width: 0;
+        padding: 6px 7px;
+    }
+    .hud-stat .hud-label {
+        font-size: 0.6rem;
+        letter-spacing: 0.03em;
+        gap: 3px;
     }
     .hud-stat .hud-value {
-        font-size: 1.05rem;
+        font-size: 0.95rem;
     }
+    /* Shrink the life pips so five of them fit a narrow column. */
+    #lives { gap: 3px; }
+    .life-pip { width: 9px; height: 9px; }
+
+    /* Stack the controls into two tidy rows (difficulty / actions) instead of
+       letting individual buttons wrap and break a group apart. */
+    .control-row {
+        flex-direction: column;
+        align-items: stretch;
+    }
+    .control-row .spacer {
+        display: none;
+    }
+    .seg {
+        display: grid;
+        grid-template-columns: repeat(3, 1fr);
+        width: 100%;
+    }
+    .control-actions {
+        display: flex;
+        width: 100%;
+    }
+    .control-actions > .btn:not(.btn-icon) {
+        flex: 1 1 0;
+    }
+
     .overlay-title {
         font-size: 1.4rem;
     }
