@@ -91,7 +91,7 @@
         xEase: 30,               // how fast a ball slides across to its lane (high = hugs the rung)
         // Fall speed (px/s), SAME for every difficulty, as a gentle freq-style
         // curve base + k·ln(1 + t/tau). k = 0 would hold it constant at base.
-        speed: { base: 56, k: 6, tau: 400 },
+        speed: { base: 40, k: 40, tau: 2000 },
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
@@ -114,17 +114,17 @@
         easy: {
             lanes: 3, colors: 3, lives: 5, fixedRungs: 2,
             twoBall: 0.00,
-            freq: { base: 0.15, k: 0.40, tau: 2000 },
+            freq: { base: 0.15, k: 0.50, tau: 2000 },
         },
         normal: {
             lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
             twoBall: 0.00,
-            freq: { base: 0.15, k: 0.40, tau: 2000 },
+            freq: { base: 0.15, k: 0.50, tau: 2000 },
         },
         hard: {
             lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
             twoBall: 0.33,
-            freq: { base: 0.15, k: 0.40, tau: 2000 },
+            freq: { base: 0.15, k: 0.50, tau: 2000 },
         },
     };
     const DIFF_ORDER = ['easy', 'normal', 'hard'];
