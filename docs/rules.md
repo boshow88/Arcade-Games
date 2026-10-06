@@ -74,9 +74,13 @@ to steer each ball into the basket of its own colour.
 
 - Steer each falling ball into the basket matching **its colour** for a
   fixed score per correct delivery.
-- A **wrong basket** costs one **life**.
-- The run ends when **lives** reach zero; the score is submitted to the
-  per-difficulty **Best**.
+- A **wrong basket** costs one **life** (shown as **pips**, not a number); the
+  run ends when lives reach zero and the score goes to the per-difficulty
+  **Best**.
+- A **heal ball** (marked `+`, and faster than normal) is a bonus: land it in
+  its matching colour to **regain a life** (max 5). Misplacing or ignoring one
+  costs nothing. A steady share of balls are heal balls, so heal chances scale
+  with how busy it gets.
 
 ### Difficulty
 

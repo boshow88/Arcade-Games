@@ -61,7 +61,8 @@
         lcHelp2Html: 'Press and hold a <strong>rung</strong> and drop it elsewhere. A rung deflects <strong>every colour except its own</strong> — a ball of the rung\u2019s colour slips straight through.',
         lcHelp3Html: 'You get <strong>one movable rung per colour</strong> \u2014 drag it anywhere (it nudges aside near others). A moved rung briefly <strong>recharges</strong> before it can move again. A few <strong>faint grey</strong> cross-bars are fixed walls that deflect <strong>every</strong> colour; plan around them.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
-        lcHelp5Html: 'Balls come more often over time \u2014 the fall speed stays the same throughout. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
+        lcHelp5Html: 'Over time balls come more often and fall a little faster. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
+        lcHelp6Html: 'A ball marked <strong>+</strong> is a fast <strong>heal</strong> ball \u2014 land it in its matching colour to regain a life; missing it costs nothing.',
     });
 
     Object.assign(AC.i18n.STRINGS.zh, {
@@ -78,7 +79,8 @@
         lcHelp2Html: '按住一條<strong>橋</strong>放到別處。橋會攔下<strong>除了自己顏色以外</strong>的球——同色的球會直接穿過。',
         lcHelp3Html: '每種顏色各有一座可<strong>移動</strong>的橋，隨處拖放（靠近別橋會自動讓開）；橋移動後會短暫<strong>充能</strong>才能再動。另有幾座<strong>淡灰</strong>的固定橫梁，會擋下<strong>所有</strong>顏色，需繞過它們。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
-        lcHelp5Html: '出球會隨時間越來越頻繁 \u2014 球速始終不變。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
+        lcHelp5Html: '隨時間出球越來越頻繁、球速也略為變快。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
+        lcHelp6Html: '帶 <strong>+</strong> 記號的是快速的<strong>回血球</strong>\u2014\u2014導進它的同色籃子可回一滴血；沒接到也不會扣血。',
     });
 
     // =================================================================
@@ -100,6 +102,8 @@
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         countdownSec: 3,         // "get ready" countdown before a run starts
         rungCooldown: 3,         // sec a just-moved rung stays locked at t=0 (scales as speed(0)/speed(t))
+        healChance: 0.08,        // fraction of balls that are fast "heal" balls (regain a life)
+        healSpeedMul: 1.6,       // heal balls fall this × the current normal speed (fixed ratio)
         scorePerCorrect: 100,
     };
 
@@ -200,7 +204,7 @@
         difficulty: 'easy',
         diffCfg: null,
         lanes: 3, colors: 3,
-        score: 0, lives: 0, elapsed: 0,
+        score: 0, lives: 0, maxLives: 5, elapsed: 0,
         balls: [], floaters: [],
         rungs: [],           // fixed set of { gap, y } — moved freely, never added/removed
         basketColor: [],
@@ -352,7 +356,8 @@
         if (!pool.length) pool = G.basketColor.slice();
         const color = AC.rng.one(G.rng, pool);
         if (used) used.add(color);
-        G.balls.push({ x: LANE_X[lane], y, lane, color, delivered: false });
+        const heal = G.rng() < CONFIG.healChance;   // fast heal ball (regain a life)
+        G.balls.push({ x: LANE_X[lane], y, lane, color, heal, delivered: false });
     }
 
     // One spawn event: a single ball, or two (on distinct free lanes) with the
@@ -384,9 +389,18 @@
         const ok = (base === b.color);
         if (ok) {
             G.score += CONFIG.scorePerCorrect;
-            spawnFloater(LANE_X[lane], DELIVER_Y - 12, '+' + AC.format.score(CONFIG.scorePerCorrect), b.color);
             flashScore();
-            AC.audio.play('coin');
+            if (b.heal && G.lives < G.maxLives) {       // heal ball → regain a life
+                G.lives++;
+                spawnFloater(LANE_X[lane], DELIVER_Y - 12, '+1\u2665', '#7fe08a');
+                AC.audio.play('levelup');
+            } else {
+                spawnFloater(LANE_X[lane], DELIVER_Y - 12, '+' + AC.format.score(CONFIG.scorePerCorrect),
+                    b.heal ? '#7fe08a' : b.color);
+                AC.audio.play('coin');
+            }
+        } else if (b.heal) {
+            // Missed heal ball — harmless, no life lost.
         } else {
             G.lives--;
             G.shake = Math.max(G.shake, 0.45);
@@ -426,7 +440,7 @@
         for (const b of G.balls) {
             // Advance, crossing any adjacent rungs in height order (rungs can be
             // at staggered heights, so step through them one at a time).
-            const yEnd = b.y + v * dt;
+            const yEnd = b.y + v * (b.heal ? CONFIG.healSpeedMul : 1) * dt;
             let guard = 0;
             while (guard++ < 16) {
                 let best = -1, bestH = Infinity;
@@ -479,9 +493,16 @@
     }
     function updateHud() {
         dom.score.textContent = AC.format.score(G.score);
-        dom.lives.textContent = String(Math.max(0, G.lives));
+        renderLives();
         dom.time.textContent = AC.format.clock(G.elapsed, true);
         livesStat.classList.toggle('danger', G.lives <= 1);
+    }
+    // Lives as pips (easier to read at a glance than a number).
+    function renderLives() {
+        const max = G.maxLives || 5, cur = Math.max(0, G.lives);
+        let html = '';
+        for (let i = 0; i < max; i++) html += '<i class="life-pip' + (i < cur ? '' : ' lost') + '"></i>';
+        dom.lives.innerHTML = html;
     }
     function syncDiffButtons() {
         if (!dom.diffSeg) return;
@@ -661,6 +682,14 @@
     function drawBall(b, dx) {
         const r = CONFIG.ballRadius;
         const cx = b.x + (dx || 0);
+        if (b.heal) {   // motion trail — signals it's a fast ball
+            ctx.fillStyle = b.color;
+            for (let k = 1; k <= 2; k++) {
+                ctx.globalAlpha = 0.28 / k;
+                ctx.beginPath(); ctx.arc(cx, b.y - k * r * 0.95, r * (1 - k * 0.12), 0, PI2); ctx.fill();
+            }
+            ctx.globalAlpha = 1;
+        }
         ctx.save();
         ctx.shadowColor = b.color;
         ctx.shadowBlur = 10;
@@ -675,6 +704,15 @@
         ctx.beginPath();
         ctx.arc(cx, b.y, r, 0, PI2);
         ctx.stroke();
+        if (b.heal) {   // white "+" — signals a heal pickup
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+            ctx.lineWidth = 3; ctx.lineCap = 'round';
+            const s = r * 0.5;
+            ctx.beginPath();
+            ctx.moveTo(cx - s, b.y); ctx.lineTo(cx + s, b.y);
+            ctx.moveTo(cx, b.y - s); ctx.lineTo(cx, b.y + s);
+            ctx.stroke();
+        }
     }
     // Balls that share a lane and overlap vertically are spread side by side so
     // they stay readable (colour-locked rungs let balls pass through and meet).
@@ -861,7 +899,7 @@
         G.diffCfg = DIFFICULTIES[G.difficulty];
         G.lanes = G.diffCfg.lanes;
         G.colors = G.diffCfg.colors;
-        G.lives = G.diffCfg.lives;
+        G.lives = G.maxLives = G.diffCfg.lives;
 
         computeLayout(G.lanes);
         G.basketColor = makeBaskets(G.lanes, G.colors);

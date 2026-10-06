@@ -115,6 +115,21 @@
     line-height: 1.15;
 }
 
+/* Lives shown as pips instead of a number — readable at a glance. */
+#lives { display: inline-flex; gap: 5px; align-items: center; min-height: 1.15em; }
+.life-pip {
+    box-sizing: border-box;
+    width: 12px; height: 12px; border-radius: 50%;
+    background: #ff6b81;
+    box-shadow: 0 0 5px rgba(255, 107, 129, 0.55);
+}
+.life-pip.lost {
+    background: transparent;
+    box-shadow: none;
+    border: 2px solid rgba(255, 255, 255, 0.25);
+}
+.hud-stat.danger #lives .life-pip:not(.lost) { background: var(--accent-danger); box-shadow: none; }
+
 /* Emphasis variants so the important stats pop with the game accent. */
 .hud-stat.accent .hud-value { color: var(--game-color); }
 .hud-stat.danger .hud-value { color: var(--accent-danger); }

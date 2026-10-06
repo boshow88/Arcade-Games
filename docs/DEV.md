@@ -176,9 +176,14 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   unbounded (never plateaus) but ever gentler, so late game stays fair and good
   players last long. `tau` drifts the gentle opening. Easy/Normal share a curve;
   Hard's is a touch lower (its extra colours already carry the load).
-- **Delivery** compares the ball's colour to its final lane's basket:
-  correct → fixed score + `+score` floater; wrong → a life lost; zero
+- **Delivery** compares the ball's colour to its final lane's basket. Correct →
+  score (plus +1 life if it's a heal ball, capped at `G.maxLives`); wrong → a
+  life lost, **except heal balls, which are harmless when misplaced**. Zero
   lives ends the run. (No combo system.)
+- **Heal balls** (`b.heal`, a `CONFIG.healChance` share of balls) fall
+  `CONFIG.healSpeedMul×` the normal speed and draw with a trail + white `+`.
+  The chance is per-ball, so heal opportunities scale with the wave rate.
+- **Lives HUD** renders as pips via `renderLives` (easier to read at a glance).
 
 ## Debug / dev affordances
 
