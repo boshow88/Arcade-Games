@@ -95,6 +95,8 @@
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
+        rungDeadzone: 8,         // min pointer travel in CSS px before a grab counts as a move
+                                 // (anti-jitter; measured in screen px so it's resolution-independent)
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         countdownSec: 3,         // "get ready" countdown before a run starts
         rungCooldown: 3,         // sec a just-moved rung stays locked at t=0 (scales as speed(0)/speed(t))
@@ -630,7 +632,7 @@
     // kept clearly "lighter" than real rungs. It auto-dodges conflicts; if the
     // column has no room it shows red at the clamped desired spot.
     function drawDragGhost() {
-        if (!drag || drag.index == null) return;
+        if (!drag || drag.index == null || !drag.moved) return;
         const ok = drag.resolvedY != null;
         const y = ok ? drag.resolvedY : AC.math.clamp(drag.desiredY, RUNG_TOP, RUNG_BOTTOM);
         const held = G.rungs[drag.index];
@@ -784,20 +786,29 @@
         const idx = rungIndexAt(p.x, p.y);
         if (idx < 0) { drag = null; return; }   // only rungs are grabbable
         const rg = G.rungs[idx];
-        drag = { index: idx, gap: rg.gap, desiredY: rg.y, resolvedY: rg.y };
-        AC.audio.play('grab');
+        drag = {
+            index: idx, gap: rg.gap, desiredY: rg.y, resolvedY: rg.y,
+            sx: e.clientX, sy: e.clientY, moved: false,   // grab point in screen px
+        };
     }
     function onPointerMove(e) {
         if (!drag) return;
         const p = toLogical(e);
+        // Measure travel in screen (CSS) px so the dead-zone is the same real
+        // distance at any canvas size / resolution.
+        if (!drag.moved && Math.hypot(e.clientX - drag.sx, e.clientY - drag.sy) > CONFIG.rungDeadzone) {
+            drag.moved = true;        // a real drag began — tiny jitter never gets here
+            AC.audio.play('grab');
+        }
         drag.gap = nearestGap(p.x);
         drag.desiredY = AC.math.clamp(p.y, RUNG_TOP, RUNG_BOTTOM);
         drag.resolvedY = resolveDropY(drag.gap, drag.desiredY, drag.index);
     }
     function onPointerUp() {
         if (!drag) return;
-        // Commit if there's a dodged spot; otherwise leave the rung where it was.
-        if (drag.resolvedY != null) {
+        // Only a real drag (past the jitter dead-zone) repositions; a tap or
+        // tiny wobble leaves the rung — and its cooldown — untouched.
+        if (drag.moved && drag.resolvedY != null) {
             const rg = G.rungs[drag.index];
             if (rg.gap !== drag.gap || rg.y !== drag.resolvedY) {
                 rg.gap = drag.gap; rg.y = drag.resolvedY;
