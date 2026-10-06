@@ -146,6 +146,8 @@
     const TOP_SPAWN_Y = -30;        // off-screen: balls slide in from above the top edge
     const POINT_TOP = 140;
     const POINT_BOTTOM = 584;
+    const RUNG_TOP = 112;           // placeable-rung band extends a bit above POINT_TOP
+    const RUNG_BOTTOM = 584;        // … down to here
     const DELIVER_Y = 648;
     const LANE_TOP = 0;             // lanes run from the very top of the play area
     const BASKET_TOP = 656;
@@ -229,7 +231,7 @@
     // null if this gap column has no room. `exceptIdx` is the rung being moved.
     function resolveDropY(gap, desiredY, exceptIdx) {
         const SEP = CONFIG.rungMinSep;
-        const yMin = POINT_TOP, yMax = POINT_BOTTOM;
+        const yMin = RUNG_TOP, yMax = RUNG_BOTTOM;
         const want = AC.math.clamp(desiredY, yMin, yMax);
         const obs = [];
         for (let i = 0; i < G.rungs.length; i++) {
@@ -257,34 +259,47 @@
     function initRungs() {
         G.rungs = [];
         const palette = (COLOR_SETS[G.colors] || COLOR_SETS[4]).slice();
+        // Movable colour rungs: one per colour, placed anywhere in the band.
+        const anyY = () => AC.rng.float(G.rng, RUNG_TOP, RUNG_BOTTOM);
         for (const color of palette) {
-            let placed = false;
-            for (let attempt = 0; attempt < 40 && !placed; attempt++) {
-                const gap = AC.rng.int(G.rng, 0, G.lanes - 1);
-                const y = resolveDropY(gap, AC.rng.float(G.rng, POINT_TOP, POINT_BOTTOM), -1);
-                if (y != null) { G.rungs.push({ gap, y, color }); placed = true; }
-            }
-            if (!placed) {   // fallback: scan for any free spot
-                for (let gap = 0; gap < G.lanes - 1 && !placed; gap++) {
-                    for (let yy = POINT_TOP; yy <= POINT_BOTTOM && !placed; yy += CONFIG.rungMinSep) {
-                        const y = resolveDropY(gap, yy, -1);
-                        if (y != null) { G.rungs.push({ gap, y, color }); placed = true; }
-                    }
+            placeRungSpread(AC.rng.int(G.rng, 0, G.lanes - 1), anyY, { color });
+        }
+        // Immovable obstacle rungs: block EVERY colour, can't be picked up.
+        // Upper-biased centre (~26%), one per gap where possible.
+        const nFixed = G.diffCfg.fixedRungs || 0;
+        const gaps = AC.rng.shuffle(Array.from({ length: G.lanes - 1 }, (_, i) => i), G.rng);
+        const upperY = () => {
+            const bell = (G.rng() + G.rng() + G.rng()) / 3;                 // ~bell around 0.5
+            const frac = AC.math.clamp(0.26 + (bell - 0.5) * 0.5, 0.02, 0.98);
+            return RUNG_TOP + frac * (RUNG_BOTTOM - RUNG_TOP);
+        };
+        for (let i = 0; i < nFixed; i++) placeRungSpread(gaps[i % gaps.length], upperY, { fixed: true });
+    }
+
+    // Place one rung in `gap`, biased by sampleY() but with a soft REPULSION:
+    // try several candidates and keep the valid one FARTHEST from any rung that
+    // shares a lane, so rungs don't clump (leaves room to slot a rung between
+    // them) and the opening layout looks evenly scattered. Falls back to a
+    // deterministic scan if the gap has no room.
+    function placeRungSpread(gap, sampleY, extra) {
+        let best = null, bestScore = -1;
+        for (let c = 0; c < 10; c++) {
+            const y = resolveDropY(gap, sampleY(), -1);
+            if (y == null) continue;
+            let near = Infinity;
+            for (const rg of G.rungs) if (Math.abs(rg.gap - gap) <= 1) near = Math.min(near, Math.abs(rg.y - y));
+            if (near > bestScore) { bestScore = near; best = y; }
+        }
+        if (best == null) {   // fallback: any free slot in any gap
+            for (let g = 0; g < G.lanes - 1 && best == null; g++) {
+                for (let yy = RUNG_TOP; yy <= RUNG_BOTTOM && best == null; yy += CONFIG.rungMinSep) {
+                    const y = resolveDropY(g, yy, -1);
+                    if (y != null) { gap = g; best = y; }
                 }
             }
         }
-
-        // Immovable obstacle rungs: block EVERY colour, can't be picked up.
-        // Scattered upper-biased (near the top), one per gap where possible.
-        const nFixed = G.diffCfg.fixedRungs || 0;
-        const gaps = AC.rng.shuffle(Array.from({ length: G.lanes - 1 }, (_, i) => i), G.rng);
-        for (let i = 0; i < nFixed; i++) {
-            const gap = gaps[i % gaps.length];
-            const bell = (G.rng() + G.rng() + G.rng()) / 3;                 // ~bell around 0.5
-            const frac = AC.math.clamp(0.22 + (bell - 0.5) * 0.5, 0.02, 0.98);
-            const y = resolveDropY(gap, POINT_TOP + frac * (POINT_BOTTOM - POINT_TOP), -1);
-            if (y != null) G.rungs.push({ gap, y, fixed: true });
-        }
+        if (best != null) G.rungs.push(Object.assign({ gap, y: best }, extra));
+        return best != null;
     }
 
     // =================================================================
@@ -518,12 +533,12 @@
             ctx.beginPath(); ctx.moveTo(x, LANE_TOP); ctx.lineTo(x, DELIVER_Y); ctx.stroke();
 
             ctx.strokeStyle = 'rgba(255,255,255,0.16)';
-            ctx.beginPath(); ctx.moveTo(x, POINT_TOP); ctx.lineTo(x, POINT_BOTTOM); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x, RUNG_TOP); ctx.lineTo(x, RUNG_BOTTOM); ctx.stroke();
 
             ctx.strokeStyle = 'rgba(255,255,255,0.22)';
             ctx.lineWidth = 2;
-            ctx.beginPath(); ctx.moveTo(x - 5, POINT_TOP); ctx.lineTo(x + 5, POINT_TOP); ctx.stroke();
-            ctx.beginPath(); ctx.moveTo(x - 5, POINT_BOTTOM); ctx.lineTo(x + 5, POINT_BOTTOM); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x - 5, RUNG_TOP); ctx.lineTo(x + 5, RUNG_TOP); ctx.stroke();
+            ctx.beginPath(); ctx.moveTo(x - 5, RUNG_BOTTOM); ctx.lineTo(x + 5, RUNG_BOTTOM); ctx.stroke();
         }
     }
 
@@ -587,7 +602,7 @@
     function drawDragGhost() {
         if (!drag || drag.index == null) return;
         const ok = drag.resolvedY != null;
-        const y = ok ? drag.resolvedY : AC.math.clamp(drag.desiredY, POINT_TOP, POINT_BOTTOM);
+        const y = ok ? drag.resolvedY : AC.math.clamp(drag.desiredY, RUNG_TOP, RUNG_BOTTOM);
         const held = G.rungs[drag.index];
         const color = ok ? ((held && held.color) || '#dfe8ff') : '#ff6b81';
         drawRung(drag.gap, y, { color, alpha: 0.55, width: 4, dotR: 2.5, dash: [3, 9] });
@@ -745,7 +760,7 @@
         if (!drag) return;
         const p = toLogical(e);
         drag.gap = nearestGap(p.x);
-        drag.desiredY = AC.math.clamp(p.y, POINT_TOP, POINT_BOTTOM);
+        drag.desiredY = AC.math.clamp(p.y, RUNG_TOP, RUNG_BOTTOM);
         drag.resolvedY = resolveDropY(drag.gap, drag.desiredY, drag.index);
     }
     function onPointerUp() {

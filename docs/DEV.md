@@ -126,11 +126,12 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   a ball slips straight through rungs of its own colour — easing its `x`
   toward the lane centre (`CONFIG.xEase`) for a diagonal slide.
   Lanes draw a faint full-height rail plus a brighter capped segment marking
-  the rung band (`POINT_TOP`–`POINT_BOTTOM`).
+  the rung band (`RUNG_TOP`–`RUNG_BOTTOM`).
 - **Colour-gate rungs.** `initRungs` seeds **one rung per colour**
-  (`COLOR_SETS[G.colors]`) at random continuous heights, nudged apart by
-  `resolveDropY`; it also scatters `DIFFICULTIES.*.fixedRungs` **immovable
-  obstacle rungs** (`fixed: true`, upper-biased) that deflect **every** colour
+  (`COLOR_SETS[G.colors]`) spread out by `placeRungSpread` (a best-candidate
+  pick that keeps rungs apart via soft repulsion); it also scatters
+  `DIFFICULTIES.*.fixedRungs` **immovable obstacle rungs** (`fixed: true`,
+  upper-biased ~26%) that deflect **every** colour
   (crossing skips the colour test for them) and can't be grabbed (`rungIndexAt`
   ignores them). A gate rung deflects
   every colour EXCEPT its own (a ball passes straight through its own colour's
