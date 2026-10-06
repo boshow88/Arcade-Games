@@ -260,6 +260,10 @@ button {
     width: 1em;
     height: 1em;
     vertical-align: -0.125em;
+    /* A few Lucide glyphs (e.g. `puzzle`) bleed a hair past the 24×24
+       viewBox; inline SVGs clip by default, so opt out to avoid a cropped
+       edge. Glyphs that stay inside the box are unaffected. */
+    overflow: visible;
 }
 
 .game-icon {
