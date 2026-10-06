@@ -55,8 +55,9 @@ to steer each ball into the basket of its own colour.
   or remove any. Since each rung touches every colour but its own, the whole
   set is always interacting with the falling balls; a ball's own-colour rung is
   a **safe gate** you can use to let it carry on straight.
-- A few **fixed obstacle rungs** (bolted grey) are scattered near the top each
-  run. They **block every colour**, can't be moved, and you route around them.
+- A few **fixed obstacle rungs** (thin, muted grey cross-bars) are scattered
+  near the top each run. They **block every colour**, can't be moved, and you
+  route around them.
 - **Pick up / drop**: press and hold a rung (mouse or touch), drag it, and
   release to drop it. You can place it at **any height** — not just on a node.
   While you hold it the rung stays where it was (still steering balls) and a

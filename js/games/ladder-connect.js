@@ -59,7 +59,7 @@
         lcOverHintHtml: 'Press <kbd>R</kbd> or the button to play again.',
         lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Steer each one into the basket of the <strong>same colour</strong> at the bottom.',
         lcHelp2Html: 'Press and hold a <strong>rung</strong> and drop it elsewhere. A rung deflects <strong>every colour except its own</strong> — a ball of the rung\u2019s colour slips straight through.',
-        lcHelp3Html: 'You get <strong>one movable rung per colour</strong> \u2014 drag it anywhere (it nudges aside near others). A few <strong>bolted grey</strong> rungs are fixed walls that deflect <strong>every</strong> colour; plan around them.',
+        lcHelp3Html: 'You get <strong>one movable rung per colour</strong> \u2014 drag it anywhere (it nudges aside near others). A few <strong>faint grey</strong> cross-bars are fixed walls that deflect <strong>every</strong> colour; plan around them.',
         lcHelp4Html: 'Match the colour to score; a wrong basket costs a <strong>life</strong>. Pick a <strong>difficulty</strong> above.',
         lcHelp5Html: 'Balls come more often over time \u2014 the fall speed stays the same throughout. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
@@ -76,7 +76,7 @@
         lcOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進底部<strong>同色</strong>的籃子。',
         lcHelp2Html: '按住一條<strong>橋</strong>放到別處。橋會攔下<strong>除了自己顏色以外</strong>的球——同色的球會直接穿過。',
-        lcHelp3Html: '每種顏色各有一座可<strong>移動</strong>的橋，隨處拖放（靠近別橋會自動讓開）。另有幾座<strong>灰色鉚釘</strong>的固定橋，會擋下<strong>所有</strong>顏色，需繞過它們。',
+        lcHelp3Html: '每種顏色各有一座可<strong>移動</strong>的橋，隨處拖放（靠近別橋會自動讓開）。另有幾座<strong>淡灰</strong>的固定橫梁，會擋下<strong>所有</strong>顏色，需繞過它們。',
         lcHelp4Html: '顏色配對正確會得分；進錯籃子會扣一條<strong>命</strong>。上方可選<strong>難度</strong>。',
         lcHelp5Html: '出球會隨時間越來越頻繁 \u2014 球速始終不變。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
@@ -538,12 +538,13 @@
         ctx.globalAlpha = opts.alpha != null ? opts.alpha : 1;
         ctx.lineCap = 'round';
         if (opts.fixed) {
-            // Immovable obstacle wall: solid steel bar + square bolts, no gate.
-            ctx.strokeStyle = '#6b7280';
-            ctx.lineWidth = 8;
+            // Fixed wall — a thin, muted cross-beam that reads as part of the
+            // ladder (route around it); deliberately low-key vs the colour gates.
+            ctx.strokeStyle = 'rgba(214,220,232,0.30)';
+            ctx.lineWidth = 3;
             ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
-            ctx.fillStyle = '#aeb6c2';
-            for (const gx of [x0, x1]) ctx.fillRect(gx - 3, y - 3, 6, 6);
+            ctx.fillStyle = 'rgba(214,220,232,0.38)';
+            for (const gx of [x0, x1]) { ctx.beginPath(); ctx.arc(gx, y, 2.5, 0, PI2); ctx.fill(); }
             ctx.restore();
             return;
         }
