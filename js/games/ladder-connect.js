@@ -584,28 +584,33 @@
         const gate = opts.color || RUNG_COLOR;
         const w = opts.width != null ? opts.width : 7;
         const ringR = opts.dotR != null ? opts.dotR : 7;
+        const a = opts.alpha != null ? opts.alpha : 1;
+        const cool = opts.cool != null ? opts.cool : 1;
+        const cooling = cool < 1;
+
+        // Neutral bar (dimmer while recharging, so it reads as "locked").
+        ctx.globalAlpha = a * (cooling ? 0.5 : 1);
         if (opts.dash) ctx.setLineDash(opts.dash);
         ctx.strokeStyle = RUNG_COLOR;
         ctx.lineWidth = w;
-        ctx.beginPath();
-        ctx.moveTo(x0, y);
-        ctx.lineTo(x1, y);
-        ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(x0, y); ctx.lineTo(x1, y); ctx.stroke();
         ctx.setLineDash([]);
+
         if (ringR > 0) {
-            const cool = opts.cool != null ? opts.cool : 1;
             ctx.lineWidth = Math.max(2.5, w * 0.55);
             for (const gx of [x0, x1]) {
+                ctx.globalAlpha = a;
                 ctx.fillStyle = HOLE_FILL;                       // punch a hole in the bar
                 ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.fill();
-                if (cool >= 1) {
-                    ctx.strokeStyle = gate;                      // ring = the colour that passes
+                ctx.strokeStyle = gate;                          // ring colour = the colour that passes
+                if (!cooling) {
                     ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.stroke();
                 } else {
-                    // Recharging: faint full track + a clock arc sweeping to full.
-                    ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+                    // Keep the COLOUR readable (a full, faint ring in its own
+                    // colour) and show charge as a bright arc sweeping to full.
+                    ctx.globalAlpha = a * 0.4;
                     ctx.beginPath(); ctx.arc(gx, y, ringR, 0, PI2); ctx.stroke();
-                    ctx.strokeStyle = gate;
+                    ctx.globalAlpha = a;
                     ctx.beginPath(); ctx.arc(gx, y, ringR, -Math.PI / 2, -Math.PI / 2 + PI2 * cool); ctx.stroke();
                 }
             }
@@ -621,10 +626,7 @@
             const held = drag && drag.index === i;
             const cooling = rg.readyAt && G.elapsed < rg.readyAt;
             const cool = cooling ? 1 - (rg.readyAt - G.elapsed) / rg.coolDur : 1;  // 0→1 as it recharges
-            drawRung(rg.gap, rg.y, {
-                color: rg.color, cool,
-                alpha: held ? 0.3 : (cooling ? 0.5 : 1),
-            });
+            drawRung(rg.gap, rg.y, { color: rg.color, cool, alpha: held ? 0.3 : 1 });
         }
     }
 
