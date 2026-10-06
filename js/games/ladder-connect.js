@@ -103,7 +103,7 @@
         countdownSec: 3,         // "get ready" countdown before a run starts
         rungCooldown: 3,         // sec a just-moved rung stays locked at t=0 (scales as speed(0)/speed(t))
         healEveryWaves: 12,      // ~one EXTRA heal ball per this many waves (its rate tracks waveRate)
-        healSpeedMul: 1.6,       // heal balls fall this × the current normal speed (fixed ratio)
+        healSpeedMul: 1.5,       // heal balls fall this × the current normal speed (fixed ratio)
         scorePerCorrect: 100,
     };
 
@@ -134,8 +134,6 @@
             freq: { base: 0.15, k: 0.50, tau: 2000 },
         },
     };
-    const DIFF_ORDER = ['easy', 'normal', 'hard'];
-
     // Fixed colours AND order per colour count — baskets always use these exact
     // colours in this exact left-to-right order (no shuffle), so the board is
     // consistent and learnable.
