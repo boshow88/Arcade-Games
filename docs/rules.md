@@ -77,10 +77,10 @@ to steer each ball into the basket of its own colour.
 - A **wrong basket** costs one **life** (shown as **pips**, not a number); the
   run ends when lives reach zero and the score goes to the per-difficulty
   **Best**.
-- A **heal ball** (marked `+`, and faster than normal) is a bonus: land it in
-  its matching colour to **regain a life** (max 5). Misplacing or ignoring one
-  costs nothing. A steady share of balls are heal balls, so heal chances scale
-  with how busy it gets.
+- A **heal ball** (marked `+`, and faster than normal) is a bonus that arrives
+  **on its own timing** — about one every dozen waves, a bit more often as it
+  gets busier — and never replaces a normal ball. Land it in its matching
+  colour to **regain a life** (max 5); misplacing or ignoring one costs nothing.
 
 ### Difficulty
 

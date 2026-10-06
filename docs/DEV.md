@@ -180,9 +180,10 @@ on its page) and scale the backing store by `devicePixelRatio` in a
   score (plus +1 life if it's a heal ball, capped at `G.maxLives`); wrong → a
   life lost, **except heal balls, which are harmless when misplaced**. Zero
   lives ends the run. (No combo system.)
-- **Heal balls** (`b.heal`, a `CONFIG.healChance` share of balls) fall
-  `CONFIG.healSpeedMul×` the normal speed and draw with a trail + white `+`.
-  The chance is per-ball, so heal opportunities scale with the wave rate.
+- **Heal balls** (`b.heal`) come from a separate accumulator (`spawnHeal`) at
+  `waveRate / CONFIG.healEveryWaves` — EXTRA balls on their own timeline, not
+  part of a wave, so ~1 per `healEveryWaves` waves (scales with the rate). They
+  fall `CONFIG.healSpeedMul×` the normal speed and draw with a trail + white `+`.
 - **Lives HUD** renders as pips via `renderLives` (easier to read at a glance).
 
 ## Debug / dev affordances

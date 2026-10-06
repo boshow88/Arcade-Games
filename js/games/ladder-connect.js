@@ -102,7 +102,7 @@
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         countdownSec: 3,         // "get ready" countdown before a run starts
         rungCooldown: 3,         // sec a just-moved rung stays locked at t=0 (scales as speed(0)/speed(t))
-        healChance: 0.08,        // fraction of balls that are fast "heal" balls (regain a life)
+        healEveryWaves: 12,      // ~one EXTRA heal ball per this many waves (its rate tracks waveRate)
         healSpeedMul: 1.6,       // heal balls fall this × the current normal speed (fixed ratio)
         scorePerCorrect: 100,
     };
@@ -210,6 +210,7 @@
         basketColor: [],
         spawnAcc: 0,         // wave accumulator
         lastWaveT: 0,        // min-gap guard
+        healAcc: 0,          // heal-ball accumulator (independent of waves)
         countdown: 0,        // "get ready" timer at the start of a run
         shake: 0,
         ended: false,
@@ -351,13 +352,22 @@
     // destination (the same-colour basket) and the colour of rung that can
     // steer it. `used` (colours already placed this wave) biases toward a
     // DIFFERENT colour, so a two-ball wave needs two different rungs at once.
-    function createBall(lane, y, used) {
+    function createBall(lane, y, used, heal) {
         let pool = G.basketColor.filter((c) => !used || !used.has(c));
         if (!pool.length) pool = G.basketColor.slice();
         const color = AC.rng.one(G.rng, pool);
         if (used) used.add(color);
-        const heal = G.rng() < CONFIG.healChance;   // fast heal ball (regain a life)
-        G.balls.push({ x: LANE_X[lane], y, lane, color, heal, delivered: false });
+        G.balls.push({ x: LANE_X[lane], y, lane, color, heal: !!heal, delivered: false });
+    }
+
+    // Heal balls spawn on their OWN timeline — an EXTRA ball, not part of a wave
+    // and not aligned to wave instants. False if no lane is free.
+    function spawnHeal() {
+        const free = [];
+        for (let i = 0; i < G.lanes; i++) if (!laneBlockedAtTop(i)) free.push(i);
+        if (!free.length) return false;
+        createBall(AC.rng.one(G.rng, free), TOP_SPAWN_Y, null, true);
+        return true;
     }
 
     // One spawn event: a single ball, or two (on distinct free lanes) with the
@@ -435,6 +445,12 @@
             if (spawnWave()) { G.spawnAcc = 0; G.lastWaveT = G.elapsed; }
         }
         if (G.spawnAcc > 1.5) G.spawnAcc = 1.5;   // avoid runaway while lanes stay blocked
+
+        // Heal balls: EXTRA, on their own clock; the rate tracks waveRate so
+        // there's ~one per CONFIG.healEveryWaves waves (not tied to wave timing).
+        G.healAcc += dt * waveRate() / CONFIG.healEveryWaves;
+        if (G.healAcc >= 1) { if (spawnHeal()) G.healAcc -= 1; }
+        if (G.healAcc > 1.5) G.healAcc = 1.5;
 
         const v = ballSpeed();
         for (const b of G.balls) {
@@ -912,6 +928,7 @@
         G.ended = false;
         drag = null;
         G.spawnAcc = 0;
+        G.healAcc = 0;
         G.lastWaveT = START_T;
         // Opening ball(s) at the top of the ladder, frozen on the ready screen.
         seedOpeningBalls();
