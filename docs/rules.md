@@ -72,8 +72,9 @@ to steer each ball into the basket of its own colour.
 
 ### Goal & scoring
 
-- Steer each falling ball into the basket matching **its colour** for a
-  fixed score per correct delivery.
+- Steer each falling ball into the basket matching **its colour**. Each correct
+  delivery scores **one point** (so the score is simply the number of balls
+  delivered), capped at 999999.
 - A **wrong basket** costs one **life** (shown as **pips**, not a number); the
   run ends when lives reach zero and the score goes to the per-difficulty
   **Best**.

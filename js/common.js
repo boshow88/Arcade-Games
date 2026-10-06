@@ -349,7 +349,7 @@
             puzzleGamesName: 'Puzzle Games',
             puzzleGamesTagline: 'Logic puzzle games.',
             puzzleGamesCardBody:
-                'Another site, a collection of logic puzzles.',
+                'A separate site with logic puzzles.',
             playable: 'Playable',
             tagReflex: 'Reflex',
             tagScore: 'Score chase',

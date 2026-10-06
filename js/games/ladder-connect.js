@@ -104,7 +104,8 @@
         rungCooldown: 3,         // sec a just-moved rung stays locked at t=0 (scales as speed(0)/speed(t))
         healEveryWaves: 12,      // ~one EXTRA heal ball per this many waves (its rate tracks waveRate)
         healSpeedMul: 1.5,       // heal balls fall this × the current normal speed (fixed ratio)
-        scorePerCorrect: 100,
+        scorePerCorrect: 1,      // one point per ball delivered — keeps the number compact
+        scoreCap: 999999,        // hard ceiling so the HUD value never exceeds six digits
     };
 
     // Difficulty presets — each has ONE fixed layout (lanes = colours, fixed
@@ -182,7 +183,6 @@
     const dom = {
         score: document.getElementById('score'),
         lives: document.getElementById('lives'),
-        time: document.getElementById('time'),
         diffSeg: document.getElementById('difficulty-seg'),
     };
     const livesStat = dom.lives.closest('.hud-stat');
@@ -396,7 +396,7 @@
         const base = G.basketColor[lane];
         const ok = (base === b.color);
         if (ok) {
-            G.score += CONFIG.scorePerCorrect;
+            G.score = Math.min(G.score + CONFIG.scorePerCorrect, CONFIG.scoreCap);
             flashScore();
             if (b.heal && G.lives < G.maxLives) {       // heal ball → regain a life
                 G.lives++;
@@ -508,7 +508,6 @@
     function updateHud() {
         dom.score.textContent = AC.format.score(G.score);
         renderLives();
-        dom.time.textContent = AC.format.clock(G.elapsed, true);
         livesStat.classList.toggle('danger', G.lives <= 1);
     }
     // Lives as pips (easier to read at a glance than a number).
