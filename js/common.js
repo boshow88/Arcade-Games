@@ -367,9 +367,9 @@
 
             // Bullet Storm card (omnidirectional bullet-dodge survival)
             dotDodgeName: 'Bullet Storm',
-            dotDodgeTagline: 'Dodge the crossfire, survive.',
+            dotDodgeTagline: 'Dodge the bullets, outlast the storm.',
             dotDodgeCardBody:
-                'Dots pour in from every side — some chase you. Fly your dot with a drag and last as long as you can.',
+                'Bullets pour in from every side, and some track you. Fly your dot, weave through the gaps, and last as long as you can.',
 
         },
         zh: {
@@ -419,9 +419,9 @@
                 '球沿著一排排直線往下掉。移動彩色的橋，把每顆球導進同色的籃子。',
 
             dotDodgeName: '彈幕風暴',
-            dotDodgeTagline: '閃過四面八方，活得越久越好。',
+            dotDodgeTagline: '閃避子彈，撐過風暴。',
             dotDodgeCardBody:
-                '點點從四面八方湧入，有些還會追著你。拖曳操控主角，盡量撐久一點。',
+                '子彈從四面八方湧入，有些還會追蹤你。操控你的主角在縫隙間穿梭，盡量撐久一點。',
         },
     };
 
