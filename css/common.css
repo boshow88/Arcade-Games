@@ -361,6 +361,7 @@ button {
 /* Per-game accent overrides — must match the `--game-color` declared
    in each per-game HTML so the launcher card and game page agree. */
 .game-card.ladder-connect { --game-color: #5ad0e0; }
+.game-card.dot-dodge      { --game-color: #a78bfa; }
 /* Neutral slate so the cross-link to the sister collection reads as a
    "different kind" of card, set apart from the colourful game cards —
    mirroring how Puzzle Games marks its Arcade entry. */

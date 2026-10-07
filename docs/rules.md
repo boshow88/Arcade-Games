@@ -113,3 +113,46 @@ own-colour rung in its path when you need it to pass straight through.
 
 All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
 `js/games/ladder-connect.js`.
+
+---
+
+## Dot Dodge
+
+An omnidirectional **bullet-dodge survival**. Dots stream in from every edge
+of the field; you fly a single dot and avoid them. **One touch ends the run**,
+and your **score is simply how long you last**.
+
+### Bullets
+
+- Dots spawn just outside a **random edge** and cross the field.
+- Most are **straight** shots (soft round dots) fired inward at a random angle.
+- Some are **aimed** (brighter, **arrow-shaped**, warm colour) — fired once
+  toward where you were at that moment, so you can read and sidestep them. The
+  fraction that are aimed rises with difficulty.
+- Collision uses **swept** (continuous) circle tests, so even fast shots can't
+  tunnel through the dot in a single frame.
+- Bullets are **type-driven** (`kind`), so new behaviours (curving shots,
+  lasers, …) can be added for late game / hard mode without touching the rest.
+
+### Controls
+
+- **Relative drag**: press **anywhere** on the board and drag — the dot moves
+  with the pointer's **motion**, not to the pointer. Lift and press again to
+  **re-anchor**, so you can steer a dot in a far corner from a comfortable spot.
+  Desktop and touch behave the same (hold and drag).
+- The dot has a **top speed**, so you can't teleport out of danger — dodging is
+  about reading the field and weaving early.
+
+### Difficulty
+
+Pick **Easy / Normal / Hard** on the game page (each keeps its own Best). Both
+the **spawn rate** and **bullet speed** rise over time on an unbounded,
+ever-gentler log curve (`base + k·ln(1 + t/tau)`), so a run always escalates
+without a sudden cliff. Difficulty changes the base rate/speed, the **aimed**
+fraction, and bullet size (Hard shots are smaller and harder to spot). Each run
+opens with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
+
+### Tuning
+
+All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
+`js/games/dot-dodge.js`.

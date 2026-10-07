@@ -364,6 +364,12 @@
             ladderConnectCardBody:
                 'Balls rain down a ladder of lanes. Move the coloured rungs to steer each one into its matching-colour basket.',
 
+            // Dot Dodge card (omnidirectional bullet-dodge survival)
+            dotDodgeName: 'Dot Dodge',
+            dotDodgeTagline: 'Dodge the crossfire, survive.',
+            dotDodgeCardBody:
+                'Dots pour in from every side — some chase you. Fly your dot with a drag and last as long as you can.',
+
         },
         zh: {
             menu: '選單',
@@ -409,6 +415,11 @@
             ladderConnectTagline: '移動橫線，把球導到對的籃子。',
             ladderConnectCardBody:
                 '球沿著一排排直線往下掉。移動彩色的橋，把每顆球導進同色的籃子。',
+
+            dotDodgeName: '彈幕閃避',
+            dotDodgeTagline: '閃過四面八方，活得越久越好。',
+            dotDodgeCardBody:
+                '點點從四面八方湧入，有些還會追著你。拖曳操控主角，盡量撐久一點。',
         },
     };
 

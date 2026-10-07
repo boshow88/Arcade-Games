@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Dot Dodge · Arcade Games</title>
+    <link rel="icon" type="image/svg+xml" href="../favicon.svg">
+    <link rel="stylesheet" href="../css/common.css">
+    <link rel="stylesheet" href="../css/game.css">
+    <style>
+        body { --game-color: #a78bfa; }
+        /* The board is portrait, so cap and centre the stage. */
+        .stage-wrap { max-width: 480px; margin: 0 auto; }
+    </style>
+</head>
+<body>
+    <div class="game-shell">
+        <header class="game-topbar">
+            <a class="back-link" href="../index.html">
+                <span data-icon="arrow-left" aria-hidden="true"></span>
+                <span data-i18n="menu">Menu</span>
+            </a>
+            <div class="game-title">
+                <span class="game-icon" data-icon="target" aria-hidden="true"></span>
+                <span data-i18n="dotDodgeName">Dot Dodge</span>
+            </div>
+            <div class="lang-toggle" id="lang-toggle" role="radiogroup" data-i18n-aria-label="language">
+                <button type="button" data-lang="en" role="radio" aria-checked="true">EN</button>
+                <button type="button" data-lang="zh" role="radio" aria-checked="false">中</button>
+            </div>
+        </header>
+
+        <div class="hud">
+            <div class="hud-stat accent">
+                <span class="hud-label"><span data-icon="clock" aria-hidden="true"></span><span data-i18n="time">Time</span></span>
+                <span class="hud-value" id="time">0</span>
+            </div>
+            <div class="hud-stat">
+                <span class="hud-label"><span data-icon="trophy" aria-hidden="true"></span><span data-i18n="best">Best</span></span>
+                <span class="hud-value" id="best">0</span>
+            </div>
+        </div>
+
+        <div class="control-row">
+            <div class="seg" id="difficulty-seg" role="radiogroup" data-i18n-aria-label="difficulty">
+                <button type="button" class="btn toggle" data-diff="easy" data-i18n="ddEasy">Easy</button>
+                <button type="button" class="btn toggle" data-diff="normal" data-i18n="ddNormal">Normal</button>
+                <button type="button" class="btn toggle" data-diff="hard" data-i18n="ddHard">Hard</button>
+            </div>
+            <span class="spacer"></span>
+            <div class="control-actions">
+                <button class="btn" id="pause-btn" type="button" disabled>
+                    <span data-icon="pause" aria-hidden="true"></span>
+                    <span data-role="pause-label" data-i18n="pause">Pause</span>
+                </button>
+                <button class="btn" id="restart-btn" type="button" disabled>
+                    <span data-icon="rotate-ccw" aria-hidden="true"></span>
+                    <span data-i18n="restart">Restart</span>
+                </button>
+                <button class="btn btn-icon toggle" id="sound-btn" type="button" aria-pressed="true" data-i18n-title="sound" title="Sound">
+                    <span data-role="sound-icon" aria-hidden="true"></span>
+                </button>
+            </div>
+        </div>
+
+        <div class="stage-wrap">
+            <canvas class="stage-canvas drag-stage" id="stage" width="600" height="760"
+                    role="img" aria-label="Dot Dodge play field"></canvas>
+            <div class="overlay" id="overlay" hidden>
+                <div class="overlay-card">
+                    <span class="overlay-badge" id="overlay-badge" aria-hidden="true"></span>
+                    <h2 class="overlay-title" id="overlay-title"></h2>
+                    <p class="overlay-message" id="overlay-message"></p>
+                    <button class="btn btn-primary overlay-btn" id="overlay-btn" type="button"></button>
+                    <p class="overlay-hint" id="overlay-hint"></p>
+                </div>
+            </div>
+        </div>
+
+        <section class="game-footer">
+            <h4 data-i18n="howToPlay">How to play</h4>
+            <ul>
+                <li data-i18n="ddHelp1Html">Dots pour in from <strong>every edge</strong>. Most fly straight; the brighter, <strong>arrow-shaped</strong> ones are <strong>aimed</strong> at you. A single touch ends the run.</li>
+                <li data-i18n="ddHelp2Html">Hold <strong>anywhere</strong> and drag: your dot moves with the pointer's <strong>motion</strong>, not to the pointer. Lift and press again to <strong>re-anchor</strong> — so you can steer a far-corner dot from a comfy spot.</li>
+                <li data-i18n="ddHelp3Html">Your dot has a <strong>top speed</strong>, so you can't teleport out of danger — read the field and weave early.</li>
+                <li data-i18n="ddHelp4Html">It gets <strong>busier and faster</strong> the longer you last. Your <strong>score is your time</strong>. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.</li>
+            </ul>
+        </section>
+    </div>
+
+    <script src="../js/common.js"></script>
+    <script src="../js/games/dot-dodge.js"></script>
+</body>
+</html>
