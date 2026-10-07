@@ -2,16 +2,16 @@
  * Dot Dodge — an omnidirectional bullet-dodge survival.
  *
  * Dots stream in from every edge of the field. Most fly in a straight line;
- * some (brighter, arrow-shaped) are AIMED at where you were when they spawned.
- * A single touch ends the run — your score is simply how long you last.
+ * some (brighter, arrow-marked) HOME in on you for a moment, then commit to a
+ * straight line and fly off. You have a few lives; your score is how long you last.
  *
  * Control is RELATIVE: press anywhere and drag, and your dot moves by the
  * pointer's *motion* (not to the pointer). Lift and press again to re-anchor,
- * so you can steer a dot in a far corner from a comfortable spot. The dot has
- * a top speed, so you can't teleport out of danger — you have to read the field.
+ * so you can steer a dot in a far corner from a comfortable spot. There is no
+ * speed cap — the dot tracks your drag 1:1, so dodging is pure skill.
  *
- * Difficulty (easy / normal / hard) changes the spawn rate, bullet speed, how
- * many are aimed, and bullet size. Both the spawn rate and bullet speed rise
+ * Difficulty (easy / normal / hard) changes lives, the spawn rate, bullet speed,
+ * how many home, and bullet size. Both the spawn rate and bullet speed rise
  * over time on an unbounded, ever-gentler log curve (base + k·ln(1 + t/tau)),
  * so a run always escalates but never has a sudden cliff.
  *
@@ -49,7 +49,7 @@
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
         ddHelp1Html: 'Dots stream in from <strong>every edge</strong>. Weave through them \u2014 your <strong>score is your survival time</strong>.',
         ddHelp2Html: 'Hold <strong>anywhere</strong> and drag: the dot moves with the pointer\u2019s <strong>motion</strong>, not to it. Lift and press again to <strong>re-anchor</strong>, so you can steer from a comfy spot.',
-        ddHelp3Html: 'Most shots fly <strong>straight</strong>; the <strong>orange, arrow-marked</strong> ones are <strong>aimed</strong> at you. A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
+        ddHelp3Html: 'Most shots fly <strong>straight</strong>; the <strong>orange, arrow-marked</strong> ones <strong>track you</strong> for a moment before flying off. A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
         ddHelp4Html: 'You have a few <strong>lives</strong> \u2014 a hit costs one and briefly makes you <strong>invincible</strong>; at zero the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
@@ -63,7 +63,7 @@
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         ddHelp1Html: '點點從<strong>四面八方</strong>湧入。穿梭閃避——<strong>分數就是你的存活時間</strong>。',
         ddHelp2Html: '在<strong>任意處</strong>按住拖曳：主角跟著指標的<strong>移動量</strong>走，而不是跳到指標位置。放開再按可<strong>重新定錨</strong>，讓你在舒服的位置操控。',
-        ddHelp3Html: '多數子彈<strong>直線</strong>飛行；<strong>橘色、帶箭頭</strong>的會<strong>朝你瞄準</strong>。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
+        ddHelp3Html: '多數子彈<strong>直線</strong>飛行；<strong>橘色、帶箭頭</strong>的會<strong>追蹤你</strong>一小段時間後才飛離。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
         ddHelp4Html: '你有數條<strong>生命</strong>——被擊中會扣一條並短暫<strong>無敵</strong>；歸零就結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
 
@@ -81,7 +81,9 @@
         spawnOverscan: 0.4,     // spawn point runs this × past each corner, so shots can
                                 // enter diagonally and coverage stays even (no calm corners)
         straightSpread: 0.62,   // max angle (rad) a straight shot deviates from straight-in
-        aimedJitter: 0.09,      // small aim error (rad) so aimed shots aren't pixel-perfect
+        homingTurnRate: 1.6,    // rad/s — max steering of a homing bullet (lower = easier to shake)
+        homingTime: 1.8,        // sec it tracks before committing to a straight line (so it always leaves)
+        homingSpeedMul: 0.9,    // homing bullets fly this × normal speed (a touch slower = fairer)
         speedVariance: 0.15,    // ± fraction applied to each bullet's speed
         tau: 25,                // difficulty "drift": larger = gentler early ramp
         countdownSec: 3,        // "get ready" countdown before a run starts
@@ -89,12 +91,12 @@
 
     // Per-difficulty balance. lives = hits you can take (each grants brief
     // invulnerability). rate = bullets/sec, speed = px/sec, each a log curve
-    // base + k·ln(1 + t/tau). aimed = fraction of shots that home on you.
+    // base + k·ln(1 + t/tau). homing = fraction of shots that track you.
     // bulletR = [min, max] radius (hard = smaller, harder to spot).
     const DIFFICULTIES = {
-        easy:   { lives: 5, rate: { base: 1.0, k: 1.2 }, speed: { base: 130, k: 60 }, aimed: 0.10, bulletR: [7, 12] },
-        normal: { lives: 4, rate: { base: 1.4, k: 1.6 }, speed: { base: 150, k: 78 }, aimed: 0.20, bulletR: [6, 11] },
-        hard:   { lives: 3, rate: { base: 1.9, k: 2.0 }, speed: { base: 175, k: 95 }, aimed: 0.33, bulletR: [5, 10] },
+        easy:   { lives: 5, rate: { base: 1.0, k: 1.2 }, speed: { base: 130, k: 60 }, homing: 0.10, bulletR: [7, 12] },
+        normal: { lives: 4, rate: { base: 1.4, k: 1.6 }, speed: { base: 150, k: 78 }, homing: 0.20, bulletR: [6, 11] },
+        hard:   { lives: 3, rate: { base: 1.9, k: 2.0 }, speed: { base: 175, k: 95 }, homing: 0.33, bulletR: [5, 10] },
     };
 
     // =================================================================
@@ -236,13 +238,13 @@
         else if (edge === 2) { x = AC.rng.float(G.rng, -ox, W + ox); y = H + m;   inAng = -Math.PI / 2; }
         else                 { x = -m; y = AC.rng.float(G.rng, -oy, H + oy);      inAng = 0; }
 
-        const speed = bulletSpeed() * (1 + AC.rng.float(G.rng, -CONFIG.speedVariance, CONFIG.speedVariance));
-        const aimed = AC.rng.float(G.rng, 0, 1) < G.diffCfg.aimed;
+        let speed = bulletSpeed() * (1 + AC.rng.float(G.rng, -CONFIG.speedVariance, CONFIG.speedVariance));
+        const homing = AC.rng.float(G.rng, 0, 1) < G.diffCfg.homing;
 
         let ang;
-        if (aimed) {
-            // Fire once toward where the player is right now (not continuous homing).
-            ang = Math.atan2(G.py - y, G.px - x) + AC.rng.float(G.rng, -CONFIG.aimedJitter, CONFIG.aimedJitter);
+        if (homing) {
+            speed *= CONFIG.homingSpeedMul;
+            ang = Math.atan2(G.py - y, G.px - x);   // start heading at you, then keep tracking
         } else {
             ang = inAng + AC.rng.float(G.rng, -CONFIG.straightSpread, CONFIG.straightSpread);
         }
@@ -251,17 +253,36 @@
             x, y, r,
             vx: Math.cos(ang) * speed,
             vy: Math.sin(ang) * speed,
-            kind: aimed ? 'aimed' : 'straight',
+            kind: homing ? 'homing' : 'straight',
+            homing: homing,    // true while still tracking; cleared after homingTime
             age: 0,
         });
     }
 
-    // Per-kind steering, applied BEFORE integration each step. 'straight' and
-    // 'aimed' fly in a line, so this just ages them. New kinds (e.g. a bullet
-    // that curves for a while then straightens, or a charging laser) hook in
-    // here by nudging b.vx / b.vy — keep them leaving the field eventually.
+    // Per-kind steering, applied BEFORE integration each step. 'straight' shots
+    // fly in a line; 'homing' shots track the player (capped turn rate) for a
+    // while, then straighten so they always leave. New kinds (e.g. a charging
+    // laser) hook in here by nudging b.vx / b.vy — keep them leaving eventually.
     function updateBulletKind(b, dt) {
         b.age += dt;
+        if (b.kind === 'homing' && b.homing) {
+            if (b.age >= CONFIG.homingTime) {
+                b.homing = false;   // commit to a straight line so it always leaves the field
+            } else {
+                // Steer toward the player, capped by the turn rate — a sharp juke
+                // can make it overshoot, so it's dodgeable, not a guaranteed hit.
+                const speed = Math.hypot(b.vx, b.vy);
+                const cur = Math.atan2(b.vy, b.vx);
+                let diff = Math.atan2(G.py - b.y, G.px - b.x) - cur;
+                diff = Math.atan2(Math.sin(diff), Math.cos(diff));   // wrap to [-PI, PI]
+                const maxTurn = CONFIG.homingTurnRate * dt;
+                if (diff > maxTurn) diff = maxTurn;
+                else if (diff < -maxTurn) diff = -maxTurn;
+                const ang = cur + diff;
+                b.vx = Math.cos(ang) * speed;
+                b.vy = Math.sin(ang) * speed;
+            }
+        }
     }
 
     function offField(b) {
@@ -372,9 +393,10 @@
     }
 
     function drawBullet(b) {
-        if (b.kind === 'aimed') {
+        if (b.kind === 'homing' && b.homing) {
             // Hitbox = this visible orange circle (radius b.r), exactly like a
-            // straight shot. A white chevron inside marks it AIMED + its heading.
+            // straight shot. The white chevron marks it HOMING + shows its heading.
+            // Once it stops tracking it falls through to the plain look below.
             const ang = Math.atan2(b.vy, b.vx);
             ctx.save();
             ctx.translate(b.x, b.y);
@@ -601,7 +623,7 @@
             'lives = ' + G.lives + '/' + G.maxLives,
             'rate = ' + spawnRate().toFixed(2) + '/s',
             'speed = ' + bulletSpeed().toFixed(0) + ' px/s',
-            'aimed = ' + G.diffCfg.aimed,
+            'homing = ' + G.diffCfg.homing,
             'bullets = ' + G.bullets.length,
         ];
         ctx.save();
@@ -632,7 +654,7 @@
                     difficulty: G.difficulty, t: +G.elapsed.toFixed(1),
                     lives: G.lives, maxLives: G.maxLives,
                     ratePerSec: +spawnRate().toFixed(2), speed: +bulletSpeed().toFixed(0),
-                    aimed: G.diffCfg.aimed, bullets: G.bullets.length,
+                    homing: G.diffCfg.homing, bullets: G.bullets.length,
                 };
             },
         };

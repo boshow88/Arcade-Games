@@ -128,9 +128,10 @@ your **score is simply how long you last**.
   point runs a little **past the corners**, so shots can enter diagonally and
   bullet density stays **even across the whole board** (no calm corners to camp).
 - Most are **straight** shots (soft round dots) fired inward at a random angle.
-- Some are **aimed** — an **orange circle marked with an arrow** — fired once
-  toward where you were at that moment, so you can read and sidestep them. The
-  fraction that are aimed rises with difficulty.
+- Some are **homing** — an **orange circle marked with an arrow** — that
+  **track you**, turning at a capped rate (a sharp juke makes them overshoot).
+  After a moment they **commit to a straight line** and fly off (and revert to
+  the plain look). The fraction that home rises with difficulty.
 - Every hitbox is a **circle you can see**: a bullet's hitbox is its visible
   circle, and your dot's is its **solid disk** (the glow is cosmetic). Collision
   uses **swept** (continuous) tests, so even fast shots — or fast dodges — can't
@@ -160,7 +161,7 @@ Pick **Easy / Normal / Hard** on the game page (each keeps its own Best). Both
 the **spawn rate** and **bullet speed** rise over time on an unbounded,
 ever-gentler log curve (`base + k·ln(1 + t/tau)`), so a run always escalates
 without a sudden cliff. Difficulty changes the starting **lives**, the base
-rate/speed, the **aimed** fraction, and bullet size (Hard shots are smaller and
+rate/speed, the **homing** fraction, and bullet size (Hard shots are smaller and
 harder to spot). Each run
 opens with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 
