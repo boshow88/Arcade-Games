@@ -5,10 +5,11 @@
  * faster, and those marked with an arrow HOME in on you for a while before
  * straightening and flying off. You have a few lives; your score is how long you last.
  *
- * Control is RELATIVE: press anywhere and drag, and your dot moves by the
- * pointer's *motion* (not to the pointer). Lift and press again to re-anchor,
- * so you can steer a dot in a far corner from a comfortable spot. There is no
- * speed cap — the dot tracks your drag 1:1, so dodging is pure skill.
+ * Control depends on device: a MOUSE moves the dot directly (the dot is the
+ * cursor, which is hidden over the board); TOUCH uses a RELATIVE drag you can
+ * start anywhere on the page (the dot moves by your finger's *motion*), so your
+ * hand never hides the board and an off-board start never whiffs. There is no
+ * speed cap — the dot tracks your input 1:1, so dodging is pure skill.
  *
  * Difficulty (easy / normal / hard) changes lives, the spawn rate, bullet speed,
  * how many home, how many are fast, and bullet size. Both the spawn rate and bullet speed rise
@@ -43,12 +44,12 @@
         ddNormal: 'Normal',
         ddHard: 'Hard',
         ddReady: 'Ready',
-        ddIntro: 'Fly your dot through the crossfire and survive. Hold anywhere and drag — you move the pointer, not the dot.',
-        ddStartHintHtml: 'Hold anywhere and drag to move · <kbd>P</kbd> pause',
+        ddIntro: 'Fly your dot through the crossfire and survive. On a mouse the dot follows your cursor; on touch, drag anywhere.',
+        ddStartHintHtml: 'Move the mouse, or drag anywhere · <kbd>P</kbd> pause',
         ddOverMsgHtml: (s) => `You survived <strong>${s}</strong> s.`,
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
         ddHelp1Html: 'Dots stream in from <strong>every edge</strong>. Weave through them \u2014 your <strong>score is your survival time</strong>.',
-        ddHelp2Html: 'Hold <strong>anywhere</strong> and drag: the dot moves with the pointer\u2019s <strong>motion</strong>, not to it. Lift and press again to <strong>re-anchor</strong>, so you can steer from a comfy spot.',
+        ddHelp2Html: 'On a <strong>mouse</strong> the dot simply <strong>follows your cursor</strong>. On <strong>touch</strong>, press <strong>anywhere</strong> and drag \u2014 the dot moves with your finger\u2019s <strong>motion</strong>, so your hand never hides the board (lift and re-press to <strong>re-anchor</strong>).',
         ddHelp3Html: 'Read the bullets: <strong>red</strong> ones are <strong>faster</strong>, and ones marked with an <strong>arrow</strong> <strong>track you</strong> (then straighten and fly off). A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
         ddHelp4Html: 'You have a few <strong>lives</strong> \u2014 a hit costs one and briefly makes you <strong>invincible</strong>; at zero the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
@@ -57,12 +58,12 @@
         ddNormal: '普通',
         ddHard: '困難',
         ddReady: '準備好了',
-        ddIntro: '操控你的主角，在四面八方的彈幕中求生。在任意處按住拖曳——你移動的是指標，不是主角。',
-        ddStartHintHtml: '在任意處按住拖曳移動 · <kbd>P</kbd> 暫停',
+        ddIntro: '操控你的主角，在四面八方的彈幕中求生。滑鼠：主角跟著游標；觸控：在任意處拖曳。',
+        ddStartHintHtml: '移動滑鼠，或在任意處拖曳 · <kbd>P</kbd> 暫停',
         ddOverMsgHtml: (s) => `你撐了 <strong>${s}</strong> 秒。`,
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         ddHelp1Html: '點點從<strong>四面八方</strong>湧入。穿梭閃避——<strong>分數就是你的存活時間</strong>。',
-        ddHelp2Html: '在<strong>任意處</strong>按住拖曳：主角跟著指標的<strong>移動量</strong>走，而不是跳到指標位置。放開再按可<strong>重新定錨</strong>，讓你在舒服的位置操控。',
+        ddHelp2Html: '用<strong>滑鼠</strong>時，主角直接<strong>跟著游標</strong>。用<strong>觸控</strong>時，在<strong>任意處</strong>按住拖曳——主角跟著手指的<strong>移動量</strong>走，手就不會擋到畫面（放開再按可<strong>重新定錨</strong>）。',
         ddHelp3Html: '看懂子彈：<strong>紅色</strong>的<strong>更快</strong>，<strong>帶箭頭</strong>的會<strong>追蹤你</strong>（之後轉直線飛離）。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
         ddHelp4Html: '你有數條<strong>生命</strong>——被擊中會扣一條並短暫<strong>無敵</strong>；歸零就結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
@@ -185,31 +186,68 @@
     // Input — relative drag control (press anchors, motion steers)
     // =================================================================
 
-    function toLogical(e) {
+    function fieldPos(e) {
         const rect = canvas.getBoundingClientRect();
         return {
             x: (e.clientX - rect.left) / rect.width * W,
             y: (e.clientY - rect.top) / rect.height * H,
+            rect,
+        };
+    }
+    function clampField(x, y) {
+        return {
+            x: AC.math.clamp(x, CONFIG.playerRadius, W - CONFIG.playerRadius),
+            y: AC.math.clamp(y, CONFIG.playerRadius, H - CONFIG.playerRadius),
         };
     }
 
+    // Two control schemes, chosen by pointer type:
+    //  · MOUSE (desktop): the dot simply IS the cursor — it tracks the mouse
+    //    whenever it's over (or near) the board, and the OS cursor is hidden. No
+    //    press needed, so you can never "whiff" a tap.
+    //  · TOUCH/PEN: RELATIVE drag you can start ANYWHERE on the page (not just
+    //    the board). The dot moves by your finger's motion, so you can steer from
+    //    off the board (your hand never hides it) and an off-board start never
+    //    whiffs. Lift and press again to re-anchor.
+
     function onPointerDown(e) {
         if (!shell.isPlaying()) return;
+        if (e.target.closest('button, a')) return;    // let the on-screen controls work
         AC.audio.unlock();
-        const p = toLogical(e);
-        // Anchor where you pressed; the dot does NOT jump here. Subsequent
-        // motion is added to the dot's position at press time.
+        if (e.pointerType === 'mouse') return;         // mouse is handled by move-tracking
+        const p = fieldPos(e);
         drag = { ax: p.x, ay: p.y, sx: G.px, sy: G.py };
         G.tx = G.px; G.ty = G.py;
+        if (e.cancelable) e.preventDefault();
     }
     function onPointerMove(e) {
-        if (!drag || !shell.isPlaying()) return;
-        const p = toLogical(e);   // tracked on window, so dragging off-canvas still works
-        G.tx = AC.math.clamp(drag.sx + (p.x - drag.ax), CONFIG.playerRadius, W - CONFIG.playerRadius);
-        G.ty = AC.math.clamp(drag.sy + (p.y - drag.ay), CONFIG.playerRadius, H - CONFIG.playerRadius);
+        if (!shell.isPlaying()) return;
+        const p = fieldPos(e);
+        if (e.pointerType === 'mouse') {
+            // Track only while the cursor is over the board (+ a small margin),
+            // so reaching up for Pause doesn't drag the dot away.
+            const r = p.rect, pad = 60;
+            if (e.clientX >= r.left - pad && e.clientX <= r.right + pad &&
+                e.clientY >= r.top - pad && e.clientY <= r.bottom + pad) {
+                const c = clampField(p.x, p.y);
+                G.tx = c.x; G.ty = c.y;
+            }
+        } else if (drag) {
+            const c = clampField(drag.sx + (p.x - drag.ax), drag.sy + (p.y - drag.ay));
+            G.tx = c.x; G.ty = c.y;
+            if (e.cancelable) e.preventDefault();
+        }
     }
-    function onPointerUp() {
-        drag = null;   // release freezes the target where it is; next press re-anchors
+    function onPointerUp(e) {
+        if (e.pointerType !== 'mouse') drag = null;    // release re-anchors next press
+    }
+
+    // While a run is live: hide the OS cursor over the board (the dot is the
+    // cursor) and lock page scrolling so an off-board touch-drag never scrolls.
+    function setPlayingInput(on) {
+        canvas.style.cursor = on ? 'none' : '';
+        document.body.classList.toggle('dd-playing', on);
+        if (!on) drag = null;
     }
 
     // Ease the dot toward its target, but never faster than the speed cap.
@@ -566,6 +604,7 @@
         G.ended = false;
         G.deadBullet = null;
         drag = null;
+        setPlayingInput(false);           // ready/idle: show cursor, allow page scroll
         updateHud();
         if (shell) shell.refreshBest();   // Best reflects the committed difficulty
         syncDiffButtons();
@@ -587,19 +626,21 @@
             update,
             render,
             reset: resetRun,
-            onStart: () => { G.countdown = CONFIG.countdownSec; },
-            onPause: () => { drag = null; },
-            onResume: () => { drag = null; },
+            onStart: () => { G.countdown = CONFIG.countdownSec; setPlayingInput(true); },
+            onPause: () => { setPlayingInput(false); },
+            onResume: () => { setPlayingInput(true); },
+            onGameOver: () => { setPlayingInput(false); },
             overlayContent,
             restartToReady: true,
         });
 
-        // Press starts on the stage; movement/release track on window so a
-        // drag that strays off the canvas still controls the dot.
-        canvas.addEventListener('pointerdown', onPointerDown);
-        window.addEventListener('pointermove', onPointerMove);
+        // Touch/pen can start a drag ANYWHERE on the page (relative control), so
+        // listen on the document; mouse is tracked by movement over the board.
+        // Move/up/cancel live on window so a drag that strays off-board still works.
+        document.addEventListener('pointerdown', onPointerDown, { passive: false });
+        window.addEventListener('pointermove', onPointerMove, { passive: false });
         window.addEventListener('pointerup', onPointerUp);
-        canvas.addEventListener('pointercancel', () => { drag = null; });
+        window.addEventListener('pointercancel', () => { drag = null; });
 
         if (dom.diffSeg) {
             dom.diffSeg.addEventListener('click', (e) => {

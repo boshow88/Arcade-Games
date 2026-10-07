@@ -144,11 +144,13 @@ your **score is simply how long you last**.
 
 ### Controls
 
-- **Relative drag**: press **anywhere** on the board and drag — the dot moves
-  with the pointer's **motion**, not to the pointer. Lift and press again to
-  **re-anchor**, so you can steer a dot in a far corner from a comfortable spot.
-  Desktop and touch behave the same (hold and drag).
-- There is **no speed cap** — the dot moves 1:1 with your drag, so dodging is
+- **Mouse (desktop)**: the dot **follows the cursor** — it *is* your pointer (the
+  OS cursor is hidden over the board). Nothing to press, so you can never "whiff".
+- **Touch (mobile)**: **relative drag** — press **anywhere on the page** (not just
+  the board) and the dot moves with your finger's **motion**, not to it. Lift and
+  press again to **re-anchor**. Starting off the board means your hand never hides
+  it, and an off-board start never whiffs. (Page scrolling is locked during a run.)
+- There is **no speed cap** — the dot moves 1:1 with your input, so dodging is
   pure skill. The swept collision test keeps this fair: a fast dodge still
   collides if its path crosses a bullet, so you can't phase through them.
 
