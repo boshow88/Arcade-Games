@@ -127,14 +127,12 @@ your **score is simply how long you last**.
 - Dots spawn just outside a **random edge** and cross the field. Their spawn
   point runs a little **past the corners**, so shots can enter diagonally and
   bullet density stays **even across the whole board** (no calm corners to camp).
-- Most are **straight** shots (soft round dots) fired inward at a random angle.
-- **Red** bullets are **fast** (≈1.7× speed) — the base **colour encodes the
-  class**, so you can gauge a bullet's threat at a glance. "Fast" and "homing"
-  combine freely (a red bullet can also carry a tracking arrow).
-- Some are **homing** — a bullet **marked with an arrow** — that **track you**,
-  turning at a capped rate (a sharp juke makes them overshoot). After a while
-  they **commit to a straight line** and fly off; the arrow then disappears, so
-  they look like a plain bullet again. The fraction that home rises with difficulty.
+- Most are **straight** shots (soft round dots) fired inward at a random angle,
+  **at a mix of speeds** (some fast, some slow).
+- Some are **homing**, shown in **red** — they **track you**, turning at a capped
+  rate (a sharp juke makes them overshoot). The red **fades out** as they run
+  down their tracking time; once it turns white they **commit to a straight line**
+  and are just a plain bullet. The fraction that home rises with difficulty.
 - Every hitbox is a **circle you can see**: a bullet's hitbox is its visible
   circle, and your dot's is its **solid disk** (the glow is cosmetic). Collision
   uses **swept** (continuous) tests, so even fast shots — or fast dodges — can't
@@ -146,10 +144,11 @@ your **score is simply how long you last**.
 
 - **Mouse (desktop)**: the dot **follows the cursor** — it *is* your pointer (the
   OS cursor is hidden over the board). Nothing to press, so you can never "whiff".
-- **Touch (mobile)**: **relative drag** — press **anywhere on the page** (not just
-  the board) and the dot moves with your finger's **motion**, not to it. Lift and
-  press again to **re-anchor**. Starting off the board means your hand never hides
-  it, and an off-board start never whiffs. (Page scrolling is locked during a run.)
+- **Touch (mobile)**: **relative drag** — press on the board **or the margin
+  around it** and the dot moves with your finger's **motion**, not to it. Lift and
+  press again to **re-anchor**. Starting in that margin means your hand never hides
+  the board, and a tap just outside it never whiffs. (Only this play zone ignores
+  scroll gestures; the rest of the page scrolls normally.)
 - There is **no speed cap** — the dot moves 1:1 with your input, so dodging is
   pure skill. The swept collision test keeps this fair: a fast dodge still
   collides if its path crosses a bullet, so you can't phase through them.
@@ -166,8 +165,8 @@ Pick **Easy / Normal / Hard** on the game page (each keeps its own Best). Both
 the **spawn rate** and **bullet speed** rise over time on an unbounded,
 ever-gentler log curve (`base + k·ln(1 + t/tau)`), so a run always escalates
 without a sudden cliff. Difficulty changes the starting **lives**, the base
-rate/speed, the **homing** and **fast** fractions, and bullet size (Hard shots
-are smaller and harder to spot). Each run
+rate/speed, the **homing** fraction, and bullet size (Hard shots are smaller and
+harder to spot). Each run
 opens with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 
 ### Tuning

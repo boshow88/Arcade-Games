@@ -1,9 +1,10 @@
 /**
  * Dot Dodge — an omnidirectional bullet-dodge survival.
  *
- * Dots stream in from every edge of the field. Most fly straight; RED ones are
- * faster, and those marked with an arrow HOME in on you for a while before
- * straightening and flying off. You have a few lives; your score is how long you last.
+ * Dots stream in from every edge of the field at a mix of speeds. Most fly
+ * straight; RED ones are HOMING — they track you for a while, the red fading as
+ * they give up, then fly straight on. You have a few lives; your score is how
+ * long you last.
  *
  * Control depends on device: a MOUSE moves the dot directly (the dot is the
  * cursor, which is hidden over the board); TOUCH uses a RELATIVE drag you can
@@ -12,7 +13,7 @@
  * speed cap — the dot tracks your input 1:1, so dodging is pure skill.
  *
  * Difficulty (easy / normal / hard) changes lives, the spawn rate, bullet speed,
- * how many home, how many are fast, and bullet size. Both the spawn rate and bullet speed rise
+ * how many home, and bullet size. Both the spawn rate and bullet speed rise
  * over time on an unbounded, ever-gentler log curve (base + k·ln(1 + t/tau)),
  * so a run always escalates but never has a sudden cliff.
  *
@@ -50,7 +51,7 @@
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
         ddHelp1Html: 'Dots stream in from <strong>every edge</strong>. Weave through them \u2014 your <strong>score is your survival time</strong>.',
         ddHelp2Html: 'On a <strong>mouse</strong> the dot simply <strong>follows your cursor</strong>. On <strong>touch</strong>, press <strong>anywhere</strong> and drag \u2014 the dot moves with your finger\u2019s <strong>motion</strong>, so your hand never hides the board (lift and re-press to <strong>re-anchor</strong>).',
-        ddHelp3Html: 'Read the bullets: <strong>red</strong> ones are <strong>faster</strong>, and ones marked with an <strong>arrow</strong> <strong>track you</strong> (then straighten and fly off). A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
+        ddHelp3Html: '<strong>Red</strong> bullets are <strong>tracking</strong> you; the red <strong>fades</strong> as they give up, turning into a plain bullet that flies straight on. A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
         ddHelp4Html: 'You have a few <strong>lives</strong> \u2014 a hit costs one and briefly makes you <strong>invincible</strong>; at zero the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
@@ -64,7 +65,7 @@
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         ddHelp1Html: '點點從<strong>四面八方</strong>湧入。穿梭閃避——<strong>分數就是你的存活時間</strong>。',
         ddHelp2Html: '用<strong>滑鼠</strong>時，主角直接<strong>跟著游標</strong>。用<strong>觸控</strong>時，在<strong>任意處</strong>按住拖曳——主角跟著手指的<strong>移動量</strong>走，手就不會擋到畫面（放開再按可<strong>重新定錨</strong>）。',
-        ddHelp3Html: '看懂子彈：<strong>紅色</strong>的<strong>更快</strong>，<strong>帶箭頭</strong>的會<strong>追蹤你</strong>（之後轉直線飛離）。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
+        ddHelp3Html: '<strong>紅色</strong>的子彈正在<strong>追蹤你</strong>；紅色會隨著它放棄而<strong>淡出</strong>，變回直線飛行的普通彈。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
         ddHelp4Html: '你有數條<strong>生命</strong>——被擊中會扣一條並短暫<strong>無敵</strong>；歸零就結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
 
@@ -85,20 +86,19 @@
         homingTurnRate: 1.4,    // rad/s — max steering of a homing bullet (lower = easier to shake)
         homingTime: 6.0,        // sec it tracks before committing to a straight line (so it always leaves)
         homingSpeedMul: 0.8,    // homing bullets fly this × normal speed (a touch slower = fairer)
-        fastSpeedMul: 1.7,      // "fast" (red) bullets fly this × normal speed
-        speedVariance: 0.15,    // ± fraction applied to each bullet's speed
+        speedVariance: 0.4,     // ± fraction on each bullet's speed, so shots come fast and slow
         tau: 25,                // difficulty "drift": larger = gentler early ramp
         countdownSec: 3,        // "get ready" countdown before a run starts
     };
 
     // Per-difficulty balance. lives = hits you can take (each grants brief
     // invulnerability). rate = bullets/sec, speed = px/sec, each a log curve
-    // base + k·ln(1 + t/tau). homing = fraction that track you; fast = fraction
-    // that are extra-fast (red). bulletR = [min, max] radius (hard = smaller).
+    // base + k·ln(1 + t/tau). homing = fraction that track you.
+    // bulletR = [min, max] radius (hard = smaller, harder to spot).
     const DIFFICULTIES = {
-        easy:   { lives: 5, rate: { base: 2.0, k: 2.4 }, speed: { base: 130, k: 60 }, homing: 0.03, fast: 0.00, bulletR: [7, 12] },
-        normal: { lives: 4, rate: { base: 2.8, k: 3.2 }, speed: { base: 150, k: 78 }, homing: 0.07, fast: 0.12, bulletR: [6, 11] },
-        hard:   { lives: 3, rate: { base: 3.8, k: 4.0 }, speed: { base: 175, k: 95 }, homing: 0.11, fast: 0.20, bulletR: [5, 10] },
+        easy:   { lives: 5, rate: { base: 2.0, k: 2.4 }, speed: { base: 130, k: 60 }, homing: 0.03, bulletR: [7, 12] },
+        normal: { lives: 4, rate: { base: 2.8, k: 3.2 }, speed: { base: 150, k: 78 }, homing: 0.07, bulletR: [6, 11] },
+        hard:   { lives: 3, rate: { base: 3.8, k: 4.0 }, speed: { base: 175, k: 95 }, homing: 0.11, bulletR: [5, 10] },
     };
 
     // =================================================================
@@ -159,6 +159,7 @@
         }
         return accentCache;
     }
+    function mix(a, b, t) { return Math.round(a + (b - a) * t); }
     function roundRect(x, y, w, h, r) {
         ctx.beginPath();
         ctx.moveTo(x + r, y);
@@ -212,9 +213,10 @@
 
     function onPointerDown(e) {
         if (!shell.isPlaying()) return;
-        if (e.target.closest('button, a')) return;    // let the on-screen controls work
-        AC.audio.unlock();
+        if (e.target.closest('button, a')) return;     // let the on-screen controls work
         if (e.pointerType === 'mouse') return;         // mouse is handled by move-tracking
+        if (!e.target.closest('.stage-pad')) return;   // touch starts a drag only in the play zone
+        AC.audio.unlock();
         const p = fieldPos(e);
         drag = { ax: p.x, ay: p.y, sx: G.px, sy: G.py };
         G.tx = G.px; G.ty = G.py;
@@ -245,8 +247,7 @@
     // While a run is live: hide the OS cursor over the board (the dot is the
     // cursor) and lock page scrolling so an off-board touch-drag never scrolls.
     function setPlayingInput(on) {
-        canvas.style.cursor = on ? 'none' : '';
-        document.body.classList.toggle('dd-playing', on);
+        canvas.style.cursor = on ? 'none' : '';   // desktop: hide the OS cursor; the dot is the pointer
         if (!on) drag = null;
     }
 
@@ -279,8 +280,6 @@
 
         let speed = bulletSpeed() * (1 + AC.rng.float(G.rng, -CONFIG.speedVariance, CONFIG.speedVariance));
         const homing = AC.rng.float(G.rng, 0, 1) < G.diffCfg.homing;
-        const fast = AC.rng.float(G.rng, 0, 1) < G.diffCfg.fast;   // independent of homing (can stack)
-        if (fast) speed *= CONFIG.fastSpeedMul;
 
         let ang;
         if (homing) {
@@ -296,7 +295,6 @@
             vy: Math.sin(ang) * speed,
             kind: homing ? 'homing' : 'straight',
             homing: homing,    // true while still tracking; cleared after homingTime
-            fast: fast,        // red = faster (base colour encodes the class)
             age: 0,
         });
     }
@@ -435,42 +433,24 @@
     }
 
     function drawBullet(b) {
-        // The base circle IS the hitbox (radius b.r). Base COLOUR encodes the
-        // class: red = fast, white = normal speed.
+        // The circle IS the hitbox (radius b.r). A homing bullet is RED and
+        // fades toward plain white as its tracking time runs out — once white it
+        // has given up and is just a normal bullet. All other shots are white.
         ctx.save();
-        if (b.fast) {
-            ctx.shadowColor = 'rgba(255, 77, 87, 0.6)';
-            ctx.shadowBlur = 9;
-            ctx.fillStyle = '#ff4d57';
+        if (b.kind === 'homing' && b.homing) {
+            const t = AC.math.clamp(b.age / CONFIG.homingTime, 0, 1);   // 0 = fresh red → 1 = white
+            ctx.fillStyle = 'rgb(' + mix(255, 226, t) + ',' + mix(77, 232, t) + ',' + mix(87, 240, t) + ')';
+            ctx.shadowColor = 'rgba(255, 77, 87, ' + (0.6 * (1 - t)).toFixed(3) + ')';
+            ctx.shadowBlur = 10;
         } else {
+            ctx.fillStyle = '#e2e8f0';
             ctx.shadowColor = 'rgba(226, 232, 240, 0.5)';
             ctx.shadowBlur = 8;
-            ctx.fillStyle = '#e2e8f0';
         }
         ctx.beginPath();
         ctx.arc(b.x, b.y, b.r, 0, PI2);
         ctx.fill();
         ctx.restore();
-
-        // A dark arrow marks a bullet that is CURRENTLY homing + shows its
-        // heading. When it stops tracking the arrow is gone. It draws over any
-        // base colour, so "fast" and "homing" combine freely.
-        if (b.kind === 'homing' && b.homing) {
-            const ang = Math.atan2(b.vy, b.vx);
-            ctx.save();
-            ctx.translate(b.x, b.y);
-            ctx.rotate(ang);
-            ctx.fillStyle = 'rgba(14, 11, 26, 0.9)';
-            const s = b.r * 0.9;
-            ctx.beginPath();
-            ctx.moveTo(s, 0);
-            ctx.lineTo(-s * 0.55, s * 0.72);
-            ctx.lineTo(-s * 0.12, 0);
-            ctx.lineTo(-s * 0.55, -s * 0.72);
-            ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        }
     }
 
     function drawPlayer() {
@@ -670,7 +650,6 @@
             'rate = ' + spawnRate().toFixed(2) + '/s',
             'speed = ' + bulletSpeed().toFixed(0) + ' px/s',
             'homing = ' + G.diffCfg.homing,
-            'fast = ' + G.diffCfg.fast,
             'bullets = ' + G.bullets.length,
         ];
         ctx.save();
@@ -701,7 +680,7 @@
                     difficulty: G.difficulty, t: +G.elapsed.toFixed(1),
                     lives: G.lives, maxLives: G.maxLives,
                     ratePerSec: +spawnRate().toFixed(2), speed: +bulletSpeed().toFixed(0),
-                    homing: G.diffCfg.homing, fast: G.diffCfg.fast, bullets: G.bullets.length,
+                    homing: G.diffCfg.homing, bullets: G.bullets.length,
                 };
             },
         };
