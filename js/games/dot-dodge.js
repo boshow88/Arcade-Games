@@ -81,9 +81,9 @@
         spawnOverscan: 0.4,     // spawn point runs this × past each corner, so shots can
                                 // enter diagonally and coverage stays even (no calm corners)
         straightSpread: 0.62,   // max angle (rad) a straight shot deviates from straight-in
-        homingTurnRate: 1.6,    // rad/s — max steering of a homing bullet (lower = easier to shake)
-        homingTime: 5.0,        // sec it tracks before committing to a straight line (so it always leaves)
-        homingSpeedMul: 0.9,    // homing bullets fly this × normal speed (a touch slower = fairer)
+        homingTurnRate: 1.4,    // rad/s — max steering of a homing bullet (lower = easier to shake)
+        homingTime: 6.0,        // sec it tracks before committing to a straight line (so it always leaves)
+        homingSpeedMul: 0.8,    // homing bullets fly this × normal speed (a touch slower = fairer)
         fastSpeedMul: 1.7,      // "fast" (red) bullets fly this × normal speed
         speedVariance: 0.15,    // ± fraction applied to each bullet's speed
         tau: 25,                // difficulty "drift": larger = gentler early ramp
@@ -95,9 +95,9 @@
     // base + k·ln(1 + t/tau). homing = fraction that track you; fast = fraction
     // that are extra-fast (red). bulletR = [min, max] radius (hard = smaller).
     const DIFFICULTIES = {
-        easy:   { lives: 5, rate: { base: 2.0, k: 2.4 }, speed: { base: 130, k: 60 }, homing: 0.10, fast: 0.00, bulletR: [7, 12] },
-        normal: { lives: 4, rate: { base: 2.8, k: 3.2 }, speed: { base: 150, k: 78 }, homing: 0.20, fast: 0.12, bulletR: [6, 11] },
-        hard:   { lives: 3, rate: { base: 3.8, k: 4.0 }, speed: { base: 175, k: 95 }, homing: 0.33, fast: 0.20, bulletR: [5, 10] },
+        easy:   { lives: 5, rate: { base: 2.0, k: 2.4 }, speed: { base: 130, k: 60 }, homing: 0.03, fast: 0.00, bulletR: [7, 12] },
+        normal: { lives: 4, rate: { base: 2.8, k: 3.2 }, speed: { base: 150, k: 78 }, homing: 0.07, fast: 0.12, bulletR: [6, 11] },
+        hard:   { lives: 3, rate: { base: 3.8, k: 4.0 }, speed: { base: 175, k: 95 }, homing: 0.11, fast: 0.20, bulletR: [5, 10] },
     };
 
     // =================================================================
