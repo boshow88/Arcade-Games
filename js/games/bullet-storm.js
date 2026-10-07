@@ -51,22 +51,20 @@
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
         ddHelp1Html: 'Bullets stream in from <strong>every edge</strong>. Weave your dot through the gaps \u2014 your <strong>score is how long you survive</strong>.',
         ddHelp2Html: 'On a <strong>mouse</strong>, the dot follows your <strong>cursor</strong>. On <strong>touch</strong>, drag <strong>anywhere</strong> and it moves with your finger \u2014 lift and re-press to <strong>re-anchor</strong>, so your hand never covers the board.',
-        ddHelp3Html: 'The <strong>red</strong> bullets <strong>track you</strong> for a moment, then fade and carry straight on. A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
-        ddHelp4Html: 'A hit costs a <strong>life</strong> and leaves you briefly <strong>invincible</strong>; at zero lives the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
+        ddHelp3Html: 'A hit costs a <strong>life</strong>; at zero lives the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
         ddEasy: '簡單',
         ddNormal: '普通',
         ddHard: '困難',
         ddReady: '準備好了',
-        ddIntro: '子彈從四面八方湧入，紅色的還會追蹤你。操控主角在縫隙間穿梭，盡量撐久求生。',
+        ddIntro: '子彈從四面八方湧入，紅色的還會追蹤你。在縫隙間穿梭閃避，盡量撐久求生。',
         ddStartHintHtml: '滑鼠移動、觸控任意處拖曳 · <kbd>P</kbd> 暫停',
         ddOverMsgHtml: (s) => `你撐了 <strong>${s}</strong> 秒。`,
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
-        ddHelp1Html: '子彈從<strong>四面八方</strong>湧入。操控主角在縫隙間穿梭——<strong>分數就是你的存活時間</strong>。',
-        ddHelp2Html: '用<strong>滑鼠</strong>時，主角跟著<strong>游標</strong>走；用<strong>觸控</strong>時，在<strong>任意處</strong>拖曳，主角便跟著手指移動——放開再按可<strong>重新定錨</strong>，手就不會擋到畫面。',
-        ddHelp3Html: '<strong>紅色</strong>的子彈會<strong>追蹤你</strong>一陣子，之後淡出、轉為直線飛離。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
-        ddHelp4Html: '被擊中扣一條<strong>命</strong>並短暫<strong>無敵</strong>；命歸零即結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
+        ddHelp1Html: '子彈從<strong>四面八方</strong>湧入。在縫隙間穿梭閃避——<strong>分數就是你的存活時間</strong>。',
+        ddHelp2Html: '用<strong>滑鼠</strong>時直接<strong>跟著游標</strong>移動；用<strong>觸控</strong>時在<strong>任意處</strong>拖曳，放開再按可<strong>重新定錨</strong>，手就不會擋到畫面。',
+        ddHelp3Html: '被擊中扣一條<strong>命</strong>；命歸零即結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
 
     // =================================================================
