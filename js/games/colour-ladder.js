@@ -8,17 +8,14 @@
  * ball in the basket of its own colour to score; a wrong basket costs a life.
  * Lives at zero ends the run.
  *
- * Difficulty is a named preset (easy / normal / hard) with a FIXED layout:
- * easy 3×3, normal 4×4, hard 5×5 (lanes × colours). Every ball falls at the
- * SAME constant speed; difficulty comes from lane count, how often balls
- * spawn, and the wave makeup:
- *   - easy:   waves of a single ball.
- *   - normal: same spawn-rate curve as easy, but a wave is occasionally two
- *             balls (different colours).
- *   - hard:   two-ball waves more often and a slightly higher spawn rate.
- * The spawn rate rises over time on an unbounded, ever-gentler log curve
- * (base + k·ln(1 + t/tau)) — it never plateaus but keeps slowing; the rhythm
- * itself stays even.
+ * Difficulty is a named preset (easy / normal / hard). Layout: easy 3×3,
+ * normal & hard 4×4 (lanes × colours); hard also mixes in frequent two-ball
+ * waves (different colours). Both the wave rate AND the fall speed rise over
+ * time on an unbounded, ever-gentler log curve (base + k·ln(1 + t/tau)), and
+ * each difficulty sets its own base/k. To trade routing complexity against
+ * pace, the simpler layout runs busier: easy has the highest wave rate and
+ * fall speed, hard the lowest. A just-moved rung's recharge shortens as the
+ * wave rate climbs, so the late game never outruns it.
  *
  * Rungs: one per colour, a fixed set. Each rung deflects every colour EXCEPT
  * its own — a ball of the rung's colour passes straight through — so a rung is
@@ -91,9 +88,6 @@
         ballRadius: 15,
         basketGapRatio: 2.5,     // basket width : gap — kept constant across lane counts
         xEase: 30,               // how fast a ball slides across to its lane (high = hugs the rung)
-        // Fall speed (px/s), SAME for every difficulty, as a gentle freq-style
-        // curve base + k·ln(1 + t/tau). k = 0 would hold it constant at base.
-        speed: { base: 40, k: 40, tau: 2000 },
         waveMinGap: 0.3,         // never spawn two waves closer than this (seconds)
         laneClearY: 36,          // don't spawn into a lane whose top ball is still above this
         rungGrabY: 16,           // vertical pick-up tolerance for a rung (px)
@@ -101,7 +95,7 @@
                                  // (anti-jitter; measured in screen px so it's resolution-independent)
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         countdownSec: 3,         // "get ready" countdown before a run starts
-        rungCooldown: 3,         // sec a just-moved rung stays locked at t=0 (scales as speed(0)/speed(t))
+        rungCooldown: 3.6,       // sec a just-moved rung stays locked at t=0 (shrinks as the wave rate climbs)
         healEveryWaves: 12,      // ~one EXTRA heal ball per this many waves (its rate tracks waveRate)
         healSpeedMul: 1.5,       // heal balls fall this × the current normal speed (fixed ratio)
         scorePerCorrect: 1,      // one point per ball delivered — keeps the number compact
@@ -109,30 +103,33 @@
     };
 
     // Difficulty presets — each has ONE fixed layout (lanes = colours, fixed
-    // colours in fixed order). Every ball falls at the shared CONFIG.speed
-    // curve (same for all difficulties). A spawn is
+    // colours in fixed order). A spawn is
     // one ball, or two (with probability `twoBall`) — each ball independently
     // picks a free lane, so a pair may land on the same lane by chance (always
     // different colours, never an unavoidable loss). There is one movable
     // colour-locked rung per colour,
     // plus `fixedRungs` immovable obstacle rungs that block EVERY colour.
-    // `freq` is the wave rate (waves/sec) = base + k·ln(1 + t/tau):
-    //   base = starting rate · k = overall steepness · tau = start "drift".
+    // `freq` (wave rate, waves/sec) and `speed` (fall speed, px/s) are each
+    // base + k·ln(1 + t/tau): base = start value · k = steepness · tau = drift.
+    // Simpler layouts run busier, so easy has the highest freq & speed.
     const DIFFICULTIES = {
         easy: {
             lanes: 3, colors: 3, lives: 5, fixedRungs: 2,
             twoBall: 0.00,
-            freq: { base: 0.15, k: 0.50, tau: 2000 },
+            freq:  { base: 0.25, k: 0.83, tau: 2000 },
+            speed: { base: 67, k: 67, tau: 2000 },
         },
         normal: {
             lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
             twoBall: 0.00,
-            freq: { base: 0.15, k: 0.50, tau: 2000 },
+            freq:  { base: 0.20, k: 0.66, tau: 2000 },
+            speed: { base: 53, k: 53, tau: 2000 },
         },
         hard: {
             lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
             twoBall: 0.33,
-            freq: { base: 0.15, k: 0.50, tau: 2000 },
+            freq:  { base: 0.15, k: 0.50, tau: 2000 },
+            speed: { base: 40, k: 40, tau: 2000 },
         },
     };
     // Fixed colours AND order per colour count — baskets always use these exact
@@ -230,16 +227,17 @@
         const f = G.diffCfg.freq;
         return f.base + f.k * Math.log(1 + G.elapsed / f.tau);
     }
-    // Fall speed (px/s), same shape as waveRate; shared across difficulties.
+    // Fall speed (px/s), same log shape as waveRate; per-difficulty.
     function ballSpeed() {
-        const s = CONFIG.speed;
+        const s = G.diffCfg.speed;
         return s.base + s.k * Math.log(1 + G.elapsed / s.tau);
     }
     // How long a just-moved rung stays locked — inversely proportional to the
-    // current fall speed, so it's ~rungCooldown at the start and shrinks as the
-    // balls speed up (keeps "moves per ball-drop distance" roughly constant).
+    // current WAVE RATE, so it's ~rungCooldown at the start and shrinks as the
+    // game gets busier (keeps "rung-moves per wave" roughly constant, so the
+    // late game never outruns the cooldown).
     function cooldownDuration() {
-        return CONFIG.rungCooldown * CONFIG.speed.base / ballSpeed();
+        return CONFIG.rungCooldown * G.diffCfg.freq.base / waveRate();
     }
     // =================================================================
     // Rungs (fixed set — moved, never added or removed)
@@ -334,7 +332,7 @@
     }
 
     // =================================================================
-    // Balls — steady waves of one or two (same constant speed)
+    // Balls — steady waves of one or two (fall speed rises over time)
     // =================================================================
 
     // A lane is "blocked" for spawning while it still has a ball near the top,
