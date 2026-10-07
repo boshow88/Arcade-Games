@@ -128,6 +128,9 @@ your **score is simply how long you last**.
   point runs a little **past the corners**, so shots can enter diagonally and
   bullet density stays **even across the whole board** (no calm corners to camp).
 - Most are **straight** shots (soft round dots) fired inward at a random angle.
+- **Red** bullets are **fast** (≈1.7× speed) — the base **colour encodes the
+  class**, so you can gauge a bullet's threat at a glance. "Fast" and "homing"
+  combine freely (a red bullet can also carry a tracking arrow).
 - Some are **homing** — a bullet **marked with an arrow** — that **track you**,
   turning at a capped rate (a sharp juke makes them overshoot). After a while
   they **commit to a straight line** and fly off; the arrow then disappears, so
@@ -161,8 +164,8 @@ Pick **Easy / Normal / Hard** on the game page (each keeps its own Best). Both
 the **spawn rate** and **bullet speed** rise over time on an unbounded,
 ever-gentler log curve (`base + k·ln(1 + t/tau)`), so a run always escalates
 without a sudden cliff. Difficulty changes the starting **lives**, the base
-rate/speed, the **homing** fraction, and bullet size (Hard shots are smaller and
-harder to spot). Each run
+rate/speed, the **homing** and **fast** fractions, and bullet size (Hard shots
+are smaller and harder to spot). Each run
 opens with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 
 ### Tuning
