@@ -45,12 +45,12 @@
         ddNormal: 'Normal',
         ddHard: 'Hard',
         ddReady: 'Ready',
-        ddIntro: 'Bullets stream in from every edge, and the red ones track you. Weave your dot through the gaps and survive as long as you can.',
+        ddIntro: 'Bullets stream in from every edge, and the red ones track you. Weave your dot through the gaps and last as long as you can.',
         ddStartHintHtml: 'Mouse moves the dot · touch drags anywhere · <kbd>P</kbd> pause',
         ddOverMsgHtml: (s) => `You survived <strong>${s}</strong> s.`,
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
         ddHelp1Html: 'Bullets stream in from <strong>every edge</strong>. Weave your dot through the gaps \u2014 your <strong>score is how long you survive</strong>.',
-        ddHelp2Html: 'On a <strong>mouse</strong>, the dot follows your <strong>cursor</strong>. On <strong>touch</strong>, drag <strong>anywhere</strong> and it moves with your finger \u2014 lift and re-press to <strong>re-anchor</strong>, so your hand never covers the board.',
+        ddHelp2Html: 'On a <strong>mouse</strong>, the dot follows your <strong>cursor</strong>. On <strong>touch</strong>, drag <strong>anywhere</strong> \u2014 lift and re-press to <strong>re-anchor</strong>.',
         ddHelp3Html: 'A hit costs a <strong>life</strong>; at zero lives the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
@@ -58,12 +58,12 @@
         ddNormal: '普通',
         ddHard: '困難',
         ddReady: '準備好了',
-        ddIntro: '子彈從四面八方湧入，紅色的還會追蹤你。在縫隙間穿梭閃避，盡量撐久求生。',
+        ddIntro: '子彈從四面八方湧入，紅色的還會追蹤你。在縫隙間穿梭閃避，盡量撐久一點。',
         ddStartHintHtml: '滑鼠移動、觸控任意處拖曳 · <kbd>P</kbd> 暫停',
         ddOverMsgHtml: (s) => `你撐了 <strong>${s}</strong> 秒。`,
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         ddHelp1Html: '子彈從<strong>四面八方</strong>湧入。在縫隙間穿梭閃避——<strong>分數就是你的存活時間</strong>。',
-        ddHelp2Html: '用<strong>滑鼠</strong>時直接<strong>跟著游標</strong>移動；用<strong>觸控</strong>時在<strong>任意處</strong>拖曳，放開再按可<strong>重新定錨</strong>，手就不會擋到畫面。',
+        ddHelp2Html: '用<strong>滑鼠</strong>時直接<strong>跟著游標</strong>；用<strong>觸控</strong>時在<strong>任意處</strong>拖曳，放開再按可<strong>重新定錨</strong>。',
         ddHelp3Html: '被擊中扣一條<strong>命</strong>；命歸零即結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
 

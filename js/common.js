@@ -369,7 +369,7 @@
             dotDodgeName: 'Bullet Storm',
             dotDodgeTagline: 'Dodge the bullets, outlast the storm.',
             dotDodgeCardBody:
-                'Bullets pour in from every side, and some track you. Fly your dot, weave through the gaps, and last as long as you can.',
+                'Bullets pour in from every side. Fly your dot, weave through the gaps, and last as long as you can.',
 
         },
         zh: {
@@ -421,7 +421,7 @@
             dotDodgeName: '彈幕風暴',
             dotDodgeTagline: '閃避子彈，撐過風暴。',
             dotDodgeCardBody:
-                '子彈從四面八方湧入，有些還會追蹤你。在縫隙間穿梭閃避，盡量撐久一點。',
+                '子彈從四面八方湧入。在縫隙間穿梭閃避，盡量撐久一點。',
         },
     };
 
