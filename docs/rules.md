@@ -130,9 +130,9 @@ your **score is simply how long you last**.
 - Most are **straight** shots (soft round dots) fired inward at a random angle,
   **at a mix of speeds** (some fast, some slow).
 - Some are **homing**, shown in **red** — they **track you**, turning at a capped
-  rate (a sharp juke makes them overshoot). The red **fades out** as they run
-  down their tracking time; once it turns white they **commit to a straight line**
-  and are just a plain bullet. The fraction that home rises with difficulty.
+  rate (a sharp juke makes them overshoot). The red stays solid while tracking,
+  then **fades to white near the end**; once white they **commit to a straight
+  line** and are just a plain bullet. The fraction that home rises with difficulty.
 - Every hitbox is a **circle you can see**: a bullet's hitbox is its visible
   circle, and your dot's is its **solid disk** (the glow is cosmetic). Collision
   uses **swept** (continuous) tests, so even fast shots — or fast dodges — can't

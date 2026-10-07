@@ -86,6 +86,7 @@
         homingTurnRate: 1.4,    // rad/s — max steering of a homing bullet (lower = easier to shake)
         homingTime: 6.0,        // sec it tracks before committing to a straight line (so it always leaves)
         homingSpeedMul: 0.8,    // homing bullets fly this × normal speed (a touch slower = fairer)
+        homingFadeFrac: 0.2,    // red stays solid while tracking, then fades to white over this final fraction
         speedVariance: 0.4,     // ± fraction on each bullet's speed, so shots come fast and slow
         tau: 25,                // difficulty "drift": larger = gentler early ramp
         countdownSec: 3,        // "get ready" countdown before a run starts
@@ -96,9 +97,9 @@
     // base + k·ln(1 + t/tau). homing = fraction that track you.
     // bulletR = [min, max] radius (hard = smaller, harder to spot).
     const DIFFICULTIES = {
-        easy:   { lives: 5, rate: { base: 2.0, k: 2.4 }, speed: { base: 130, k: 60 }, homing: 0.03, bulletR: [7, 12] },
-        normal: { lives: 4, rate: { base: 2.8, k: 3.2 }, speed: { base: 150, k: 78 }, homing: 0.07, bulletR: [6, 11] },
-        hard:   { lives: 3, rate: { base: 3.8, k: 4.0 }, speed: { base: 175, k: 95 }, homing: 0.11, bulletR: [5, 10] },
+        easy:   { lives: 5, rate: { base: 4.0, k: 4.8 }, speed: { base: 104, k: 48 }, homing: 0.03, bulletR: [7, 12] },
+        normal: { lives: 4, rate: { base: 5.6, k: 6.4 }, speed: { base: 120, k: 62 }, homing: 0.07, bulletR: [6, 11] },
+        hard:   { lives: 3, rate: { base: 7.6, k: 8.0 }, speed: { base: 140, k: 76 }, homing: 0.11, bulletR: [5, 10] },
     };
 
     // =================================================================
@@ -438,9 +439,12 @@
         // has given up and is just a normal bullet. All other shots are white.
         ctx.save();
         if (b.kind === 'homing' && b.homing) {
-            const t = AC.math.clamp(b.age / CONFIG.homingTime, 0, 1);   // 0 = fresh red → 1 = white
-            ctx.fillStyle = 'rgb(' + mix(255, 226, t) + ',' + mix(77, 232, t) + ',' + mix(87, 240, t) + ')';
-            ctx.shadowColor = 'rgba(255, 77, 87, ' + (0.6 * (1 - t)).toFixed(3) + ')';
+            // Stay solid red while tracking, then fade red→white only over the
+            // final homingFadeFrac (a field of half-faded dots looked messy).
+            const prog = AC.math.clamp(b.age / CONFIG.homingTime, 0, 1);
+            const f = AC.math.clamp((prog - (1 - CONFIG.homingFadeFrac)) / CONFIG.homingFadeFrac, 0, 1);
+            ctx.fillStyle = 'rgb(' + mix(255, 226, f) + ',' + mix(77, 232, f) + ',' + mix(87, 240, f) + ')';
+            ctx.shadowColor = 'rgba(255, 77, 87, ' + (0.6 * (1 - f)).toFixed(3) + ')';
             ctx.shadowBlur = 10;
         } else {
             ctx.fillStyle = '#e2e8f0';
