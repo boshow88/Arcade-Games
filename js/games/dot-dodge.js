@@ -78,6 +78,8 @@
         playerMaxSpeed: 0,      // px/s cap on the dot's speed; 0 = unlimited (pure 1:1 control)
         invulnSec: 1.2,         // brief invulnerability after a hit (one cluster ≠ instant wipe)
         spawnMargin: 26,        // bullets appear this far outside the field edge
+        spawnOverscan: 0.4,     // spawn point runs this × past each corner, so shots can
+                                // enter diagonally and coverage stays even (no calm corners)
         straightSpread: 0.62,   // max angle (rad) a straight shot deviates from straight-in
         aimedJitter: 0.09,      // small aim error (rad) so aimed shots aren't pixel-perfect
         speedVariance: 0.15,    // ± fraction applied to each bullet's speed
@@ -226,12 +228,13 @@
     function spawnBullet() {
         const r = AC.rng.float(G.rng, G.diffCfg.bulletR[0], G.diffCfg.bulletR[1]);
         const m = CONFIG.spawnMargin + r;
+        const ox = W * CONFIG.spawnOverscan, oy = H * CONFIG.spawnOverscan;
         const edge = AC.rng.int(G.rng, 0, 4);   // 0 top · 1 right · 2 bottom · 3 left
         let x, y, inAng;                          // spawn point + inward direction
-        if (edge === 0)      { x = AC.rng.float(G.rng, 0, W); y = -m;      inAng = Math.PI / 2; }
-        else if (edge === 1) { x = W + m; y = AC.rng.float(G.rng, 0, H);   inAng = Math.PI; }
-        else if (edge === 2) { x = AC.rng.float(G.rng, 0, W); y = H + m;   inAng = -Math.PI / 2; }
-        else                 { x = -m; y = AC.rng.float(G.rng, 0, H);      inAng = 0; }
+        if (edge === 0)      { x = AC.rng.float(G.rng, -ox, W + ox); y = -m;      inAng = Math.PI / 2; }
+        else if (edge === 1) { x = W + m; y = AC.rng.float(G.rng, -oy, H + oy);   inAng = Math.PI; }
+        else if (edge === 2) { x = AC.rng.float(G.rng, -ox, W + ox); y = H + m;   inAng = -Math.PI / 2; }
+        else                 { x = -m; y = AC.rng.float(G.rng, -oy, H + oy);      inAng = 0; }
 
         const speed = bulletSpeed() * (1 + AC.rng.float(G.rng, -CONFIG.speedVariance, CONFIG.speedVariance));
         const aimed = AC.rng.float(G.rng, 0, 1) < G.diffCfg.aimed;

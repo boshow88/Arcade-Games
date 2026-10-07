@@ -124,7 +124,9 @@ your **score is simply how long you last**.
 
 ### Bullets
 
-- Dots spawn just outside a **random edge** and cross the field.
+- Dots spawn just outside a **random edge** and cross the field. Their spawn
+  point runs a little **past the corners**, so shots can enter diagonally and
+  bullet density stays **even across the whole board** (no calm corners to camp).
 - Most are **straight** shots (soft round dots) fired inward at a random angle.
 - Some are **aimed** — an **orange circle marked with an arrow** — fired once
   toward where you were at that moment, so you can read and sidestep them. The
