@@ -14,7 +14,7 @@ retry.
 | Game           | Status   | Notes                                                               |
 | -------------- | -------- | ------------------------------------------------------------------- |
 | Colour Ladder | Playable | Real-time ghost-leg: move colour-gated rungs to route colour balls into baskets |
-| Bullet Storm   | WIP      | Omnidirectional bullet-dodge survival; relative-drag control, lives, score = survival time |
+| Bullet Storm   | Playable | Omnidirectional bullet-dodge survival; relative-drag control, lasers & homing, score = survival time |
 | Bamboo Dash    | WIP      | One-tap endless runner                                             |
 | Beat Bamboo    | WIP      | Rhythm tapper                                                      |
 

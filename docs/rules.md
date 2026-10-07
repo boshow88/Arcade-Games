@@ -132,13 +132,18 @@ your **score is simply how long you last**.
 - Some are **homing**, shown in **red** — they **track you**, turning at a capped
   rate (a sharp juke makes them overshoot). The red stays solid while tracking,
   then **fades to white near the end**; once white they **commit to a straight
-  line** and are just a plain bullet. The fraction that home rises with difficulty.
+  line** and are just a plain bullet. They appear on **Hard** only, phasing in
+  over time toward a fixed share of the bullets.
+- **Lasers** (Easy & Normal) flash a thin **warning line**, then fire a lethal
+  **beam** across the field for a moment — reposition before it fires. They grow
+  more frequent over time, toward a fixed share of the bullets, and several can
+  be on screen at once.
 - Every hitbox is a **circle you can see**: a bullet's hitbox is its visible
   circle, and your dot's is its **solid disk** (the glow is cosmetic). Collision
   uses **swept** (continuous) tests, so even fast shots — or fast dodges — can't
   tunnel through in a single frame.
-- Bullets are **type-driven** (`kind`), so new behaviours (curving shots,
-  lasers, …) can be added for late game / hard mode without touching the rest.
+- Bullets are **type-driven** (`kind`), and lasers are a separate telegraphed
+  beam, so new behaviours can be added for late game without touching the rest.
 
 ### Controls
 
@@ -164,8 +169,9 @@ your **score is simply how long you last**.
 Pick **Easy / Normal / Hard** on the game page (each keeps its own Best). Both
 the **spawn rate** and **bullet speed** rise over time on a **softplus** curve
 (`a + ln(B + e^(c·t))`): flat-ish early, then roughly linear with slope `c`, so a
-run keeps escalating without end. Difficulty changes that rate/speed curve, the
-**homing** fraction (Easy has none), and bullet size — Hard's bullets are smaller,
+run keeps escalating without end. Difficulty changes that rate/speed curve, its
+special attack (Easy & Normal get telegraphed **lasers**, Hard gets **homing**
+shots), and bullet size — Hard's bullets are smaller,
 and on every difficulty sizes **skew small** so big ones are rare. Each run opens
 with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 

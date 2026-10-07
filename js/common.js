@@ -718,6 +718,7 @@
             gameover: () => { [440, 330, 262].forEach((f, i) =>
                               setTimeout(() => tone(f, 0.28, { type: 'triangle', volume: 0.16 }), i * 160)); },
             click:    () => tone(660, 0.05, { type: 'square', volume: 0.10 }),
+            laser:    () => tone(1200, 0.16, { type: 'sawtooth', slideTo: 300, volume: 0.13 }),
         };
 
         return {

@@ -45,7 +45,7 @@
         ddNormal: 'Normal',
         ddHard: 'Hard',
         ddReady: 'Ready',
-        ddIntro: 'Bullets stream in from every edge, and the red ones track you. Weave your dot through the gaps and last as long as you can.',
+        ddIntro: 'Bullets stream in from every edge; a warned beam cuts across, and red ones track you. Weave your dot through the gaps and last as long as you can.',
         ddStartHintHtml: 'Mouse moves the dot · touch drags anywhere · <kbd>P</kbd> pause',
         ddOverMsgHtml: (s) => `You survived <strong>${s}</strong> s.`,
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
@@ -58,7 +58,7 @@
         ddNormal: '普通',
         ddHard: '困難',
         ddReady: '準備好了',
-        ddIntro: '子彈從四面八方湧入，紅色的還會追蹤你。在縫隙間穿梭閃避，盡量撐久一點。',
+        ddIntro: '子彈從四面八方湧入；雷射會先預警再貫穿，紅色的則會追蹤你。在縫隙間穿梭閃避，盡量撐久一點。',
         ddStartHintHtml: '滑鼠移動、觸控任意處拖曳 · <kbd>P</kbd> 暫停',
         ddOverMsgHtml: (s) => `你撐了 <strong>${s}</strong> 秒。`,
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
@@ -83,22 +83,28 @@
         straightSpread: 0.62,   // max angle (rad) a straight shot deviates from straight-in
         homingTurnRate: 1.2,    // rad/s — max steering of a homing bullet (lower = easier to shake)
         homingTime: 10.0,       // sec it tracks before committing to a straight line (so it always leaves)
-        homingSpeedMul: 0.8,    // homing bullets fly this × normal speed (a touch slower = fairer)
+        homingSpeedMul: 1.0,    // homing bullets fly this × normal speed (a touch slower = fairer)
         homingFadeFrac: 0.2,    // red stays solid while tracking, then fades to white over this final fraction
         speedVariance: 0.4,     // ± fraction on each bullet's speed, so shots come fast and slow
         bulletSizeBias: 1.8,    // radius = min + (max-min)·u^this; >1 biases toward smaller bullets
-        curveB: 100,             // softplus knee for the rate/speed curves: a + ln(curveB + e^(c·t))
+        laserWarn: 1.8,         // telegraph (warning line) seconds before a laser fires
+        laserActive: 0.7,       // seconds the beam is live and lethal
+        laserWidth: 6,          // beam half-width (px); collision = this + playerRadius
+        specialRampTau: 60,     // homing/laser share ramps in; half their final ratio by this many sec
+        curveB: 100,            // softplus knee for the rate/speed curves: a + ln(curveB + e^(c·t))
         countdownSec: 3,        // "get ready" countdown before a run starts
     };
 
     // Per-difficulty balance. lives = hits you can take (each grants brief
     // invulnerability). rate = bullets/sec, speed = px/sec, each a softplus curve
     // a + ln(curveB + e^(c·t)): flat-ish early, then roughly linear with slope c.
-    // homing = fraction that track you. bulletR = [min, max] radius (hard = smaller).
+    // homing = late-game fraction of bullets that track you (Hard only).
+    // laser  = late-game ratio of lasers to bullets (Easy/Normal only).
+    // Both phase in over time (specialRampTau). bulletR = [min, max] radius.
     const DIFFICULTIES = {
-        easy:   { lives: 3, rate: { a:  5, c: 0.040 }, speed: { a: 55, c: 0.44 }, homing: 0.00, bulletR: [6, 12] },
-        normal: { lives: 3, rate: { a:  6, c: 0.048 }, speed: { a: 60, c: 0.48 }, homing: 0.03, bulletR: [5, 10] },
-        hard:   { lives: 3, rate: { a:  7, c: 0.056 }, speed: { a: 65, c: 0.52 }, homing: 0.07, bulletR: [4, 8] },
+        easy:   { lives: 3, rate: { a:  5.0, c: 0.040 }, speed: { a: 50, c: 0.40 }, homing: 0.02, laser: 0.02, bulletR: [6, 12] },
+        normal: { lives: 3, rate: { a:  5.5, c: 0.044 }, speed: { a: 55, c: 0.44 }, homing: 0.04, laser: 0.06, bulletR: [5, 10] },
+        hard:   { lives: 3, rate: { a:  6.0, c: 0.048 }, speed: { a: 60, c: 0.48 }, homing: 0.12, laser: 0.12, bulletR: [4,  8] },
     };
 
     // =================================================================
@@ -112,9 +118,11 @@
         px: W / 2, py: H / 2,   // player position
         tx: W / 2, ty: H / 2,   // player target (driven by the relative drag)
         bullets: [],
+        lasers: [],
         elapsed: 0,
         score: 0,
         spawnAcc: 0,
+        laserAcc: 0,
         countdown: 0,
         lives: 3, maxLives: 3,
         invuln: 0,              // seconds of post-hit invulnerability remaining
@@ -187,6 +195,11 @@
     function bulletSpeed() {
         const s = G.diffCfg.speed;
         return softCurve(s.a, s.c);
+    }
+    // Special attacks (homing, lasers) phase in: ramps 0 → 1 over time, so their
+    // share of the bullets starts near zero and approaches a fixed ratio.
+    function specialRamp() {
+        return G.elapsed / (G.elapsed + CONFIG.specialRampTau);
     }
 
     // =================================================================
@@ -286,7 +299,7 @@
         else                 { x = -m; y = AC.rng.float(G.rng, -oy, H + oy);      inAng = 0; }
 
         let speed = bulletSpeed() * (1 + AC.rng.float(G.rng, -CONFIG.speedVariance, CONFIG.speedVariance));
-        const homing = AC.rng.float(G.rng, 0, 1) < G.diffCfg.homing;
+        const homing = AC.rng.float(G.rng, 0, 1) < G.diffCfg.homing * specialRamp();
 
         let ang;
         if (homing) {
@@ -351,6 +364,48 @@
         return minDist2 <= R * R;
     }
 
+    // =================================================================
+    // Lasers (telegraphed beams — a warned line, then a lethal beam)
+    // =================================================================
+
+    function spawnLaser() {
+        G.lasers.push({
+            x: AC.rng.float(G.rng, 0, W),
+            y: AC.rng.float(G.rng, 0, H),
+            ang: AC.rng.float(G.rng, 0, Math.PI),   // orientation of the beam line
+            phase: 'warn',
+            t: CONFIG.laserWarn,
+        });
+        AC.audio.play('grab');   // a "charging" cue when the warning appears
+    }
+    // Signed perpendicular distance from a point to the beam's (infinite) line.
+    function laserDist(L, px, py) {
+        return (px - L.x) * Math.sin(L.ang) - (py - L.y) * Math.cos(L.ang);
+    }
+    // Advance all lasers; during the lethal phase, sweep the dot's motion against
+    // the beam line so a fast dash can't tunnel across it. Returns true if a hit
+    // ended the run.
+    function updateLasers(dt, px0, py0, px1, py1) {
+        const R = CONFIG.laserWidth + CONFIG.playerRadius;
+        for (let i = G.lasers.length - 1; i >= 0; i--) {
+            const L = G.lasers[i];
+            L.t -= dt;
+            if (L.phase === 'warn') {
+                if (L.t <= 0) { L.phase = 'fire'; L.t = CONFIG.laserActive; AC.audio.play('laser'); }
+                continue;
+            }
+            if (L.t <= 0) { G.lasers.splice(i, 1); continue; }
+            if (G.invuln <= 0) {
+                const d0 = laserDist(L, px0, py0), d1 = laserDist(L, px1, py1);
+                const crossed = (d0 <= 0) !== (d1 <= 0);   // the dot swept across the line
+                if (crossed || Math.min(Math.abs(d0), Math.abs(d1)) <= R) {
+                    if (onHit(null)) return true;
+                }
+            }
+        }
+        return false;
+    }
+
     // A hit costs a life + grants brief invulnerability. Returns true if that
     // was the last life (the run is over).
     function onHit(b) {
@@ -396,6 +451,11 @@
         let guard = 0;
         while (G.spawnAcc >= 1 && guard++ < 40) { spawnBullet(); G.spawnAcc -= 1; }
 
+        // Laser rate tracks the bullet rate and ramps in, so lasers approach a
+        // fixed share of the bullets (G.diffCfg.laser) in the late game.
+        G.laserAcc += dt * (G.diffCfg.laser || 0) * spawnRate() * specialRamp();
+        while (G.laserAcc >= 1) { spawnLaser(); G.laserAcc -= 1; }
+
         // Move the dot, then sweep every bullet against the dot's motion.
         const px0 = G.px, py0 = G.py;
         stepPlayer(dt);
@@ -414,6 +474,8 @@
             if (offField(b)) G.bullets.splice(i, 1);
         }
 
+        if (updateLasers(dt, px0, py0, px1, py1)) return;   // laser hit may end the run
+
         updateHud();
     }
 
@@ -430,6 +492,7 @@
             const s = G.shake * 10;
             ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
         }
+        drawLasers();
         for (const b of G.bullets) drawBullet(b);
         drawPlayer();
         if (G.ended) drawDeath();
@@ -461,6 +524,33 @@
         ctx.arc(b.x, b.y, b.r, 0, PI2);
         ctx.fill();
         ctx.restore();
+    }
+
+    function drawLasers() {
+        for (const L of G.lasers) {
+            const dx = Math.cos(L.ang) * 1000, dy = Math.sin(L.ang) * 1000;
+            ctx.save();
+            if (L.phase === 'warn') {
+                const k = 1 - L.t / CONFIG.laserWarn;   // 0 (just appeared) → 1 (about to fire)
+                // A charging countdown: the line thickens, brightens, shifts
+                // cyan → hot-white and turns from dashed to solid as it nears
+                // firing — so the remaining time reads at a glance.
+                ctx.strokeStyle = 'rgba(' + mix(94, 255, k) + ', ' + mix(224, 255, k) + ', 255, ' + (0.25 + 0.6 * k).toFixed(3) + ')';
+                ctx.lineWidth = 2 + (CONFIG.laserWidth - 2) * k;
+                ctx.setLineDash(k < 0.7 ? [10, 8] : []);
+                if (k > 0.7) { ctx.shadowColor = 'rgba(180, 240, 255, 0.9)'; ctx.shadowBlur = 10; }
+            } else {
+                ctx.strokeStyle = 'rgba(94, 224, 255, 0.95)';
+                ctx.shadowColor = 'rgba(94, 224, 255, 0.9)';
+                ctx.shadowBlur = 16;
+                ctx.lineWidth = CONFIG.laserWidth * 2;
+            }
+            ctx.beginPath();
+            ctx.moveTo(L.x - dx, L.y - dy);
+            ctx.lineTo(L.x + dx, L.y + dy);
+            ctx.stroke();
+            ctx.restore();
+        }
     }
 
     function drawPlayer() {
@@ -585,9 +675,11 @@
         G.px = G.tx = W / 2;
         G.py = G.ty = H / 2;
         G.bullets = [];
+        G.lasers = [];
         G.elapsed = START_T;   // [DEBUG-HOOK] ?t=<sec> jumps the difficulty clock
         G.score = START_T;
         G.spawnAcc = 0;
+        G.laserAcc = 0;
         G.countdown = 0;
         G.invuln = 0;
         G.shake = 0;
@@ -659,8 +751,10 @@
             'lives = ' + G.lives + '/' + G.maxLives,
             'rate = ' + spawnRate().toFixed(2) + '/s',
             'speed = ' + bulletSpeed().toFixed(0) + ' px/s',
-            'homing = ' + G.diffCfg.homing,
+            'homing% = ' + (G.diffCfg.homing * specialRamp() * 100).toFixed(1),
+            'laser/s = ' + ((G.diffCfg.laser || 0) * spawnRate() * specialRamp()).toFixed(2),
             'bullets = ' + G.bullets.length,
+            'lasers = ' + G.lasers.length,
         ];
         ctx.save();
         ctx.font = `600 13px ${getFont()}`;
@@ -683,14 +777,16 @@
             setTime(sec) { G.elapsed = Math.max(0, sec || 0); return G.elapsed; },
             addTime(sec) { G.elapsed = Math.max(0, G.elapsed + (sec == null ? 30 : sec)); return G.elapsed; },
             addLife(n) { G.lives += (n == null ? 1 : n); G.maxLives = Math.max(G.maxLives, G.lives); updateHud(); return G.lives; },
-            clear() { G.bullets = []; return 0; },
+            clear() { G.bullets = []; G.lasers = []; return 0; },
             diff(d) { setDifficulty(d); return G.difficulty; },
             info() {
                 return {
                     difficulty: G.difficulty, t: +G.elapsed.toFixed(1),
                     lives: G.lives, maxLives: G.maxLives,
                     ratePerSec: +spawnRate().toFixed(2), speed: +bulletSpeed().toFixed(0),
-                    homing: G.diffCfg.homing, bullets: G.bullets.length,
+                    homingNow: +(G.diffCfg.homing * specialRamp()).toFixed(3),
+                    laserRate: +((G.diffCfg.laser || 0) * spawnRate() * specialRamp()).toFixed(3),
+                    bullets: G.bullets.length, lasers: G.lasers.length,
                 };
             },
         };
