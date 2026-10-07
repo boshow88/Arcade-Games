@@ -14,7 +14,7 @@ retry.
 | Game           | Status   | Notes                                                               |
 | -------------- | -------- | ------------------------------------------------------------------- |
 | Colour Ladder | Playable | Real-time ghost-leg: move colour-gated rungs to route colour balls into baskets |
-| Dot Dodge      | WIP      | Omnidirectional bullet-dodge survival; relative-drag control, lives, score = survival time |
+| Bullet Storm   | WIP      | Omnidirectional bullet-dodge survival; relative-drag control, lives, score = survival time |
 | Bamboo Dash    | WIP      | One-tap endless runner                                             |
 | Beat Bamboo    | WIP      | Rhythm tapper                                                      |
 
@@ -25,7 +25,7 @@ Architecture & dev notes: [`docs/DEV.md`](docs/DEV.md).
 
 ```
 index.html                 Launcher (game picker)
-games/ladder-connect.html  One page per game
+games/colour-ladder.html   One page per game
 css/                       common.css (theme tokens + launcher), game.css (shared arcade game UI)
 js/                        common.js (ArcadeCommon: storage, scores, loop, input, audio, i18n, shell)
                            + js/games/*.js (per-game logic + canvas rendering)

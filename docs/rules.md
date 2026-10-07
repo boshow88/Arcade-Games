@@ -112,11 +112,11 @@ own-colour rung in its path when you need it to pass straight through.
 ### Tuning
 
 All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
-`js/games/ladder-connect.js`.
+`js/games/colour-ladder.js`.
 
 ---
 
-## Dot Dodge
+## Bullet Storm
 
 An omnidirectional **bullet-dodge survival**. Dots stream in from every edge
 of the field; you fly a single dot and avoid them. You have a few **lives**;
@@ -172,4 +172,4 @@ opens with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 ### Tuning
 
 All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
-`js/games/dot-dodge.js`.
+`js/games/bullet-storm.js`.

@@ -1,5 +1,5 @@
 /**
- * Dot Dodge — an omnidirectional bullet-dodge survival.
+ * Bullet Storm — an omnidirectional bullet-dodge survival.
  *
  * Dots stream in from every edge of the field at a mix of speeds. Most fly
  * straight; RED ones are HOMING — they track you for a while, the red fading as
@@ -525,7 +525,7 @@
     function setDifficulty(d) {
         if (!DIFFICULTIES[d] || d === staged) return;
         staged = d;
-        AC.prefs.set('dot-dodge', { difficulty: d });
+        AC.prefs.set('bullet-storm', { difficulty: d });
         if (shell && shell.state === 'idle') {
             resetRun();
             render();
@@ -591,7 +591,7 @@
     }
 
     function init() {
-        const pref = AC.prefs.get('dot-dodge');
+        const pref = AC.prefs.get('bullet-storm');
         staged = DIFFICULTIES[pref.difficulty] ? pref.difficulty : 'normal';
         G.difficulty = staged;
 
@@ -599,7 +599,7 @@
         window.addEventListener('resize', () => { fitCanvas(); render(); });
 
         shell = AC.shell.create({
-            gameId: 'dot-dodge',
+            gameId: 'bullet-storm',
             mode: () => G.difficulty,   // high scores are per-difficulty
             step: 1 / 60,
             preventKeys: ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'],
@@ -690,7 +690,7 @@
             else if (k === 'l' || k === 'L') window.DD.addLife(1);
             else if (k === 'c' || k === 'C') window.DD.clear();
         });
-        console.log('%c[Dot Dodge] debug on', 'color:#a78bfa;font-weight:700');
+        console.log('%c[Bullet Storm] debug on', 'color:#a78bfa;font-weight:700');
         console.log('DD.setTime(s) addTime(s) addLife(n) clear() diff("easy"|"normal"|"hard") info()');
         console.log('keys:  ] +30s   [ -30s   L +life   C clear bullets');
     }

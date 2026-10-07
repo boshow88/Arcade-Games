@@ -26,7 +26,7 @@ css/common.css               Theme tokens (CSS variables) + launcher styles + to
 css/game.css                 Shared game-page chrome: topbar, HUD pills, stamina bar,
                              controls, canvas stage, start/pause/over overlay
 js/common.js                 ArcadeCommon — all shared plumbing (see below)
-js/games/ladder-connect.js   One file per game: logic + Canvas 2D rendering
+js/games/colour-ladder.js    One file per game: logic + Canvas 2D rendering
 docs/rules.md                Player-facing rules
 docs/DEV.md                  This file
 ```
@@ -89,7 +89,7 @@ Switching tabs mid-run auto-pauses.
 2. **Accent colour**: add `.game-card.<class> { --game-color: #…; }` in
    `css/common.css`, and set `body { --game-color: #…; }` in the game
    page's inline `<style>`.
-3. **Game page** `games/<id>.html`: copy `ladder-connect.html` — topbar,
+3. **Game page** `games/<id>.html`: copy `colour-ladder.html` — topbar,
    the HUD pills **your** game needs, a `.stage-wrap` with the
    `<canvas id="stage">` + overlay, controls, and the *How to play*
    footer. Load `../js/common.js` then `../js/games/<id>.js`.
@@ -191,14 +191,14 @@ on its page) and scale the backing store by `devicePixelRatio` in a
 All gated behind `?debug=1` on the game page and tagged in code with a
 `[DEBUG-HOOK]` comment (find them with `rg "\[DEBUG-HOOK\]"`).
 
-### URL flags (`games/ladder-connect.html`)
+### URL flags (`games/colour-ladder.html`)
 
 | Flag | Effect |
 | --- | --- |
 | `?debug=1` | Enables the debug overlay, keyboard shortcuts and the `window.LC` console API. |
 | `?t=<seconds>` | Starts every run at that elapsed time — jumps the difficulty (wave rate) to that moment. Works with or without `?debug`. |
 
-Example: `games/ladder-connect.html?debug=1&t=120`.
+Example: `games/colour-ladder.html?debug=1&t=120`.
 
 ### Console API — `window.LC` (debug only)
 
