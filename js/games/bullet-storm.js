@@ -14,8 +14,8 @@
  *
  * Difficulty (easy / normal / hard) changes lives, the spawn rate, bullet speed,
  * how many home, and bullet size. Both the spawn rate and bullet speed rise
- * over time on an unbounded, ever-gentler log curve (base + k·ln(1 + t/tau)),
- * so a run always escalates but never has a sudden cliff.
+ * over time on a softplus curve (a + ln(B + e^(c·t))): flat-ish early, then
+ * roughly linear with slope c, so a run escalates without end.
  *
  * Bullets are TYPE-DRIVEN: each has a `kind` with its own motion + look, so new
  * kinds (curving shots, lasers, …) can be added for late game / hard mode by
@@ -76,28 +76,29 @@
     const CONFIG = {
         playerRadius: 8,
         playerMaxSpeed: 0,      // px/s cap on the dot's speed; 0 = unlimited (pure 1:1 control)
-        invulnSec: 1.2,         // brief invulnerability after a hit (one cluster ≠ instant wipe)
+        invulnSec: 1.6,         // brief invulnerability after a hit (one cluster ≠ instant wipe)
         spawnMargin: 26,        // bullets appear this far outside the field edge
         spawnOverscan: 0.4,     // spawn point runs this × past each corner, so shots can
                                 // enter diagonally and coverage stays even (no calm corners)
         straightSpread: 0.62,   // max angle (rad) a straight shot deviates from straight-in
-        homingTurnRate: 1.4,    // rad/s — max steering of a homing bullet (lower = easier to shake)
-        homingTime: 6.0,        // sec it tracks before committing to a straight line (so it always leaves)
+        homingTurnRate: 1.2,    // rad/s — max steering of a homing bullet (lower = easier to shake)
+        homingTime: 10.0,       // sec it tracks before committing to a straight line (so it always leaves)
         homingSpeedMul: 0.8,    // homing bullets fly this × normal speed (a touch slower = fairer)
         homingFadeFrac: 0.2,    // red stays solid while tracking, then fades to white over this final fraction
         speedVariance: 0.4,     // ± fraction on each bullet's speed, so shots come fast and slow
-        tau: 25,                // difficulty "drift": larger = gentler early ramp
+        bulletSizeBias: 1.8,    // radius = min + (max-min)·u^this; >1 biases toward smaller bullets
+        curveB: 100,             // softplus knee for the rate/speed curves: a + ln(curveB + e^(c·t))
         countdownSec: 3,        // "get ready" countdown before a run starts
     };
 
     // Per-difficulty balance. lives = hits you can take (each grants brief
-    // invulnerability). rate = bullets/sec, speed = px/sec, each a log curve
-    // base + k·ln(1 + t/tau). homing = fraction that track you.
-    // bulletR = [min, max] radius (hard = smaller, harder to spot).
+    // invulnerability). rate = bullets/sec, speed = px/sec, each a softplus curve
+    // a + ln(curveB + e^(c·t)): flat-ish early, then roughly linear with slope c.
+    // homing = fraction that track you. bulletR = [min, max] radius (hard = smaller).
     const DIFFICULTIES = {
-        easy:   { lives: 5, rate: { base: 4.0, k: 4.8 }, speed: { base: 104, k: 48 }, homing: 0.03, bulletR: [7, 12] },
-        normal: { lives: 4, rate: { base: 5.6, k: 6.4 }, speed: { base: 120, k: 62 }, homing: 0.07, bulletR: [6, 11] },
-        hard:   { lives: 3, rate: { base: 7.6, k: 8.0 }, speed: { base: 140, k: 76 }, homing: 0.11, bulletR: [5, 10] },
+        easy:   { lives: 3, rate: { a:  5, c: 0.040 }, speed: { a: 55, c: 0.44 }, homing: 0.00, bulletR: [6, 12] },
+        normal: { lives: 3, rate: { a:  6, c: 0.048 }, speed: { a: 60, c: 0.48 }, homing: 0.03, bulletR: [5, 10] },
+        hard:   { lives: 3, rate: { a:  7, c: 0.056 }, speed: { a: 65, c: 0.52 }, homing: 0.07, bulletR: [4, 8] },
     };
 
     // =================================================================
@@ -170,16 +171,22 @@
     }
 
     // =================================================================
-    // Difficulty-over-time curves (unbounded, ever-gentler log)
+    // Difficulty-over-time curves (softplus: flat early, then ~linear)
     // =================================================================
 
+    // a + ln(curveB + e^(c·t)); for large x = c·t this tends to a + x (a straight
+    // line of slope c), guarded so e^x never overflows to Infinity.
+    function softCurve(a, c) {
+        const x = c * G.elapsed;
+        return a + (x > 60 ? x : Math.log(CONFIG.curveB + Math.exp(x)));
+    }
     function spawnRate() {
         const r = G.diffCfg.rate;
-        return r.base + r.k * Math.log(1 + G.elapsed / CONFIG.tau);
+        return softCurve(r.a, r.c);
     }
     function bulletSpeed() {
         const s = G.diffCfg.speed;
-        return s.base + s.k * Math.log(1 + G.elapsed / CONFIG.tau);
+        return softCurve(s.a, s.c);
     }
 
     // =================================================================
@@ -267,7 +274,8 @@
     // =================================================================
 
     function spawnBullet() {
-        const r = AC.rng.float(G.rng, G.diffCfg.bulletR[0], G.diffCfg.bulletR[1]);
+        const br = G.diffCfg.bulletR;   // size skews toward the small end (bulletSizeBias)
+        const r = br[0] + (br[1] - br[0]) * Math.pow(AC.rng.float(G.rng, 0, 1), CONFIG.bulletSizeBias);
         const m = CONFIG.spawnMargin + r;
         const ox = W * CONFIG.spawnOverscan, oy = H * CONFIG.spawnOverscan;
         const edge = AC.rng.int(G.rng, 0, 4);   // 0 top · 1 right · 2 bottom · 3 left

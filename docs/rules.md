@@ -155,19 +155,19 @@ your **score is simply how long you last**.
 
 ### Lives
 
-- You start with a few **lives** (Easy 5 · Normal 4 · Hard 3). A hit **costs one
-  life** and grants a brief **invulnerability** (the dot flashes) so a single
-  dense cluster can't drain several at once. At **zero lives** the run ends.
+- You start with **three lives** (every difficulty). A hit **costs one life** and
+  grants a brief **invulnerability** (the dot flashes) so a single dense cluster
+  can't drain several at once. At **zero lives** the run ends.
 
 ### Difficulty
 
 Pick **Easy / Normal / Hard** on the game page (each keeps its own Best). Both
-the **spawn rate** and **bullet speed** rise over time on an unbounded,
-ever-gentler log curve (`base + k·ln(1 + t/tau)`), so a run always escalates
-without a sudden cliff. Difficulty changes the starting **lives**, the base
-rate/speed, the **homing** fraction, and bullet size (Hard shots are smaller and
-harder to spot). Each run
-opens with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
+the **spawn rate** and **bullet speed** rise over time on a **softplus** curve
+(`a + ln(B + e^(c·t))`): flat-ish early, then roughly linear with slope `c`, so a
+run keeps escalating without end. Difficulty changes that rate/speed curve, the
+**homing** fraction (Easy has none), and bullet size — Hard's bullets are smaller,
+and on every difficulty sizes **skew small** so big ones are rare. Each run opens
+with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 
 ### Tuning
 
