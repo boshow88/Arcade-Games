@@ -2,7 +2,7 @@
  * Dot Dodge — an omnidirectional bullet-dodge survival.
  *
  * Dots stream in from every edge of the field. Most fly in a straight line;
- * some (brighter, arrow-marked) HOME in on you for a moment, then commit to a
+ * some (marked with an arrow) HOME in on you for a while, then commit to a
  * straight line and fly off. You have a few lives; your score is how long you last.
  *
  * Control is RELATIVE: press anywhere and drag, and your dot moves by the
@@ -49,7 +49,7 @@
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
         ddHelp1Html: 'Dots stream in from <strong>every edge</strong>. Weave through them \u2014 your <strong>score is your survival time</strong>.',
         ddHelp2Html: 'Hold <strong>anywhere</strong> and drag: the dot moves with the pointer\u2019s <strong>motion</strong>, not to it. Lift and press again to <strong>re-anchor</strong>, so you can steer from a comfy spot.',
-        ddHelp3Html: 'Most shots fly <strong>straight</strong>; the <strong>orange, arrow-marked</strong> ones <strong>track you</strong> for a moment before flying off. A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
+        ddHelp3Html: 'Most shots fly <strong>straight</strong>; ones marked with an <strong>arrow</strong> <strong>track you</strong> for a while, then straighten and fly off. A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
         ddHelp4Html: 'You have a few <strong>lives</strong> \u2014 a hit costs one and briefly makes you <strong>invincible</strong>; at zero the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
@@ -63,7 +63,7 @@
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         ddHelp1Html: '點點從<strong>四面八方</strong>湧入。穿梭閃避——<strong>分數就是你的存活時間</strong>。',
         ddHelp2Html: '在<strong>任意處</strong>按住拖曳：主角跟著指標的<strong>移動量</strong>走，而不是跳到指標位置。放開再按可<strong>重新定錨</strong>，讓你在舒服的位置操控。',
-        ddHelp3Html: '多數子彈<strong>直線</strong>飛行；<strong>橘色、帶箭頭</strong>的會<strong>追蹤你</strong>一小段時間後才飛離。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
+        ddHelp3Html: '多數子彈<strong>直線</strong>飛行；<strong>帶箭頭</strong>的會<strong>追蹤你</strong>一段時間，之後轉成直線飛離。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
         ddHelp4Html: '你有數條<strong>生命</strong>——被擊中會扣一條並短暫<strong>無敵</strong>；歸零就結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
 
@@ -74,7 +74,7 @@
     const W = 600, H = 760;
 
     const CONFIG = {
-        playerRadius: 10,
+        playerRadius: 8,
         playerMaxSpeed: 0,      // px/s cap on the dot's speed; 0 = unlimited (pure 1:1 control)
         invulnSec: 1.2,         // brief invulnerability after a hit (one cluster ≠ instant wipe)
         spawnMargin: 26,        // bullets appear this far outside the field edge
@@ -82,7 +82,7 @@
                                 // enter diagonally and coverage stays even (no calm corners)
         straightSpread: 0.62,   // max angle (rad) a straight shot deviates from straight-in
         homingTurnRate: 1.6,    // rad/s — max steering of a homing bullet (lower = easier to shake)
-        homingTime: 1.8,        // sec it tracks before committing to a straight line (so it always leaves)
+        homingTime: 5.0,        // sec it tracks before committing to a straight line (so it always leaves)
         homingSpeedMul: 0.9,    // homing bullets fly this × normal speed (a touch slower = fairer)
         speedVariance: 0.15,    // ± fraction applied to each bullet's speed
         tau: 25,                // difficulty "drift": larger = gentler early ramp
@@ -94,9 +94,9 @@
     // base + k·ln(1 + t/tau). homing = fraction of shots that track you.
     // bulletR = [min, max] radius (hard = smaller, harder to spot).
     const DIFFICULTIES = {
-        easy:   { lives: 5, rate: { base: 1.0, k: 1.2 }, speed: { base: 130, k: 60 }, homing: 0.10, bulletR: [7, 12] },
-        normal: { lives: 4, rate: { base: 1.4, k: 1.6 }, speed: { base: 150, k: 78 }, homing: 0.20, bulletR: [6, 11] },
-        hard:   { lives: 3, rate: { base: 1.9, k: 2.0 }, speed: { base: 175, k: 95 }, homing: 0.33, bulletR: [5, 10] },
+        easy:   { lives: 5, rate: { base: 2.0, k: 2.4 }, speed: { base: 130, k: 60 }, homing: 0.10, bulletR: [7, 12] },
+        normal: { lives: 4, rate: { base: 2.8, k: 3.2 }, speed: { base: 150, k: 78 }, homing: 0.20, bulletR: [6, 11] },
+        hard:   { lives: 3, rate: { base: 3.8, k: 4.0 }, speed: { base: 175, k: 95 }, homing: 0.33, bulletR: [5, 10] },
     };
 
     // =================================================================
@@ -393,38 +393,33 @@
     }
 
     function drawBullet(b) {
+        // The base circle IS the hitbox (radius b.r). Base colour is reserved to
+        // encode a bullet's class; for now every bullet is the same soft white.
+        ctx.save();
+        ctx.shadowColor = 'rgba(226, 232, 240, 0.5)';
+        ctx.shadowBlur = 8;
+        ctx.fillStyle = '#e2e8f0';
+        ctx.beginPath();
+        ctx.arc(b.x, b.y, b.r, 0, PI2);
+        ctx.fill();
+        ctx.restore();
+
+        // A dark arrow marks a bullet that is CURRENTLY homing + shows its
+        // heading. When it stops tracking the arrow is gone — it becomes a plain
+        // bullet again (no jarring colour change).
         if (b.kind === 'homing' && b.homing) {
-            // Hitbox = this visible orange circle (radius b.r), exactly like a
-            // straight shot. The white chevron marks it HOMING + shows its heading.
-            // Once it stops tracking it falls through to the plain look below.
             const ang = Math.atan2(b.vy, b.vx);
             ctx.save();
             ctx.translate(b.x, b.y);
-            ctx.shadowColor = 'rgba(251, 146, 60, 0.9)';
-            ctx.shadowBlur = 10;
-            ctx.fillStyle = '#fb7a2b';
-            ctx.beginPath();
-            ctx.arc(0, 0, b.r, 0, PI2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
             ctx.rotate(ang);
-            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
-            const s = b.r * 0.72;
+            ctx.fillStyle = 'rgba(14, 11, 26, 0.9)';
+            const s = b.r * 0.9;
             ctx.beginPath();
             ctx.moveTo(s, 0);
-            ctx.lineTo(-s * 0.5, s * 0.7);
-            ctx.lineTo(-s * 0.1, 0);
-            ctx.lineTo(-s * 0.5, -s * 0.7);
+            ctx.lineTo(-s * 0.55, s * 0.72);
+            ctx.lineTo(-s * 0.12, 0);
+            ctx.lineTo(-s * 0.55, -s * 0.72);
             ctx.closePath();
-            ctx.fill();
-            ctx.restore();
-        } else {
-            ctx.save();
-            ctx.shadowColor = 'rgba(226, 232, 240, 0.5)';
-            ctx.shadowBlur = 8;
-            ctx.fillStyle = '#e2e8f0';
-            ctx.beginPath();
-            ctx.arc(b.x, b.y, b.r, 0, PI2);
             ctx.fill();
             ctx.restore();
         }

@@ -128,10 +128,10 @@ your **score is simply how long you last**.
   point runs a little **past the corners**, so shots can enter diagonally and
   bullet density stays **even across the whole board** (no calm corners to camp).
 - Most are **straight** shots (soft round dots) fired inward at a random angle.
-- Some are **homing** — an **orange circle marked with an arrow** — that
-  **track you**, turning at a capped rate (a sharp juke makes them overshoot).
-  After a moment they **commit to a straight line** and fly off (and revert to
-  the plain look). The fraction that home rises with difficulty.
+- Some are **homing** — a bullet **marked with an arrow** — that **track you**,
+  turning at a capped rate (a sharp juke makes them overshoot). After a while
+  they **commit to a straight line** and fly off; the arrow then disappears, so
+  they look like a plain bullet again. The fraction that home rises with difficulty.
 - Every hitbox is a **circle you can see**: a bullet's hitbox is its visible
   circle, and your dot's is its **solid disk** (the glow is cosmetic). Collision
   uses **swept** (continuous) tests, so even fast shots — or fast dodges — can't
