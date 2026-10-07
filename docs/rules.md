@@ -119,18 +119,20 @@ All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
 ## Dot Dodge
 
 An omnidirectional **bullet-dodge survival**. Dots stream in from every edge
-of the field; you fly a single dot and avoid them. **One touch ends the run**,
-and your **score is simply how long you last**.
+of the field; you fly a single dot and avoid them. You have a few **lives**;
+your **score is simply how long you last**.
 
 ### Bullets
 
 - Dots spawn just outside a **random edge** and cross the field.
 - Most are **straight** shots (soft round dots) fired inward at a random angle.
-- Some are **aimed** (brighter, **arrow-shaped**, warm colour) — fired once
+- Some are **aimed** — an **orange circle marked with an arrow** — fired once
   toward where you were at that moment, so you can read and sidestep them. The
   fraction that are aimed rises with difficulty.
-- Collision uses **swept** (continuous) circle tests, so even fast shots can't
-  tunnel through the dot in a single frame.
+- Every hitbox is a **circle you can see**: a bullet's hitbox is its visible
+  circle, and your dot's is its **solid disk** (the glow is cosmetic). Collision
+  uses **swept** (continuous) tests, so even fast shots — or fast dodges — can't
+  tunnel through in a single frame.
 - Bullets are **type-driven** (`kind`), so new behaviours (curving shots,
   lasers, …) can be added for late game / hard mode without touching the rest.
 
@@ -140,16 +142,24 @@ and your **score is simply how long you last**.
   with the pointer's **motion**, not to the pointer. Lift and press again to
   **re-anchor**, so you can steer a dot in a far corner from a comfortable spot.
   Desktop and touch behave the same (hold and drag).
-- The dot has a **top speed**, so you can't teleport out of danger — dodging is
-  about reading the field and weaving early.
+- There is **no speed cap** — the dot moves 1:1 with your drag, so dodging is
+  pure skill. The swept collision test keeps this fair: a fast dodge still
+  collides if its path crosses a bullet, so you can't phase through them.
+
+### Lives
+
+- You start with a few **lives** (Easy 5 · Normal 4 · Hard 3). A hit **costs one
+  life** and grants a brief **invulnerability** (the dot flashes) so a single
+  dense cluster can't drain several at once. At **zero lives** the run ends.
 
 ### Difficulty
 
 Pick **Easy / Normal / Hard** on the game page (each keeps its own Best). Both
 the **spawn rate** and **bullet speed** rise over time on an unbounded,
 ever-gentler log curve (`base + k·ln(1 + t/tau)`), so a run always escalates
-without a sudden cliff. Difficulty changes the base rate/speed, the **aimed**
-fraction, and bullet size (Hard shots are smaller and harder to spot). Each run
+without a sudden cliff. Difficulty changes the starting **lives**, the base
+rate/speed, the **aimed** fraction, and bullet size (Hard shots are smaller and
+harder to spot). Each run
 opens with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 
 ### Tuning

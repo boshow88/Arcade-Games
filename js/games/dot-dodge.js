@@ -43,28 +43,28 @@
         ddNormal: 'Normal',
         ddHard: 'Hard',
         ddReady: 'Ready',
-        ddIntro: 'Survive the crossfire. Hold anywhere and drag to fly your dot — you move the pointer, not the dot. Last as long as you can.',
+        ddIntro: 'Fly your dot through the crossfire and survive. Hold anywhere and drag — you move the pointer, not the dot.',
         ddStartHintHtml: 'Hold anywhere and drag to move · <kbd>P</kbd> pause',
         ddOverMsgHtml: (s) => `You survived <strong>${s}</strong> s.`,
         ddOverHintHtml: 'Press <kbd>R</kbd> or the button to try again.',
-        ddHelp1Html: 'Dots pour in from <strong>every edge</strong>. Most fly straight; the brighter, <strong>arrow-shaped</strong> ones are <strong>aimed</strong> at you. A single touch ends the run.',
-        ddHelp2Html: 'Hold <strong>anywhere</strong> and drag: your dot moves with the pointer\u2019s <strong>motion</strong>, not to the pointer. Lift and press again to <strong>re-anchor</strong> — so you can steer a far-corner dot from a comfy spot.',
-        ddHelp3Html: 'Your dot has a <strong>top speed</strong>, so you can\u2019t teleport out of danger \u2014 read the field and weave early.',
-        ddHelp4Html: 'It gets <strong>busier and faster</strong> the longer you last. Your <strong>score is your time</strong>. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
+        ddHelp1Html: 'Dots stream in from <strong>every edge</strong>. Weave through them \u2014 your <strong>score is your survival time</strong>.',
+        ddHelp2Html: 'Hold <strong>anywhere</strong> and drag: the dot moves with the pointer\u2019s <strong>motion</strong>, not to it. Lift and press again to <strong>re-anchor</strong>, so you can steer from a comfy spot.',
+        ddHelp3Html: 'Most shots fly <strong>straight</strong>; the <strong>orange, arrow-marked</strong> ones are <strong>aimed</strong> at you. A bullet\u2019s hitbox is exactly its <strong>circle</strong>.',
+        ddHelp4Html: 'You have a few <strong>lives</strong> \u2014 a hit costs one and briefly makes you <strong>invincible</strong>; at zero the run ends. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
         ddEasy: '簡單',
         ddNormal: '普通',
         ddHard: '困難',
         ddReady: '準備好了',
-        ddIntro: '在四面八方的彈幕中求生。在任意處按住並拖曳來操控你的主角——你移動的是指標，不是主角。盡量撐久一點。',
+        ddIntro: '操控你的主角，在四面八方的彈幕中求生。在任意處按住拖曳——你移動的是指標，不是主角。',
         ddStartHintHtml: '在任意處按住拖曳移動 · <kbd>P</kbd> 暫停',
         ddOverMsgHtml: (s) => `你撐了 <strong>${s}</strong> 秒。`,
         ddOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
-        ddHelp1Html: '點點會從<strong>四面八方</strong>湧入。多數直線飛行；較亮、<strong>箭頭狀</strong>的則會<strong>朝你瞄準</strong>。碰到一下就結束。',
-        ddHelp2Html: '在<strong>任意處</strong>按住拖曳：主角跟著指標的<strong>移動量</strong>走，而不是跳到指標位置。放開再按可<strong>重新定錨</strong>——所以能在舒服的位置操控遠角落的主角。',
-        ddHelp3Html: '主角有<strong>最高速度</strong>，無法瞬間逃離——請提早判讀彈幕、及早走位。',
-        ddHelp4Html: '撐得越久，彈幕<strong>越密、越快</strong>。<strong>分數就是你的存活時間</strong>。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
+        ddHelp1Html: '點點從<strong>四面八方</strong>湧入。穿梭閃避——<strong>分數就是你的存活時間</strong>。',
+        ddHelp2Html: '在<strong>任意處</strong>按住拖曳：主角跟著指標的<strong>移動量</strong>走，而不是跳到指標位置。放開再按可<strong>重新定錨</strong>，讓你在舒服的位置操控。',
+        ddHelp3Html: '多數子彈<strong>直線</strong>飛行；<strong>橘色、帶箭頭</strong>的會<strong>朝你瞄準</strong>。子彈的判定範圍就是它的<strong>圓形</strong>本體。',
+        ddHelp4Html: '你有數條<strong>生命</strong>——被擊中會扣一條並短暫<strong>無敵</strong>；歸零就結束。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
     });
 
     // =================================================================
@@ -75,7 +75,8 @@
 
     const CONFIG = {
         playerRadius: 10,
-        playerMaxSpeed: 2600,   // px/s — cap on how fast the dot can move (anti-teleport)
+        playerMaxSpeed: 0,      // px/s cap on the dot's speed; 0 = unlimited (pure 1:1 control)
+        invulnSec: 1.2,         // brief invulnerability after a hit (one cluster ≠ instant wipe)
         spawnMargin: 26,        // bullets appear this far outside the field edge
         straightSpread: 0.62,   // max angle (rad) a straight shot deviates from straight-in
         aimedJitter: 0.09,      // small aim error (rad) so aimed shots aren't pixel-perfect
@@ -84,13 +85,14 @@
         countdownSec: 3,        // "get ready" countdown before a run starts
     };
 
-    // Per-difficulty balance. rate = bullets/sec, speed = px/sec, each as a log
-    // curve base + k·ln(1 + t/tau). aimed = fraction of shots that home on you.
+    // Per-difficulty balance. lives = hits you can take (each grants brief
+    // invulnerability). rate = bullets/sec, speed = px/sec, each a log curve
+    // base + k·ln(1 + t/tau). aimed = fraction of shots that home on you.
     // bulletR = [min, max] radius (hard = smaller, harder to spot).
     const DIFFICULTIES = {
-        easy:   { rate: { base: 1.0, k: 1.2 }, speed: { base: 130, k: 60 }, aimed: 0.10, bulletR: [7, 12] },
-        normal: { rate: { base: 1.4, k: 1.6 }, speed: { base: 150, k: 78 }, aimed: 0.20, bulletR: [6, 11] },
-        hard:   { rate: { base: 1.9, k: 2.0 }, speed: { base: 175, k: 95 }, aimed: 0.33, bulletR: [5, 10] },
+        easy:   { lives: 5, rate: { base: 1.0, k: 1.2 }, speed: { base: 130, k: 60 }, aimed: 0.10, bulletR: [7, 12] },
+        normal: { lives: 4, rate: { base: 1.4, k: 1.6 }, speed: { base: 150, k: 78 }, aimed: 0.20, bulletR: [6, 11] },
+        hard:   { lives: 3, rate: { base: 1.9, k: 2.0 }, speed: { base: 175, k: 95 }, aimed: 0.33, bulletR: [5, 10] },
     };
 
     // =================================================================
@@ -108,6 +110,9 @@
         score: 0,
         spawnAcc: 0,
         countdown: 0,
+        lives: 3, maxLives: 3,
+        invuln: 0,              // seconds of post-hit invulnerability remaining
+        shake: 0,
         ended: false,
         deadBullet: null,
     };
@@ -123,8 +128,10 @@
     const ctx = canvas.getContext('2d');
     const dom = {
         time: document.getElementById('time'),
+        lives: document.getElementById('lives'),
         diffSeg: document.getElementById('difficulty-seg'),
     };
+    const livesStat = dom.lives ? dom.lives.closest('.hud-stat') : null;
 
     function fitCanvas() {
         const dpr = Math.min(window.devicePixelRatio || 1, 2);
@@ -202,7 +209,10 @@
 
     // Ease the dot toward its target, but never faster than the speed cap.
     function stepPlayer(dt) {
-        const maxD = CONFIG.playerMaxSpeed * dt;
+        // 0 = unlimited: the dot tracks the pointer 1:1. The swept collision
+        // test still checks the whole old→new segment, so fast moves can't
+        // tunnel through a bullet — speed is pure skill expression.
+        const maxD = CONFIG.playerMaxSpeed > 0 ? CONFIG.playerMaxSpeed * dt : Infinity;
         const dx = G.tx - G.px, dy = G.ty - G.py;
         const d = Math.hypot(dx, dy);
         if (d <= maxD || d === 0) { G.px = G.tx; G.py = G.ty; }
@@ -270,6 +280,18 @@
         return minDist2 <= R * R;
     }
 
+    // A hit costs a life + grants brief invulnerability. Returns true if that
+    // was the last life (the run is over).
+    function onHit(b) {
+        G.lives--;
+        G.shake = 0.4;
+        updateHud();
+        if (G.lives <= 0) { die(b); return true; }
+        G.invuln = CONFIG.invulnSec;
+        AC.audio.play('rock');
+        return false;
+    }
+
     function die(b) {
         if (G.ended) return;
         G.ended = true;
@@ -294,6 +316,8 @@
 
         G.elapsed += dt;
         G.score = G.elapsed;
+        if (G.invuln > 0) G.invuln = Math.max(0, G.invuln - dt);
+        if (G.shake > 0) G.shake = Math.max(0, G.shake - dt);
 
         // Spawn on a smooth accumulator (fixed-timestep loop keeps the cadence
         // even without any per-frame probability smoothing).
@@ -312,9 +336,9 @@
             const bx0 = b.x, by0 = b.y;
             b.x += b.vx * dt;
             b.y += b.vy * dt;
-            if (collideSwept(px0, py0, px1, py1, bx0, by0, b.x, b.y, CONFIG.playerRadius + b.r)) {
-                die(b);
-                return;
+            if (G.invuln <= 0 &&
+                collideSwept(px0, py0, px1, py1, bx0, by0, b.x, b.y, CONFIG.playerRadius + b.r)) {
+                if (onHit(b)) return;   // out of lives → run over
             }
             if (offField(b)) G.bullets.splice(i, 1);
         }
@@ -330,29 +354,42 @@
         ctx.fillStyle = '#0c0a18';
         ctx.fillRect(0, 0, W, H);
 
+        ctx.save();
+        if (G.shake > 0) {
+            const s = G.shake * 10;
+            ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
+        }
         for (const b of G.bullets) drawBullet(b);
         drawPlayer();
         if (G.ended) drawDeath();
+        ctx.restore();
+
         if (G.countdown > 0) drawCountdown();
         if (DEBUG) drawDebugOverlay(); // [DEBUG-HOOK]
     }
 
     function drawBullet(b) {
         if (b.kind === 'aimed') {
-            // Warm arrowhead pointing along its path — clearly "this one is for you".
+            // Hitbox = this visible orange circle (radius b.r), exactly like a
+            // straight shot. A white chevron inside marks it AIMED + its heading.
             const ang = Math.atan2(b.vy, b.vx);
-            const s = b.r * 1.5;
             ctx.save();
             ctx.translate(b.x, b.y);
-            ctx.rotate(ang);
             ctx.shadowColor = 'rgba(251, 146, 60, 0.9)';
-            ctx.shadowBlur = 12;
-            ctx.fillStyle = '#fb923c';
+            ctx.shadowBlur = 10;
+            ctx.fillStyle = '#fb7a2b';
+            ctx.beginPath();
+            ctx.arc(0, 0, b.r, 0, PI2);
+            ctx.fill();
+            ctx.shadowBlur = 0;
+            ctx.rotate(ang);
+            ctx.fillStyle = 'rgba(255, 255, 255, 0.95)';
+            const s = b.r * 0.72;
             ctx.beginPath();
             ctx.moveTo(s, 0);
-            ctx.lineTo(-s * 0.7, s * 0.8);
-            ctx.lineTo(-s * 0.3, 0);
-            ctx.lineTo(-s * 0.7, -s * 0.8);
+            ctx.lineTo(-s * 0.5, s * 0.7);
+            ctx.lineTo(-s * 0.1, 0);
+            ctx.lineTo(-s * 0.5, -s * 0.7);
             ctx.closePath();
             ctx.fill();
             ctx.restore();
@@ -371,6 +408,8 @@
     function drawPlayer() {
         const c = accent();
         ctx.save();
+        // Blink while invulnerable after a hit.
+        if (G.invuln > 0) ctx.globalAlpha = (Math.floor(G.invuln * 12) % 2 === 0) ? 0.35 : 0.95;
         ctx.shadowColor = c;
         ctx.shadowBlur = 18;
         ctx.fillStyle = c;
@@ -412,6 +451,16 @@
 
     function updateHud() {
         if (dom.time) dom.time.textContent = String(Math.floor(G.elapsed));
+        renderLives();
+        if (livesStat) livesStat.classList.toggle('danger', G.lives <= 1);
+    }
+    // Lives as pips (easier to read at a glance than a number).
+    function renderLives() {
+        if (!dom.lives) return;
+        const max = G.maxLives || 1, cur = Math.max(0, G.lives);
+        let html = '';
+        for (let i = 0; i < max; i++) html += '<i class="life-pip' + (i < cur ? '' : ' lost') + '"></i>';
+        dom.lives.innerHTML = html;
     }
 
     function syncDiffButtons() {
@@ -474,6 +523,7 @@
         G.rng = AC.rng.make(seedCounter++);
         G.difficulty = staged;
         G.diffCfg = DIFFICULTIES[G.difficulty];
+        G.lives = G.maxLives = G.diffCfg.lives;
         G.px = G.tx = W / 2;
         G.py = G.ty = H / 2;
         G.bullets = [];
@@ -481,6 +531,8 @@
         G.score = START_T;
         G.spawnAcc = 0;
         G.countdown = 0;
+        G.invuln = 0;
+        G.shake = 0;
         G.ended = false;
         G.deadBullet = null;
         drag = null;
@@ -543,6 +595,7 @@
         const lines = [
             'DEBUG  [' + G.difficulty + ']',
             't = ' + G.elapsed.toFixed(0) + 's',
+            'lives = ' + G.lives + '/' + G.maxLives,
             'rate = ' + spawnRate().toFixed(2) + '/s',
             'speed = ' + bulletSpeed().toFixed(0) + ' px/s',
             'aimed = ' + G.diffCfg.aimed,
@@ -568,11 +621,13 @@
         window.DD = {
             setTime(sec) { G.elapsed = Math.max(0, sec || 0); return G.elapsed; },
             addTime(sec) { G.elapsed = Math.max(0, G.elapsed + (sec == null ? 30 : sec)); return G.elapsed; },
+            addLife(n) { G.lives += (n == null ? 1 : n); G.maxLives = Math.max(G.maxLives, G.lives); updateHud(); return G.lives; },
             clear() { G.bullets = []; return 0; },
             diff(d) { setDifficulty(d); return G.difficulty; },
             info() {
                 return {
                     difficulty: G.difficulty, t: +G.elapsed.toFixed(1),
+                    lives: G.lives, maxLives: G.maxLives,
                     ratePerSec: +spawnRate().toFixed(2), speed: +bulletSpeed().toFixed(0),
                     aimed: G.diffCfg.aimed, bullets: G.bullets.length,
                 };
@@ -581,11 +636,12 @@
         shell.keyboard.onPress((k) => {
             if (k === ']') window.DD.addTime(30);
             else if (k === '[') window.DD.addTime(-30);
+            else if (k === 'l' || k === 'L') window.DD.addLife(1);
             else if (k === 'c' || k === 'C') window.DD.clear();
         });
         console.log('%c[Dot Dodge] debug on', 'color:#a78bfa;font-weight:700');
-        console.log('DD.setTime(s) addTime(s) clear() diff("easy"|"normal"|"hard") info()');
-        console.log('keys:  ] +30s   [ -30s   C clear bullets');
+        console.log('DD.setTime(s) addTime(s) addLife(n) clear() diff("easy"|"normal"|"hard") info()');
+        console.log('keys:  ] +30s   [ -30s   L +life   C clear bullets');
     }
 
     if (document.readyState === 'loading') {

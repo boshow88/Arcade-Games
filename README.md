@@ -14,7 +14,7 @@ retry.
 | Game           | Status   | Notes                                                               |
 | -------------- | -------- | ------------------------------------------------------------------- |
 | Colour Ladder | Playable | Real-time ghost-leg: move colour-gated rungs to route colour balls into baskets |
-| Dot Dodge      | Playable | Omnidirectional bullet-dodge survival; relative-drag control, score = survival time |
+| Dot Dodge      | WIP      | Omnidirectional bullet-dodge survival; relative-drag control, lives, score = survival time |
 | Bamboo Dash    | WIP      | One-tap endless runner                                             |
 | Beat Bamboo    | WIP      | Rhythm tapper                                                      |
 

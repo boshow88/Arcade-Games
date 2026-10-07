@@ -351,6 +351,7 @@
             puzzleGamesCardBody:
                 'A separate site with logic puzzles.',
             playable: 'Playable',
+            wip: 'WIP',
             tagReflex: 'Reflex',
             tagScore: 'Score chase',
             tagTimed: 'Timed',
@@ -404,6 +405,7 @@
             puzzleGamesCardBody:
                 '另一個網站，收錄邏輯謎題。',
             playable: '可遊玩',
+            wip: '開發中',
             tagReflex: '反應',
             tagScore: '衝分',
             tagTimed: '限時',
