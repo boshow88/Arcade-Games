@@ -114,22 +114,22 @@
     // Simpler layouts run busier, so easy has the highest freq & speed.
     const DIFFICULTIES = {
         easy: {
-            lanes: 3, colors: 3, lives: 5, fixedRungs: 2,
+            lanes: 3, colors: 3, lives: 4, fixedRungs: 2,
             twoBall: 0.00,
-            freq:  { base: 0.25, k: 0.83, tau: 2000 },
-            speed: { base: 67, k: 67, tau: 2000 },
+            freq:  { base: 0.20, k: 0.80, tau: 2000 },
+            speed: { base: 50, k: 80, tau: 2000 },
         },
         normal: {
-            lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
+            lanes: 4, colors: 4, lives: 4, fixedRungs: 3,
             twoBall: 0.00,
             freq:  { base: 0.20, k: 0.66, tau: 2000 },
-            speed: { base: 53, k: 53, tau: 2000 },
+            speed: { base: 50, k: 60, tau: 2000 },
         },
         hard: {
-            lanes: 4, colors: 4, lives: 5, fixedRungs: 3,
+            lanes: 4, colors: 4, lives: 4, fixedRungs: 3,
             twoBall: 0.33,
-            freq:  { base: 0.15, k: 0.50, tau: 2000 },
-            speed: { base: 40, k: 40, tau: 2000 },
+            freq:  { base: 0.16, k: 0.50, tau: 2000 },
+            speed: { base: 40, k: 55, tau: 2000 },
         },
     };
     // Fixed colours AND order per colour count — baskets always use these exact
