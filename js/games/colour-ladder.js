@@ -17,9 +17,10 @@
  * fall speed, hard the lowest. A just-moved rung's recharge shortens as the
  * wave rate climbs, so the late game never outruns it.
  *
- * Rungs: one per colour, a fixed set. Each rung deflects every colour EXCEPT
- * its own — a ball of the rung's colour passes straight through — so a rung is
- * both a redirector for other colours and a "safe gate" for its own. Press/
+ * Rungs: a fixed set you MOVE (never add/remove). A rung steps every ball it
+ * meets across to the neighbouring lane. On HARD the rungs are colour-coded and
+ * a rung lets its OWN colour pass straight through (a "safe gate"); on Easy /
+ * Normal the rungs are plain (colour-agnostic — they step every ball). Press/
  * hold a rung to pick it up and drop it elsewhere; placement is free (height)
  * and a held rung auto-dodges to the nearest clear height so rungs sharing a
  * lane never overlap. While held, the original keeps working and a translucent
@@ -50,13 +51,13 @@
         lcHard: 'Hard',
         lcReady: 'Ready',
         lcGetReady: 'Get ready',
-        lcIntro: 'Route each falling ball into its matching-colour basket by moving the rungs. A rung deflects every colour except its own.',
+        lcIntro: 'Route each falling ball into its matching-colour basket by moving the rungs. Each rung steps the balls across to the next lane.',
         lcStartHintHtml: 'Hold a rung and drop it elsewhere · <kbd>P</kbd> pause',
         lcOverMsgHtml: (score) => `You scored <strong>${score}</strong>.`,
         lcOverHintHtml: 'Press <kbd>R</kbd> or the button to play again.',
         lcHelp1Html: 'Coloured balls fall down the <strong>lanes</strong>. Land each in the basket of its <strong>own colour</strong>; a wrong basket costs a <strong>life</strong>.',
-        lcHelp2Html: 'Each <strong>rung</strong> is one colour and deflects every colour <strong>except its own</strong> (a same-colour ball slips straight through). Press and hold a rung, then drop it to route the balls.',
-        lcHelp3Html: 'There is <strong>one rung per colour</strong>. After you move a rung it <strong>recharges</strong> briefly before it can move again.',
+        lcHelp2Html: 'Press and hold a <strong>rung</strong>, then drop it elsewhere \u2014 each rung <strong>steps a ball across</strong> to the next lane, so you redirect the falls. On <strong>Hard</strong>, a rung lets its <strong>own colour</strong> pass straight through.',
+        lcHelp3Html: 'You have a few movable <strong>rungs</strong>. After you move one it <strong>recharges</strong> briefly before it can move again \u2014 so you plan across all of them.',
         lcHelp4Html: 'Faint <strong>grey bars</strong> are fixed walls that block <strong>every</strong> colour and can\u2019t be moved \u2014 route around them.',
         lcHelp5Html: 'A ball marked <strong>+</strong> is a faster <strong>heal</strong> ball \u2014 land it in its colour to <strong>regain a life</strong>; missing it is harmless.',
         lcHelp6Html: 'Over time it gets <strong>busier and a little faster</strong>. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
@@ -68,13 +69,13 @@
         lcHard: '困難',
         lcReady: '準備開始',
         lcGetReady: '準備',
-        lcIntro: '移動橋，把每顆落下的球導進同色的籃子。每座橋會擋下「除了自己顏色以外」的球。',
+        lcIntro: '移動橋，把每顆落下的球導進同色的籃子。每座橋會把碰到的球帶往隔壁線。',
         lcStartHintHtml: '按住橋拖到別處放下 · <kbd>P</kbd> 暫停',
         lcOverMsgHtml: (score) => `你得了 <strong>${score}</strong> 分。`,
         lcOverHintHtml: '按 <kbd>R</kbd> 或按鈕再玩一次。',
         lcHelp1Html: '彩色球沿著<strong>直線</strong>往下掉。把每顆導進<strong>同色</strong>的籃子；進錯籃子會扣一條<strong>命</strong>。',
-        lcHelp2Html: '每座<strong>橋</strong>只有一種顏色，會擋下<strong>除了自己顏色以外</strong>的球（同色球直接穿過）。按住橋、放到別處，用它引導球。',
-        lcHelp3Html: '每種顏色各有<strong>一座橋</strong>。移動後會短暫<strong>充能</strong>，充滿才能再移動。',
+        lcHelp2Html: '按住<strong>橋</strong>、放到別處——每座橋會把球<strong>帶往隔壁線</strong>，用它改變球的落點。<strong>困難</strong>模式的橋會讓<strong>同色</strong>球直接穿過。',
+        lcHelp3Html: '你有數座可移動的<strong>橋</strong>。移動後會短暫<strong>充能</strong>，充滿才能再動——所以要分配著用。',
         lcHelp4Html: '幾道淡<strong>灰色橫桿</strong>是固定的牆，會擋下<strong>所有</strong>顏色、且不能移動——請繞過它們。',
         lcHelp5Html: '帶 <strong>+</strong> 的是較快的<strong>回血球</strong>——導進它的同色籃子可<strong>回一滴血</strong>；沒接到也不會扣血。',
         lcHelp6Html: '隨時間會<strong>越來越忙、也略快</strong>。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
@@ -95,7 +96,7 @@
                                  // (anti-jitter; measured in screen px so it's resolution-independent)
         rungMinSep: 18,          // min vertical gap between rungs that share a lane (px)
         countdownSec: 3,         // "get ready" countdown before a run starts
-        rungCooldown: 3.6,       // sec a just-moved rung stays locked at t=0 (shrinks as the wave rate climbs)
+        rungCooldown: 4.2,       // sec a just-moved rung stays locked at t=0 (shrinks as the wave rate climbs)
         healEveryWaves: 12,      // ~one EXTRA heal ball per this many waves (its rate tracks waveRate)
         healSpeedMul: 1.5,       // heal balls fall this × the current normal speed (fixed ratio)
         scorePerCorrect: 1,      // one point per ball delivered — keeps the number compact
@@ -116,18 +117,21 @@
         easy: {
             lanes: 3, colors: 3, lives: 4, fixedRungs: 2,
             twoBall: 0.00,
+            colorRungs: false,   // plain rungs: step EVERY ball (no colour pass)
             freq:  { base: 0.20, k: 0.80, tau: 2000 },
             speed: { base: 50, k: 80, tau: 2000 },
         },
         normal: {
             lanes: 4, colors: 4, lives: 4, fixedRungs: 3,
             twoBall: 0.00,
-            freq:  { base: 0.20, k: 0.66, tau: 2000 },
+            colorRungs: false,   // plain rungs: step EVERY ball (no colour pass)
+            freq:  { base: 0.20, k: 0.70, tau: 2000 },
             speed: { base: 50, k: 60, tau: 2000 },
         },
         hard: {
             lanes: 4, colors: 4, lives: 4, fixedRungs: 3,
             twoBall: 0.33,
+            colorRungs: true,    // colour rungs: a rung lets its own colour pass through
             freq:  { base: 0.16, k: 0.50, tau: 2000 },
             speed: { base: 40, k: 55, tau: 2000 },
         },
@@ -277,10 +281,14 @@
     function initRungs() {
         G.rungs = [];
         const palette = (COLOR_SETS[G.colors] || COLOR_SETS[4]).slice();
-        // Movable colour rungs: one per colour, placed anywhere in the band.
         const anyY = () => AC.rng.float(G.rng, RUNG_TOP, RUNG_BOTTOM);
-        for (const color of palette) {
-            placeRungSpread(AC.rng.int(G.rng, 0, G.lanes - 1), anyY, { color });
+        const randGap = () => AC.rng.int(G.rng, 0, G.lanes - 1);
+        if (G.diffCfg.colorRungs) {
+            // Colour rungs (Hard): one per colour — each lets its own colour pass.
+            for (const color of palette) placeRungSpread(randGap(), anyY, { color });
+        } else {
+            // Plain rungs (Easy/Normal): colour-agnostic, they step EVERY ball.
+            for (let i = 0; i < G.colors; i++) placeRungSpread(randGap(), anyY, { color: RUNG_PLAIN });
         }
         // Immovable obstacle rungs: block EVERY colour, can't be picked up.
         // Upper-biased centre (~26%), one per gap where possible.
@@ -593,6 +601,7 @@
     }
 
     const RUNG_COLOR = '#aab0bd';   // neutral grey — the bar deflects other colours
+    const RUNG_PLAIN = '#cfd6e6';   // plain-rung end-ring (Easy/Normal: no colour passes)
     const HOLE_FILL = '#0d0b1d';    // punched-hole colour (≈ background)
     // A rung is a neutral bar (deflects every other colour) with a coloured
     // "gate" ring at each end — the one colour that slips straight through.

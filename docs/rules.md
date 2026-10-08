@@ -48,16 +48,16 @@ to steer each ball into the basket of its own colour.
 
 ### Rungs
 
-- A **rung** is a coloured bar joining two neighbouring lanes. It **deflects
-  every colour except its own** — a ball of the rung's colour slips straight
-  through — and a deflected ball steps to the next lane.
-- There is **one rung per colour**, a fixed set — you **move** them, never add
-  or remove any. Since each rung touches every colour but its own, the whole
-  set is always interacting with the falling balls; a ball's own-colour rung is
-  a **safe gate** you can use to let it carry on straight.
+- A **rung** is a bar joining two neighbouring lanes; a ball that meets it
+  **steps across** to the next lane. You have a fixed set you **move** (never add
+  or remove), so you redirect the falls by repositioning them.
+- On **Easy / Normal** the rungs are **plain** (colour-agnostic) — they step
+  *every* ball. On **Hard** the rungs are **colour-coded** and a rung lets its
+  **own colour pass straight through** (a "safe gate"), so you juggle the whole
+  set's side-effects.
 - After you move a rung it briefly **recharges** (the end-rings sweep back to
-  full) before it can move again — so you can't frantically shuffle one rung.
-  The lock is short and gets shorter as the balls speed up.
+  full) before it can move again — so you can't just shuffle one rung for
+  everything. The lock shortens as the **wave rate** climbs, keeping pace late.
 - A few **fixed obstacle rungs** (thin, muted grey cross-bars) are scattered
   near the top each run. They **block every colour**, can't be moved, and you
   route around them.
