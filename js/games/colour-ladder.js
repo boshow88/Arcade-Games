@@ -50,7 +50,6 @@
         lcNormal: 'Normal',
         lcHard: 'Hard',
         lcReady: 'Ready',
-        lcGetReady: 'Get ready',
         lcIntro: 'Route each falling ball into its matching-colour basket by moving the rungs. Each rung steps the balls across to the next lane.',
         lcStartHintHtml: 'Hold a rung and drop it elsewhere · <kbd>P</kbd> pause',
         lcOverMsgHtml: (score) => `You scored <strong>${score}</strong>.`,
@@ -68,7 +67,6 @@
         lcNormal: '普通',
         lcHard: '困難',
         lcReady: '準備開始',
-        lcGetReady: '準備',
         lcIntro: '移動橋，把每顆落下的球導進同色的籃子。每座橋會把碰到的球帶往隔壁線。',
         lcStartHintHtml: '按住橋拖到別處放下 · <kbd>P</kbd> 暫停',
         lcOverMsgHtml: (score) => `你得了 <strong>${score}</strong> 分。`,
@@ -775,20 +773,12 @@
     // "Get ready" 3-2-1 overlay shown while the opening scene is frozen.
     function drawCountdown() {
         const n = Math.max(1, Math.ceil(G.countdown));
-        const frac = G.countdown - Math.floor(G.countdown);   // pulses each second
         ctx.save();
-        ctx.fillStyle = 'rgba(8,6,18,0.5)';
-        ctx.fillRect(0, 0, W, H);
         ctx.textAlign = 'center';
         ctx.textBaseline = 'middle';
-        ctx.globalAlpha = 0.4 + 0.6 * frac;
         ctx.fillStyle = '#eaf0ff';
         ctx.font = `800 120px ${getFont()}`;
-        ctx.fillText(String(n), W / 2, H / 2 - 8);
-        ctx.globalAlpha = 1;
-        ctx.fillStyle = 'rgba(234,240,255,0.85)';
-        ctx.font = `700 22px ${getFont()}`;
-        ctx.fillText(AC.i18n.t('lcGetReady'), W / 2, H / 2 + 66);
+        ctx.fillText(String(n), W / 2, H / 2);
         ctx.restore();
     }
 
@@ -953,6 +943,7 @@
         shell = AC.shell.create({
             gameId: 'ladder-connect',
             mode: () => G.difficulty,   // high scores are per-difficulty
+            scoreEpoch: 20261009,       // bump this (e.g. to today's date) to reset everyone's bests once
             step: 1 / 60,
             preventKeys: ['Space', 'ArrowUp', 'ArrowDown', 'ArrowLeft', 'ArrowRight'],
             update,

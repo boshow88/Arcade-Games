@@ -102,6 +102,21 @@
         return readJSON(scoreKey(game), { best: {}, recent: [] });
     }
 
+    // One-time, cross-player score reset. A game declares a `scoreEpoch` integer
+    // (via shell.create); each player's save stamps the epoch it was written
+    // under. When the game bumps its epoch (because a mechanics change makes old
+    // scores invalid), every returning player's next load sees a mismatch and
+    // wipes THAT game's scores exactly once, then stamps the new epoch. Saves
+    // from before this system (no epoch) count as stale, so the first bump resets
+    // everyone too. `scoreEpoch` left undefined = never auto-reset.
+    function resetScoresIfStale(game, epoch) {
+        if (epoch == null) return;
+        const key = scoreKey(game);
+        const data = readJSON(key, null);
+        if (data && data.epoch === epoch) return;          // already on this epoch
+        writeJSON(key, { best: {}, recent: [], epoch: epoch });
+    }
+
     // -----------------------------------------------------------------
     // Math / misc helpers
     // -----------------------------------------------------------------
@@ -1043,6 +1058,7 @@
 
         // ---------- boot ----------
 
+        resetScoresIfStale(gameId, opts.scoreEpoch);   // one-time wipe if the game bumped its epoch
         refreshBest();
         syncButtons();
         syncSoundBtn();
@@ -1075,7 +1091,7 @@
     global.ArcadeCommon = {
         storage: { readJSON, writeJSON, storageKey },
         prefs: { get: getPrefs, set: setPrefs },
-        scores: { best: getBest, submit: submitScore, stats: getScoreStats },
+        scores: { best: getBest, submit: submitScore, stats: getScoreStats, resetIfStale: resetScoresIfStale },
         rng: { make: makeRng, int: pickInt, float: pickFloat, one: pickOne, shuffle: shuffleInPlace },
         math: { clamp, lerp, dist },
         format: { score: formatScore, clock: formatClock },
