@@ -119,21 +119,21 @@
             twoBall: 0.00,
             colorRungs: false,   // plain rungs: step EVERY ball (no colour pass)
             freq:  { base: 0.20, k: 0.80, tau: 2000 },
-            speed: { base: 50, k: 80, tau: 2000 },
+            speed: { base: 40, k: 80, tau: 2000 },
         },
         normal: {
             lanes: 4, colors: 4, lives: 4, fixedRungs: 3,
             twoBall: 0.00,
             colorRungs: false,   // plain rungs: step EVERY ball (no colour pass)
             freq:  { base: 0.20, k: 0.70, tau: 2000 },
-            speed: { base: 50, k: 60, tau: 2000 },
+            speed: { base: 36, k: 54, tau: 2000 },
         },
         hard: {
             lanes: 4, colors: 4, lives: 4, fixedRungs: 3,
             twoBall: 0.33,
             colorRungs: true,    // colour rungs: a rung lets its own colour pass through
             freq:  { base: 0.16, k: 0.50, tau: 2000 },
-            speed: { base: 40, k: 55, tau: 2000 },
+            speed: { base: 32, k: 48, tau: 2000 },
         },
     };
     // Fixed colours AND order per colour count — baskets always use these exact
