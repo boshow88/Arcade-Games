@@ -130,7 +130,7 @@
         water: [{ p: 'M7.001 15.085A1.5 1.5 0 0 1 9 16.5' }, { c: [18.5, 8.5, 3.5] }, { c: [7.5, 16.5, 5.5] }, { c: [7.5, 4.5, 2.5] }],
         fire:  [{ p: 'M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4' }],
         wood:  [{ p: 'M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0011 20' }, { p: 'M2 21a5 5 0 012.911-4.544C7.613 15.212 8.351 15.24 11 13' }],
-        light: [{ p: 'M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z' }],
+        light: [{ p: 'M12.983 21.186a1 1 0 0 1-1.966 0 10 10 0 0 0-8.203-8.203 1 1 0 0 1 0-1.966 10 10 0 0 0 8.203-8.203 1 1 0 0 1 1.966 0 10 10 0 0 0 8.203 8.203 1 1 0 0 1 0 1.966 10 10 0 0 0-8.203 8.203' }],
         dark:  [{ c: [12, 12, 10] }, { p: 'M12 2a7 7 0 1 0 10 10' }],
         heart: [{ p: 'M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5' }],
     };
@@ -151,6 +151,9 @@
 
     const CONFIG = {
         orbRadius: 40,
+        iconScale: 0.8,         // rune icon diameter = orbRadius × this (smaller = more margin)
+        iconStroke: 0.12,       // rune icon stroke width = orbRadius × this (bigger = bolder/less hollow)
+        iconTint: -0.15,        // normal rune icon = shade(element colour, this): near the stone for a unified look (enhanced is white, so it pops)
         popTime: 0.13,
         fallAnim: 0.16,
         bigThreshold: 5,        // clearing this many of a colour forges an enhanced rune
@@ -207,7 +210,7 @@
         held: null,
         spinTimer: 0,
         resolving: false,
-        resolve: null,          // { stage, t, combos, pending, popIndex, wave, bigColors }
+        resolve: null,          // { stage, t, combos, pending, popIndex, wave }
         draft: null,            // { options: [upgradeId, ...] } while choosing
         floats: [],
         shake: 0,
@@ -374,15 +377,6 @@
             }
         }
     }
-    // Turn a random non-enhanced rune of `el` on the (settled) board into an
-    // enhanced rune — called after a 5+ clear of that colour.
-    function forgeEnhanced(el) {
-        const cands = [];
-        for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && o.el === el && !o.enhanced) cands.push(i); }
-        if (cands.length === 0) return;
-        board[cands[AC.rng.int(G.rng, 0, cands.length)]].enhanced = true;
-    }
-
     // =================================================================
     // Input — drag a rune; or pick a draft card
     // =================================================================
@@ -447,7 +441,7 @@
     function startResolve() {
         G.held = null;
         G.resolving = true;
-        G.resolve = { stage: 'pop', t: 0, combos: [], pending: [], popIndex: 0, wave: -1, bigColors: [] };
+        G.resolve = { stage: 'pop', t: 0, combos: [], pending: [], popIndex: 0, wave: -1 };
         beginCascade();
     }
     function beginCascade() {
@@ -475,7 +469,20 @@
             board[idx] = null;
         }
         g.enhanced = enh;
-        if (g.cells.length >= CONFIG.bigThreshold) G.resolve.bigColors.push({ el: g.el, count: 1 + G.run.enhanceOnBig });
+        // Forge enhanced rune(s) IN PLACE: pick random just-cleared cell(s) of this
+        // group and birth an enhanced rune of that colour right there. It then
+        // falls with gravity (and grows from scale 0) like any other rune, while
+        // the remaining gaps are filled from above.
+        if (g.cells.length >= CONFIG.bigThreshold) {
+            const count = 1 + G.run.enhanceOnBig;
+            const spots = g.cells.slice();
+            for (let k = 0; k < count && spots.length; k++) {
+                const pick = spots.splice(AC.rng.int(G.rng, 0, spots.length), 1)[0];
+                const o = newOrb(g.el, cellCX(pick), cellCY(pick), true);
+                o.scale = 0;
+                board[pick] = o;
+            }
+        }
         G.resolve.combos.push(g);
         G.resolve.stage = 'pop'; G.resolve.t = 0;
         comboSound(G.resolve.combos.length);
@@ -522,10 +529,7 @@
 
     function finishResolve() {
         const combos = G.resolve.combos;
-        const bigColors = G.resolve.bigColors;
         const { dmg, heal, n } = computeSpinResult(combos);
-
-        for (const bc of bigColors) for (let i = 0; i < bc.count; i++) forgeEnhanced(bc.el);
 
         if (n > 0) {
             if (heal > 0) {
@@ -749,8 +753,8 @@
         }
 
         // centre icon: enhanced = white, otherwise a deep tint of the element colour
-        const iconColor = enhanced ? 'rgba(255,255,255,0.97)' : shade(col, -0.5);
-        drawRuneIcon(el, 0, 0, r * 1.3, iconColor, Math.max(1.6, r * 0.065));
+        const iconColor = enhanced ? 'rgba(255,255,255,0.97)' : shade(col, CONFIG.iconTint);
+        drawRuneIcon(el, 0, 0, r * CONFIG.iconScale, iconColor, Math.max(2.4, r * CONFIG.iconStroke));
 
         if (highlight) {
             roundedPolyPath(pts.map((p) => [p[0] * 1.08, p[1] * 1.08]), r * 0.16);
