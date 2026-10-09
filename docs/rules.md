@@ -230,6 +230,16 @@ curve lives in the **per-floor growth**: each foe has more HP and attack than
 the last. Every `CONFIG.draftEvery` floors you pick **one of three upgrades**
 (leveled stat / board / relic picks) that patch your run.
 
+### Active skills
+
+You carry up to `CONFIG.skillSlots` **active skills** (you start with
+`CONFIG.startSkills` random ones; the "New Skill" draft grants more). Tap a skill
+button (in the gap between the player bar and the board) to cast — casting is a
+**free action**, but a turn (and every skill's cooldown, counted in turns) only
+advances when you **spin**. Current pool: Mend, Empower, Focus, Shuffle, Smite,
+Guard, Freeze, Enchant, Bless. Only **one** full-"block" source exists (Guard,
+on cooldown), per the design's anti-infinite-block rule.
+
 ### Tuning
 
 All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (HP, spin

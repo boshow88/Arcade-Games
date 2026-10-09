@@ -61,6 +61,9 @@
         rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`,
         rtShBan: (els) => `Don't clear ${els}`,
+        rtGuarded: 'Guarded!',
+        rtSk_mend: 'Mend', rtSk_empower: 'Empower', rtSk_focus: 'Focus', rtSk_shuffle: 'Shuffle',
+        rtSk_smite: 'Smite', rtSk_guard: 'Guard', rtSk_freeze: 'Freeze', rtSk_enchant: 'Enchant', rtSk_bless: 'Bless',
         // upgrades — name + short desc
         rtU_timeSand: 'Time Sand',        rtUd_timeSand: '+1s spin time',
         rtU_comboFervor: 'Combo Fervor',  rtUd_comboFervor: 'Bigger combo scaling',
@@ -78,6 +81,7 @@
         rtU_undying: 'Undying',           rtUd_undying: 'Survive a lethal hit once',
         rtU_snowball: 'Snowball',         rtUd_snowball: '+1 base damage per kill',
         rtU_glassCannon: 'Glass Cannon',  rtUd_glassCannon: '+40% damage, \u221225% max HP',
+        rtU_newSkill: 'New Skill',        rtUd_newSkill: 'Gain a random active skill',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
         rtHp: '生命',
@@ -101,6 +105,9 @@
         rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`,
         rtShBan: (els) => `禁消 ${els}`,
+        rtGuarded: '格擋！',
+        rtSk_mend: '療癒', rtSk_empower: '增幅', rtSk_focus: '凝神', rtSk_shuffle: '洗盤',
+        rtSk_smite: '制裁', rtSk_guard: '守護', rtSk_freeze: '凍結', rtSk_enchant: '附魔', rtSk_bless: '祝福',
         rtU_timeSand: '時之沙',      rtUd_timeSand: '轉珠時間 +1 秒',
         rtU_comboFervor: '連擊狂熱',  rtUd_comboFervor: '連擊加成更高',
         rtU_heavyStrike: '重擊',      rtUd_heavyStrike: '基礎傷害 +4',
@@ -117,6 +124,7 @@
         rtU_undying: '不倒',          rtUd_undying: '整局一次免死',
         rtU_snowball: '複利',         rtUd_snowball: '每擊殺基礎傷害 +1',
         rtU_glassCannon: '玻璃大砲',  rtUd_glassCannon: '傷害 +40%、最大生命 −25%',
+        rtU_newSkill: '新技能',       rtUd_newSkill: '獲得一個隨機主動技',
     });
 
     // =================================================================
@@ -179,6 +187,8 @@
         fallAnim: 0.16,
         bigThreshold: 5,        // clearing this many of a colour forges an enhanced rune
         draftEvery: 2,          // offer an upgrade draft every N floors
+        skillSlots: 4,          // max active skills you can hold
+        startSkills: 2,         // active skills you begin a run with
         scoreCap: 999999,
     };
 
@@ -212,9 +222,67 @@
         { id: 'undying',       tier: 'E', max: 1, apply: (G) => { G.run.undying = true; } },
         { id: 'snowball',      tier: 'R', max: 1, apply: (G) => { G.run.snowball = true; } },
         { id: 'glassCannon',   tier: 'E', max: 1, apply: (G) => { G.run.dmgMult += 0.40; G.playerMaxHp = Math.round(G.playerMaxHp * 0.75); G.playerHp = Math.min(G.playerHp, G.playerMaxHp); } },
+        { id: 'newSkill',      tier: 'C', max: 0, avail: () => G.skills.length < CONFIG.skillSlots && SKILLS.some((s) => !G.skills.some((o) => o.id === s.id)), apply: () => grantRandomSkill() },
     ];
     const TIER_WEIGHT = { C: 3, R: 2, E: 1 };
     const TIER_COLOR = { C: '#6fb0ff', R: '#b483ff', E: '#f6c24a' }; // blue / purple / gold
+
+    // Active skills — tap to cast. Casting is a FREE action; a turn (and every
+    // skill's cooldown) only advances when you spin. CD is in turns.
+    const SKILLS = [
+        { id: 'mend',    cd: 6, run: () => { const h = Math.round(G.playerMaxHp * 0.3); G.playerHp = Math.min(G.playerMaxHp, G.playerHp + h); addFloat(W / 2, BOARD_TOP - 40, '+' + h, ELEMENT_COLORS.heart, 20); } },
+        { id: 'empower', cd: 6, run: () => { G.empowerNext = 1.75; } },
+        { id: 'focus',   cd: 4, run: () => { G.bonusTimeNext = 3; } },
+        { id: 'shuffle', cd: 5, run: () => reshuffleBoard() },
+        { id: 'smite',   cd: 7, run: () => smiteEnemy() },
+        { id: 'guard',   cd: 5, run: () => { G.guardNext = true; } },
+        { id: 'freeze',  cd: 7, run: () => { if (G.enemy) G.enemy.cd += 2; } },
+        { id: 'enchant', cd: 5, run: () => enchantRandom(3) },
+        { id: 'bless',   cd: 5, run: () => blessRandom(4) },
+    ];
+    function skillDef(id) { return SKILLS.find((s) => s.id === id); }
+    function pickStartingSkills(n) {
+        const pool = SKILLS.map((s) => s.id);
+        for (let i = pool.length - 1; i > 0; i--) { const j = AC.rng.int(G.rng, 0, i + 1); const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp; }
+        return pool.slice(0, n).map((id) => ({ id, cd: 0 }));
+    }
+    function grantRandomSkill() {
+        if (G.skills.length >= CONFIG.skillSlots) return;
+        const owned = new Set(G.skills.map((s) => s.id));
+        const pool = SKILLS.filter((s) => !owned.has(s.id));
+        if (pool.length) G.skills.push({ id: pool[AC.rng.int(G.rng, 0, pool.length)].id, cd: 0 });
+    }
+    function effectiveSpinTime() { return G.run.spinTime + (G.bonusTimeNext || 0); }
+    function reshuffleBoard() {
+        for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o) { o.el = randomEl(); o.enhanced = false; o.shape = makeShape(G.rng); o.gfx = null; } }
+        let guard = 0, groups = findMatches();
+        while (groups.length > 0 && guard++ < 200) { for (const g of groups) for (const idx of g.cells) { board[idx].el = randomEl(); board[idx].gfx = null; } groups = findMatches(); }
+    }
+    function enchantRandom(n) {
+        const c = []; for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && !o.enhanced) c.push(i); }
+        for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); board[c[j]].enhanced = true; c.splice(j, 1); }
+    }
+    function blessRandom(n) {
+        const c = []; for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && o.el !== 'heart') c.push(i); }
+        for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); const idx = c[j]; board[idx].el = 'heart'; board[idx].gfx = null; c.splice(j, 1); }
+    }
+    function smiteEnemy() {
+        const dmg = Math.round(G.playerMaxHp * 0.15);
+        damageEnemy(dmg);
+        addFloat(W / 2, 96, '-' + dmg, '#ffe08a', 24);
+        if (G.enemy.hp <= 0) defeatEnemy();
+        updateHud();
+    }
+    function activateSkill(i) {
+        const s = G.skills[i];
+        if (!s || s.cd > 0 || !shell.isPlaying() || G.resolving || G.held || G.draft) return;
+        const def = skillDef(s.id);
+        if (!def) return;
+        def.run();
+        s.cd = def.cd;
+        AC.audio.play('gem');
+        updateHud();
+    }
 
     // =================================================================
     // State
@@ -233,6 +301,10 @@
         resolving: false,
         resolve: null,          // { stage, t, combos, pending, popIndex, wave }
         draft: null,            // { options: [upgradeId, ...] } while choosing
+        skills: [],             // owned active skills: [{ id, cd }]
+        empowerNext: 1,         // damage × for the next spin (Empower skill)
+        bonusTimeNext: 0,       // extra seconds for the next spin (Focus skill)
+        guardNext: false,       // block the foe's next attack (Guard skill)
         floats: [],
         shake: 0,
         ended: false,
@@ -421,7 +493,7 @@
             const next = stepToward(G.held.cell, target);
             swapCells(G.held.cell, next);
             G.held.cell = next;
-            if (!G.held.moved) { G.held.moved = true; G.spinTimer = G.run.spinTime; } // first swap starts the clock
+            if (!G.held.moved) { G.held.moved = true; G.spinTimer = effectiveSpinTime(); } // first swap starts the clock
         }
         const o = board[G.held.cell];
         if (o) { o.x = px; o.y = py; o.scale = 1; }
@@ -434,11 +506,18 @@
         const p = boardPos(e);
         if (G.draft) { handleDraftClick(p); if (e.cancelable) e.preventDefault(); return; }
         if (G.resolving || G.held) return;
-        if (p.y < BOARD_TOP) return;
+        if (p.y < BOARD_TOP) {               // above the board: skill buttons live here
+            for (const b of skillButtonRects()) {
+                if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
+                    AC.audio.unlock(); activateSkill(b.i); if (e.cancelable) e.preventDefault(); return;
+                }
+            }
+            return;
+        }
         AC.audio.unlock();
         const cell = cellAtPixel(p.x, p.y);
         G.held = { cell, px: p.x, py: p.y, moved: false };
-        G.spinTimer = G.run.spinTime;
+        G.spinTimer = effectiveSpinTime();
         const o = board[cell]; if (o) { o.x = p.x; o.y = p.y; }
         AC.audio.play('grab');
         if (e.cancelable) e.preventDefault();
@@ -571,7 +650,7 @@
             if (G.run.elementBonus[g.el]) gd *= G.run.elementBonus[g.el];
             dmg += gd;
         }
-        let total = dmg * comboMult * G.run.dmgMult;
+        let total = dmg * comboMult * G.run.dmgMult * (G.empowerNext || 1);
         if (G.run.lastStand && G.playerMaxHp > 0 && G.playerHp / G.playerMaxHp < 0.3) total *= 1.5;
         const blocked = shieldBlocks(G.enemy.shield, stats);
         if (blocked) total = 0;
@@ -602,6 +681,10 @@
         }
         if (G.run.healPerTurnFrac > 0) G.playerHp = Math.min(G.playerMaxHp, G.playerHp + G.playerMaxHp * G.run.healPerTurnFrac);
 
+        G.empowerNext = 1;            // consume this-turn skill buffs
+        G.bonusTimeNext = 0;
+        for (const s of G.skills) if (s.cd > 0) s.cd--;   // skill cooldowns advance one turn
+
         G.resolving = false;
         G.resolve = null;
 
@@ -613,9 +696,15 @@
     function enemyTurn() {
         G.enemy.cd -= 1;
         if (G.enemy.cd <= 0) {
+            G.enemy.cd = G.enemy.cdMax;
+            if (G.guardNext) {   // Guard skill blocks this strike (the one allowed full-block source)
+                G.guardNext = false;
+                addFloat(W / 2, BOARD_TOP - 70, t('rtGuarded'), '#9fe0ff', 22);
+                AC.audio.play('empty');
+                return;
+            }
             const dmg = Math.max(1, Math.round(G.enemy.atk * (1 - G.run.stoneskinFrac)));
             G.playerHp -= dmg;
-            G.enemy.cd = G.enemy.cdMax;
             G.shake = 0.4;
             addFloat(W / 2, BOARD_TOP - 70, '-' + dmg, '#ff6b6b', 24);
             AC.audio.play('rock');
@@ -673,7 +762,7 @@
     // Upgrade draft
     // =================================================================
 
-    function upgradeAvailable(u) { const lv = G.run.levels[u.id] || 0; return u.max === 0 || lv < u.max; }
+    function upgradeAvailable(u) { if (u.avail && !u.avail()) return false; const lv = G.run.levels[u.id] || 0; return u.max === 0 || lv < u.max; }
     function openDraft() {
         const pool = UPGRADES.filter(upgradeAvailable);
         const picks = [];
@@ -759,6 +848,7 @@
         drawFloats();
         ctx.restore();
 
+        drawSkills();
         drawSpinTimer();
         if (G.draft) drawDraft();
         if (DEBUG) drawDebug(); // [DEBUG-HOOK]
@@ -957,9 +1047,39 @@
         drawBar(112, 148, 466, 18, ratio, col, Math.max(0, Math.ceil(G.playerHp)) + ' / ' + G.playerMaxHp);
     }
 
+    // Active-skill buttons, in the gap between the player bar and the board.
+    function skillButtonRects() {
+        const n = G.skills.length;
+        if (n === 0) return [];
+        const gap = 10, maxW = 118, h = 54, y = 182;
+        const w = Math.min(maxW, (W - 44 - gap * (n - 1)) / n);
+        const x0 = (W - (w * n + gap * (n - 1))) / 2;
+        return G.skills.map((s, i) => ({ i, x: x0 + i * (w + gap), y, w, h }));
+    }
+    function drawSkills() {
+        if (!shell || !shell.isPlaying()) return;
+        const f = getFont();
+        for (const b of skillButtonRects()) {
+            const s = G.skills[b.i], ready = s.cd <= 0;
+            ctx.save();
+            ctx.fillStyle = ready ? 'rgba(245,178,61,0.14)' : 'rgba(255,255,255,0.05)';
+            roundRect(b.x, b.y, b.w, b.h, 10); ctx.fill();
+            ctx.lineWidth = 1.5; ctx.strokeStyle = ready ? accent() : 'rgba(255,255,255,0.15)';
+            roundRect(b.x, b.y, b.w, b.h, 10); ctx.stroke();
+            ctx.fillStyle = ready ? '#fff' : 'rgba(255,255,255,0.4)';
+            ctx.font = `700 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(t('rtSk_' + s.id), b.x + b.w / 2, b.y + b.h / 2);
+            if (!ready) {
+                ctx.fillStyle = 'rgba(0,0,0,0.5)'; roundRect(b.x, b.y, b.w, b.h, 10); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = `800 22px ${f}`;
+                ctx.fillText(String(s.cd), b.x + b.w / 2, b.y + b.h / 2);
+            }
+            ctx.restore();
+        }
+    }
     function drawSpinTimer() {
         if (!G.held || !G.held.moved) return;
-        const ratio = AC.math.clamp(G.spinTimer / G.run.spinTime, 0, 1);
+        const ratio = AC.math.clamp(G.spinTimer / effectiveSpinTime(), 0, 1);
         ctx.save();
         ctx.fillStyle = 'rgba(255,255,255,0.08)';
         ctx.fillRect(0, BOARD_TOP - 8, W, 6);
@@ -1096,6 +1216,10 @@
         G.resolving = false;
         G.resolve = null;
         G.draft = null;
+        G.skills = pickStartingSkills(CONFIG.startSkills);
+        G.empowerNext = 1;
+        G.bonusTimeNext = 0;
+        G.guardNext = false;
         G.clearing = [];
         G.floats = [];
         G.shake = 0;
@@ -1174,10 +1298,12 @@
                 if (G.enemy && type in map) G.enemy.shield = map[type];
                 return G.enemy && G.enemy.shield;
             },
-            info() { return { run: G.run, foe: G.enemy, hp: G.playerHp, dmg: G.score }; },
+            cast(i) { activateSkill(i | 0); return G.skills; },
+            giveSkill(id) { if (!G.skills.some((s) => s.id === id) && skillDef(id)) G.skills.push({ id, cd: 0 }); return G.skills; },
+            info() { return { run: G.run, foe: G.enemy, hp: G.playerHp, dmg: G.score, skills: G.skills }; },
         };
         console.log('%c[Rune Tower] debug on', 'color:#f5b23d;font-weight:700');
-        console.log('RT.kill() hp(n) foe(n) draft() give("timeSand"…) shield("enhanced"|"combo"|"first"|"need"|"ban"|"none") info()');
+        console.log('RT.kill() hp(n) foe(n) draft() give("timeSand"…) shield(...) cast(i) giveSkill(id) info()');
     }
 
     if (document.readyState === 'loading') {
