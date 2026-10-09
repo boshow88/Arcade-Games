@@ -146,6 +146,15 @@
         dark:  [{ c: [12, 12, 10] }, { p: 'M12 2a7 7 0 1 0 10 10' }],
         heart: [{ p: 'M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5' }],
     };
+    // Pre-build a Path2D per element ONCE (parsing SVG path strings every frame,
+    // 30+ times, was the main source of GC stutter). Reused every frame.
+    const ICON_PATHS = {};
+    for (const _el in ICON_OPS) {
+        ICON_PATHS[_el] = ICON_OPS[_el].map((op) => {
+            if (op.p) return new Path2D(op.p);
+            const pp = new Path2D(); pp.arc(op.c[0], op.c[1], op.c[2], 0, PI2); return pp;
+        });
+    }
     const WEIGHTS = { fire: 1, water: 1, wood: 1, light: 1, dark: 1, heart: 0.75 };
     const WEIGHT_TOTAL = ELEMENTS.reduce((s, e) => s + WEIGHTS[e], 0);
     const STRONG = { fire: 'wood', wood: 'water', water: 'fire', light: 'dark', dark: 'light' };
@@ -756,84 +765,98 @@
     }
 
     function defShape() { if (!defaultShape) defaultShape = makeShape(AC.rng.make(7)); return defaultShape; }
-    function roundedPolyPath(pts, rad) {
+    function buildRoundedPoly(pts, rad) {
         const n = pts.length, prev = pts[n - 1];
-        ctx.beginPath();
-        ctx.moveTo((prev[0] + pts[0][0]) / 2, (prev[1] + pts[0][1]) / 2);
+        const p = new Path2D();
+        p.moveTo((prev[0] + pts[0][0]) / 2, (prev[1] + pts[0][1]) / 2);
         for (let i = 0; i < n; i++) {
             const cur = pts[i], nxt = pts[(i + 1) % n];
-            ctx.arcTo(cur[0], cur[1], (cur[0] + nxt[0]) / 2, (cur[1] + nxt[1]) / 2, rad);
+            p.arcTo(cur[0], cur[1], (cur[0] + nxt[0]) / 2, (cur[1] + nxt[1]) / 2, rad);
         }
-        ctx.closePath();
+        p.closePath();
+        return p;
+    }
+    // Build (once per rune) the stone's Path2D outline, speckle paths, sheen and
+    // fill gradient at a REFERENCE radius (orbRadius). drawStone then just scales
+    // the context — no per-frame path/gradient allocation. Cached on the shape.
+    function ensureGfx(sh, el) {
+        if (sh.gfx && sh.gfxEl === el) return sh.gfx;
+        const R = CONFIG.orbRadius, c = R * 0.42;
+        const base = [[-R + c, -R], [R - c, -R], [R, -R + c], [R, R - c], [R - c, R], [-R + c, R], [-R, R - c], [-R, -R + c]];
+        const pts = base.map((p, i) => [p[0] + sh.jit[i][0] * R, p[1] + sh.jit[i][1] * R]);
+        const path = buildRoundedPoly(pts, R * 0.16);
+        const darkS = new Path2D(), lightS = new Path2D();
+        for (const sp of sh.speckles) {
+            const p = sp.light ? lightS : darkS;
+            p.moveTo(sp.dx * R + sp.r * R, sp.dy * R);
+            p.arc(sp.dx * R, sp.dy * R, sp.r * R, 0, PI2);
+        }
+        const sheen = new Path2D();
+        sheen.ellipse(-R * 0.25, -R * 0.42, R * 0.55, R * 0.3, -0.5, 0, PI2);
+        const col = ELEMENT_COLORS[el];
+        const grad = ctx.createRadialGradient(-R * 0.3, -R * 0.35, R * 0.1, 0, 0, R * 1.15);
+        grad.addColorStop(0, shade(col, 0.26 + sh.toneShift));
+        grad.addColorStop(0.6, shade(col, sh.toneShift));
+        grad.addColorStop(1, shade(col, -0.34 + sh.toneShift));
+        sh.gfx = { path, darkS, lightS, sheen, grad };
+        sh.gfxEl = el;
+        return sh.gfx;
     }
     function drawStone(el, x, y, r, shape, highlight, enhanced) {
         if (r <= 0.5) return;
         const col = ELEMENT_COLORS[el];
         const sh = shape || defShape();
-        const c = r * 0.42;
-        const base = [[-r + c, -r], [r - c, -r], [r, -r + c], [r, r - c], [r - c, r], [-r + c, r], [-r, r - c], [-r, -r + c]];
-        const pts = base.map((p, i) => [p[0] + sh.jit[i][0] * r, p[1] + sh.jit[i][1] * r]);
+        const gfx = ensureGfx(sh, el);
+        const R = CONFIG.orbRadius, k = r / R;   // all geometry is cached at radius R; scale to r
 
         ctx.save();
         ctx.translate(x, y);
         ctx.rotate(sh.rot);
 
-        roundedPolyPath(pts, r * 0.16);
-        const g = ctx.createRadialGradient(-r * 0.3, -r * 0.35, r * 0.1, 0, 0, r * 1.15);
-        g.addColorStop(0, shade(col, 0.26 + sh.toneShift));
-        g.addColorStop(0.6, shade(col, sh.toneShift));
-        g.addColorStop(1, shade(col, -0.34 + sh.toneShift));
-        ctx.fillStyle = g;
+        ctx.save();
+        ctx.scale(k, k);
+
         if (highlight) { ctx.shadowColor = col; ctx.shadowBlur = 20; }
-        ctx.fill();
+        ctx.fillStyle = gfx.grad;
+        ctx.fill(gfx.path);
         ctx.shadowBlur = 0;
 
         ctx.save();
-        ctx.clip();
-        for (const sp of sh.speckles) {
-            ctx.beginPath();
-            ctx.fillStyle = sp.light ? 'rgba(255,255,255,0.10)' : 'rgba(0,0,0,0.14)';
-            ctx.arc(sp.dx * r, sp.dy * r, sp.r * r, 0, PI2);
-            ctx.fill();
-        }
-        ctx.beginPath();
-        ctx.fillStyle = 'rgba(255,255,255,0.07)';
-        ctx.ellipse(-r * 0.25, -r * 0.42, r * 0.55, r * 0.3, -0.5, 0, PI2);
-        ctx.fill();
+        ctx.clip(gfx.path);
+        ctx.fillStyle = 'rgba(0,0,0,0.14)'; ctx.fill(gfx.darkS);
+        ctx.fillStyle = 'rgba(255,255,255,0.10)'; ctx.fill(gfx.lightS);
+        ctx.fillStyle = 'rgba(255,255,255,0.07)'; ctx.fill(gfx.sheen);
         ctx.restore();
 
-        roundedPolyPath(pts, r * 0.16);
-        ctx.lineWidth = Math.max(2, r * 0.07);
+        ctx.lineWidth = R * 0.07;
         ctx.strokeStyle = 'rgba(0,0,0,0.33)';
-        ctx.stroke();
+        ctx.stroke(gfx.path);
 
-        // enhanced runes wear a glowing white rim
         if (enhanced) {
-            roundedPolyPath(pts, r * 0.16);
-            ctx.lineWidth = Math.max(2.5, r * 0.1);
+            ctx.lineWidth = R * 0.1;
             ctx.strokeStyle = 'rgba(255,255,255,0.95)';
             ctx.shadowColor = 'rgba(255,255,255,0.85)'; ctx.shadowBlur = 12;
-            ctx.stroke();
+            ctx.stroke(gfx.path);
             ctx.shadowBlur = 0;
         }
-
-        // centre icon: enhanced = white, otherwise a deep tint of the element colour
-        const iconColor = enhanced ? 'rgba(255,255,255,0.97)' : shade(col, CONFIG.iconTint);
-        drawRuneIcon(el, 0, 0, r * CONFIG.iconScale, iconColor, Math.max(2.4, r * CONFIG.iconStroke));
-
         if (highlight) {
-            roundedPolyPath(pts.map((p) => [p[0] * 1.08, p[1] * 1.08]), r * 0.16);
+            ctx.scale(1.08, 1.08);
             ctx.lineWidth = 3;
             ctx.strokeStyle = 'rgba(255,255,255,0.9)';
-            ctx.stroke();
+            ctx.stroke(gfx.path);
         }
+        ctx.restore();   // undo scale(k)
+
+        // centre icon (rotated with the stone, actual size, cached paths)
+        const iconColor = enhanced ? 'rgba(255,255,255,0.97)' : shade(col, CONFIG.iconTint);
+        drawRuneIcon(el, 0, 0, r * CONFIG.iconScale, iconColor, Math.max(2.4, r * CONFIG.iconStroke));
         ctx.restore();
     }
     // Draw a Lucide icon (24×24 stroke paths from ICON_OPS) centred on (cx, cy),
     // scaled to `size`, stroked in `color` at roughly `lw` px.
     function drawRuneIcon(el, cx, cy, size, color, lw) {
-        const ops = ICON_OPS[el];
-        if (!ops) return;
+        const paths = ICON_PATHS[el];
+        if (!paths) return;
         const s = size / 24;
         ctx.save();
         ctx.translate(cx, cy);
@@ -843,12 +866,7 @@
         ctx.lineWidth = lw / s;
         ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        for (const op of ops) {
-            let path;
-            if (op.p) { path = new Path2D(op.p); }
-            else { path = new Path2D(); path.arc(op.c[0], op.c[1], op.c[2], 0, PI2); }
-            ctx.stroke(path);
-        }
+        for (const p of paths) ctx.stroke(p);
         ctx.restore();
     }
 
