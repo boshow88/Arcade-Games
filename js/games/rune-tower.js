@@ -55,6 +55,12 @@
         rtHelp2Html: 'Chain <strong>combos</strong> for more damage, match the foe\u2019s <strong>weak element</strong>, and clear <strong>5+</strong> of a colour to forge an <strong>enhanced</strong> rune. <strong>Heart</strong> runes heal you.',
         rtHelp3Html: 'Each spin is one turn; the foe strikes on its countdown. Every few floors you draft an upgrade. <kbd>P</kbd> pause \u00b7 <kbd>R</kbd> restart \u00b7 <kbd>M</kbd> mute.',
         el_fire: 'Fire', el_water: 'Water', el_wood: 'Wood', el_light: 'Light', el_dark: 'Dark', el_heart: 'Heart',
+        rtBlocked: 'Blocked!',
+        rtShEnhanced: 'Clear enhanced',
+        rtShComboMin: (n) => `Need ${n}+ combo`,
+        rtShFirstMax: (n) => `First wave \u2264 ${n}`,
+        rtShNeed: (els) => `Clear ${els}`,
+        rtShBan: (els) => `Don't clear ${els}`,
         // upgrades — name + short desc
         rtU_timeSand: 'Time Sand',        rtUd_timeSand: '+1s spin time',
         rtU_comboFervor: 'Combo Fervor',  rtUd_comboFervor: 'Bigger combo scaling',
@@ -89,6 +95,12 @@
         rtHelp2Html: '串<strong>連擊</strong>、打敵人的<strong>弱屬性</strong>；單次消除<strong>同色 5 顆以上</strong>會生成<strong>強化符石</strong>。<strong>心</strong>珠回血。',
         rtHelp3Html: '每轉一次就是一回合；敵人依倒數出手。每隔幾層可抽一個強化。<kbd>P</kbd> 暫停 \u00b7 <kbd>R</kbd> 重新開始 \u00b7 <kbd>M</kbd> 靜音。',
         el_fire: '火', el_water: '水', el_wood: '木', el_light: '光', el_dark: '暗', el_heart: '心',
+        rtBlocked: '擋下！',
+        rtShEnhanced: '需消強化',
+        rtShComboMin: (n) => `需 ${n}+ 連擊`,
+        rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
+        rtShNeed: (els) => `需消 ${els}`,
+        rtShBan: (els) => `禁消 ${els}`,
         rtU_timeSand: '時之沙',      rtUd_timeSand: '轉珠時間 +1 秒',
         rtU_comboFervor: '連擊狂熱',  rtUd_comboFervor: '連擊加成更高',
         rtU_heavyStrike: '重擊',      rtUd_heavyStrike: '基礎傷害 +4',
@@ -502,12 +514,44 @@
 
     // --- Damage / combat (centralised so Phase 3 shields & team mods hook here) ---
 
+    // Does the foe's shield block damage this turn? `stats` is derived from the
+    // resolved combo groups. Hearts/healing are never blocked — only damage.
+    function shieldBlocks(shield, stats) {
+        if (!shield) return false;
+        switch (shield.type) {
+            case 'enhanced': return stats.enhancedCleared <= 0;
+            case 'combo':
+                if (shield.mode === 'min') return stats.combos < shield.n;
+                if (shield.mode === 'exact') return stats.combos !== shield.n;
+                return false;
+            case 'firstWaveMax': return stats.firstWave > shield.n;
+            case 'element':
+                if (shield.mode === 'ban') return shield.elements.some((el) => stats.elements.has(el));
+                return !shield.elements.every((el) => stats.elements.has(el)); // 'contains'
+            default: return false;
+        }
+    }
+    function shieldLabel(s) {
+        if (s.type === 'enhanced') return t('rtShEnhanced');
+        if (s.type === 'combo') return t('rtShComboMin', s.n);
+        if (s.type === 'firstWaveMax') return t('rtShFirstMax', s.n);
+        if (s.type === 'element') {
+            const names = s.elements.map((el) => t('el_' + el)).join('·');
+            return s.mode === 'ban' ? t('rtShBan', names) : t('rtShNeed', names);
+        }
+        return '';
+    }
+
     function computeSpinResult(combos) {
         const n = combos.length;
-        if (n === 0) return { dmg: 0, heal: 0, n: 0 };
+        const stats = { combos: n, firstWave: 0, enhancedCleared: 0, elements: new Set() };
+        if (n === 0) return { dmg: 0, heal: 0, n: 0, blocked: false };
         const comboMult = 1 + G.run.comboStep * (n - 1);
         let dmg = 0, heal = 0;
         for (const g of combos) {
+            if (g.wave === 0) stats.firstWave++;
+            stats.enhancedCleared += (g.enhanced || 0);
+            stats.elements.add(g.el);
             const enh = g.enhanced || 0;
             const base = (g.cells.length + enh * (G.run.enhancedMult - 1)) * G.run.baseDamage;
             if (g.el === 'heart') { heal += base; continue; }
@@ -520,7 +564,9 @@
         }
         let total = dmg * comboMult * G.run.dmgMult;
         if (G.run.lastStand && G.playerMaxHp > 0 && G.playerHp / G.playerMaxHp < 0.3) total *= 1.5;
-        return { dmg: Math.round(total), heal: Math.round(heal * comboMult), n };
+        const blocked = shieldBlocks(G.enemy.shield, stats);
+        if (blocked) total = 0;
+        return { dmg: Math.round(total), heal: Math.round(heal * comboMult), n, blocked };
     }
     function damageEnemy(dmg) {
         G.enemy.hp -= dmg;
@@ -529,14 +575,17 @@
 
     function finishResolve() {
         const combos = G.resolve.combos;
-        const { dmg, heal, n } = computeSpinResult(combos);
+        const { dmg, heal, n, blocked } = computeSpinResult(combos);
 
         if (n > 0) {
             if (heal > 0) {
                 G.playerHp = Math.min(G.playerMaxHp, G.playerHp + heal);
                 addFloat(W / 2, BOARD_TOP - 40, '+' + heal, ELEMENT_COLORS.heart, 20);
             }
-            if (dmg > 0) {
+            if (blocked) {
+                addFloat(W / 2, 96, t('rtBlocked'), '#9fe0ff', 22);
+                AC.audio.play('empty');
+            } else if (dmg > 0) {
                 damageEnemy(dmg);
                 addFloat(W / 2, 96, '-' + dmg, '#ffd0d0', 26);
             }
@@ -575,6 +624,21 @@
         spawnEnemy(next);
         if (next % CONFIG.draftEvery === 0) openDraft();
     }
+    // Roll a shield for the foe on floor `index` (0-based). None for the first
+    // couple of floors; then a growing chance of a random mechanic, scaled up.
+    function rollShield(index) {
+        if (index < 2) return null;
+        const chance = Math.min(0.6, 0.12 + index * 0.035);
+        if (AC.rng.float(G.rng, 0, 1) > chance) return null;
+        const el = () => ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)];
+        switch (AC.rng.int(G.rng, 0, 5)) {
+            case 0: return { type: 'enhanced' };
+            case 1: return { type: 'combo', mode: 'min', n: 4 + Math.min(4, (index / 3) | 0) };
+            case 2: return { type: 'firstWaveMax', n: 2 };
+            case 3: return { type: 'element', mode: 'contains', elements: [el()] };
+            default: return { type: 'element', mode: 'ban', elements: [el()] };
+        }
+    }
     function spawnEnemy(index) {
         const maxHp = Math.round(BALANCE.enemyHp + BALANCE.enemyHpGrow * index);
         G.enemy = {
@@ -583,6 +647,7 @@
             hp: maxHp, maxHp,
             atk: Math.round(BALANCE.enemyAtk + BALANCE.enemyAtkGrow * index),
             cd: BALANCE.enemyCd, cdMax: BALANCE.enemyCd,
+            shield: rollShield(index),
             shape: makeShape(G.rng),
         };
     }
@@ -845,6 +910,21 @@
         ctx.font = `600 14px ${f}`; ctx.textAlign = 'left';
         ctx.fillText(t('rtAttackIn', e.cd) + '  ·  ' + e.atk, 112, 102);
 
+        // shield requirement pill (right side of the attack row)
+        if (e.shield) {
+            const label = shieldLabel(e.shield);
+            ctx.font = `700 13px ${f}`;
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            const pw = ctx.measureText(label).width + 20, px = W - 16 - pw, py = 88;
+            ctx.fillStyle = 'rgba(127,212,255,0.16)';
+            roundRect(px, py, pw, 24, 12); ctx.fill();
+            ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(127,212,255,0.6)';
+            roundRect(px, py, pw, 24, 12); ctx.stroke();
+            ctx.fillStyle = '#a9e3ff';
+            ctx.fillText(label, px + pw / 2, py + 13);
+            ctx.textBaseline = 'alphabetic';
+        }
+
         ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
         ctx.beginPath(); ctx.moveTo(16, 122); ctx.lineTo(W - 16, 122); ctx.stroke();
     }
@@ -1071,10 +1151,15 @@
             foe(n) { spawnEnemy(Math.max(0, n | 0)); updateHud(); return G.enemy; },
             draft() { openDraft(); return G.draft; },
             give(id) { applyUpgrade(id); return G.run; },
+            shield(type) {
+                const map = { enhanced: { type: 'enhanced' }, combo: { type: 'combo', mode: 'min', n: 5 }, first: { type: 'firstWaveMax', n: 2 }, need: { type: 'element', mode: 'contains', elements: ['fire'] }, ban: { type: 'element', mode: 'ban', elements: ['water'] }, none: null };
+                if (G.enemy && type in map) G.enemy.shield = map[type];
+                return G.enemy && G.enemy.shield;
+            },
             info() { return { run: G.run, foe: G.enemy, hp: G.playerHp, dmg: G.score }; },
         };
         console.log('%c[Rune Tower] debug on', 'color:#f5b23d;font-weight:700');
-        console.log('RT.kill() hp(n) foe(n) draft() give("timeSand"…) info()');
+        console.log('RT.kill() hp(n) foe(n) draft() give("timeSand"…) shield("enhanced"|"combo"|"first"|"need"|"ban"|"none") info()');
     }
 
     if (document.readyState === 'loading') {

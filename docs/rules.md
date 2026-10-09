@@ -218,6 +218,10 @@ live in the local `docs/rune-tower-design.md`.
 - The foe **strikes on a countdown** (every `enemyCd` turns); spinning badly =
   the foe lives longer = you eat more hits. Clear a foe and a **stronger one**
   steps up (more HP and attack) — you **climb a floor**. At **0 HP** the run ends.
+- From floor 3+ a foe may carry a **shield** — a condition you must meet that
+  turn to deal any damage: **clear an enhanced rune**, reach **N+ combos**, keep
+  the **first wave ≤ N combos**, **clear** a named element, or **don't clear**
+  one. Healing is never blocked; the requirement is shown by the foe.
 
 ### The climb & upgrade drafts
 
