@@ -123,6 +123,17 @@
         fire: '#c35540', water: '#4f7ba4', wood: '#5f8a52',
         light: '#c3a24a', dark: '#7b6a99', heart: '#c1738a',
     };
+    // Lucide icon geometry (24×24 viewBox) per element, drawn as stroked Path2D
+    // on the runes: water=bubbles, fire=flame, wood=leaf, light=sparkle,
+    // dark=eclipse, heart=heart. `p` = path data, `c` = [cx, cy, r] circle.
+    const ICON_OPS = {
+        water: [{ p: 'M7.001 15.085A1.5 1.5 0 0 1 9 16.5' }, { c: [18.5, 8.5, 3.5] }, { c: [7.5, 16.5, 5.5] }, { c: [7.5, 4.5, 2.5] }],
+        fire:  [{ p: 'M12 3q1 4 4 6.5t3 5.5a1 1 0 0 1-14 0 5 5 0 0 1 1-3 1 1 0 0 0 5 0c0-2-1.5-3-1.5-5q0-2 2.5-4' }],
+        wood:  [{ p: 'M11 20a10 10 0 0010-10 25.9 25.9 0 00-1.04-7.281 1 1 0 00-1.755-.325C15.833 5.5 13 5.5 9.8 6.1A7 7 0 0011 20' }, { p: 'M2 21a5 5 0 012.911-4.544C7.613 15.212 8.351 15.24 11 13' }],
+        light: [{ p: 'M11.017 2.814a1 1 0 0 1 1.966 0l1.051 5.558a2 2 0 0 0 1.594 1.594l5.558 1.051a1 1 0 0 1 0 1.966l-5.558 1.051a2 2 0 0 0-1.594 1.594l-1.051 5.558a1 1 0 0 1-1.966 0l-1.051-5.558a2 2 0 0 0-1.594-1.594l-5.558-1.051a1 1 0 0 1 0-1.966l5.558-1.051a2 2 0 0 0 1.594-1.594z' }],
+        dark:  [{ c: [12, 12, 10] }, { p: 'M12 2a7 7 0 1 0 10 10' }],
+        heart: [{ p: 'M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5' }],
+    };
     const WEIGHTS = { fire: 1, water: 1, wood: 1, light: 1, dark: 1, heart: 0.75 };
     const WEIGHT_TOTAL = ELEMENTS.reduce((s, e) => s + WEIGHTS[e], 0);
     const STRONG = { fire: 'wood', wood: 'water', water: 'fire', light: 'dark', dark: 'light' };
@@ -179,7 +190,7 @@
         { id: 'glassCannon',   tier: 'E', max: 1, apply: (G) => { G.run.dmgMult += 0.40; G.playerMaxHp = Math.round(G.playerMaxHp * 0.75); G.playerHp = Math.min(G.playerHp, G.playerMaxHp); } },
     ];
     const TIER_WEIGHT = { C: 3, R: 2, E: 1 };
-    const TIER_COLOR = { C: '#8fd1a0', R: '#7fb4ff', E: '#d79bff' };
+    const TIER_COLOR = { C: '#6fb0ff', R: '#b483ff', E: '#f6c24a' }; // blue / purple / gold
 
     // =================================================================
     // State
@@ -727,18 +738,19 @@
         ctx.strokeStyle = 'rgba(0,0,0,0.33)';
         ctx.stroke();
 
-        // enhanced runes wear a glowing golden rim
+        // enhanced runes wear a glowing white rim
         if (enhanced) {
             roundedPolyPath(pts, r * 0.16);
             ctx.lineWidth = Math.max(2.5, r * 0.1);
-            ctx.strokeStyle = 'rgba(255,214,120,0.95)';
-            ctx.shadowColor = 'rgba(255,200,90,0.9)'; ctx.shadowBlur = 14;
+            ctx.strokeStyle = 'rgba(255,255,255,0.95)';
+            ctx.shadowColor = 'rgba(255,255,255,0.85)'; ctx.shadowBlur = 12;
             ctx.stroke();
             ctx.shadowBlur = 0;
         }
 
-        drawGlyph(el, 1, 2, r * 0.4, 'rgba(0,0,0,0.30)');
-        drawGlyph(el, 0, 0, r * 0.4, enhanced ? 'rgba(255,244,214,0.96)' : 'rgba(244,238,228,0.92)');
+        // centre icon: enhanced = white, otherwise a deep tint of the element colour
+        const iconColor = enhanced ? 'rgba(255,255,255,0.97)' : shade(col, -0.5);
+        drawRuneIcon(el, 0, 0, r * 1.3, iconColor, Math.max(1.6, r * 0.065));
 
         if (highlight) {
             roundedPolyPath(pts.map((p) => [p[0] * 1.08, p[1] * 1.08]), r * 0.16);
@@ -748,32 +760,25 @@
         }
         ctx.restore();
     }
-    function drawGlyph(el, cx, cy, s, style) {
+    // Draw a Lucide icon (24×24 stroke paths from ICON_OPS) centred on (cx, cy),
+    // scaled to `size`, stroked in `color` at roughly `lw` px.
+    function drawRuneIcon(el, cx, cy, size, color, lw) {
+        const ops = ICON_OPS[el];
+        if (!ops) return;
+        const s = size / 24;
         ctx.save();
-        ctx.fillStyle = style; ctx.strokeStyle = style;
-        ctx.lineWidth = Math.max(2, s * 0.2);
+        ctx.translate(cx, cy);
+        ctx.scale(s, s);
+        ctx.translate(-12, -12);
+        ctx.strokeStyle = color;
+        ctx.lineWidth = lw / s;
+        ctx.lineCap = 'round';
         ctx.lineJoin = 'round';
-        if (el === 'fire') {
-            ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s * 0.9, cy + s * 0.7); ctx.lineTo(cx - s * 0.9, cy + s * 0.7); ctx.closePath(); ctx.fill();
-        } else if (el === 'water') {
-            ctx.beginPath(); ctx.moveTo(cx, cy + s); ctx.lineTo(cx + s * 0.9, cy - s * 0.7); ctx.lineTo(cx - s * 0.9, cy - s * 0.7); ctx.closePath(); ctx.fill();
-        } else if (el === 'wood') {
-            ctx.beginPath(); ctx.moveTo(cx, cy - s); ctx.lineTo(cx + s, cy); ctx.lineTo(cx, cy + s); ctx.lineTo(cx - s, cy); ctx.closePath(); ctx.fill();
-        } else if (el === 'light') {
-            const q = s * 0.36;
-            ctx.beginPath();
-            ctx.moveTo(cx, cy - s); ctx.lineTo(cx + q, cy - q); ctx.lineTo(cx + s, cy); ctx.lineTo(cx + q, cy + q);
-            ctx.lineTo(cx, cy + s); ctx.lineTo(cx - q, cy + q); ctx.lineTo(cx - s, cy); ctx.lineTo(cx - q, cy - q);
-            ctx.closePath(); ctx.fill();
-        } else if (el === 'dark') {
-            ctx.beginPath(); ctx.arc(cx, cy, s * 0.82, 0, PI2); ctx.stroke();
-        } else if (el === 'heart') {
-            const u = s * 0.95;
-            ctx.beginPath();
-            ctx.moveTo(cx, cy + u * 0.78);
-            ctx.bezierCurveTo(cx - u * 1.3, cy - u * 0.4, cx - u * 0.5, cy - u * 1.05, cx, cy - u * 0.35);
-            ctx.bezierCurveTo(cx + u * 0.5, cy - u * 1.05, cx + u * 1.3, cy - u * 0.4, cx, cy + u * 0.78);
-            ctx.closePath(); ctx.fill();
+        for (const op of ops) {
+            let path;
+            if (op.p) { path = new Path2D(op.p); }
+            else { path = new Path2D(); path.arc(op.c[0], op.c[1], op.c[2], 0, PI2); }
+            ctx.stroke(path);
         }
         ctx.restore();
     }
