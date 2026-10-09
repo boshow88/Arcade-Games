@@ -252,7 +252,12 @@ Members show as tiles in the gap above the board; tap a member's **active skill*
 cooldown, counted in turns) only advances when you **spin**. Skill pool: Mend,
 Empower, Focus, Shuffle, Smite, Guard, Freeze, Enchant, Bless. Only **one**
 full-"block" source exists (Guard, on cooldown), per the anti-infinite-block
-rule. *(Recruiting to reshape the team mid-run is the next step.)*
+rule.
+
+**Recruit floors** (every `CONFIG.recruitEvery` floors, taking that floor's draft
+slot) offer **3 candidate members** — tap one to select, then tap the member to
+replace (or **Skip**). So the team grows stronger and better-covered as you
+climb (new element coverage, better passives / synergies).
 
 ### Tuning
 

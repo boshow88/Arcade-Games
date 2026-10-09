@@ -75,6 +75,11 @@
         rtSkd_freeze: "Push the foe's strike countdown back 2 turns.",
         rtSkd_enchant: 'Turn 3 random runes into enhanced runes.',
         rtSkd_bless: 'Turn 4 random runes into hearts.',
+        rtRecruitTitle: 'Recruit', rtRecruitHint: 'Pick a recruit, then the member to replace', rtSkip: 'Skip',
+        rtStatAtk: 'ATK', rtStatHp: 'HP', rtStatRec: 'REC',
+        rtP_pAtk: '+Attack', rtP_pHp: '+HP', rtP_pRec: '+Recovery', rtP_pLifesteal: 'Lifesteal',
+        rtP_pLastStand: 'Last Stand', rtP_pStoneskin: 'Stoneskin', rtP_pUndying: 'Undying', rtP_pElement: 'Element+',
+        rtP_pGlass: 'Glass Cannon', rtP_pHeal: 'Regen', rtP_pWarband: 'Warband', rtP_pFaith: 'Faith',
         // upgrades — name + short desc
         rtU_timeSand: 'Time Sand',        rtUd_timeSand: '+1s spin time',
         rtU_comboFervor: 'Combo Fervor',  rtUd_comboFervor: 'Bigger combo scaling',
@@ -129,6 +134,11 @@
         rtSkd_freeze: '敵人攻擊倒數延後 2 回合。',
         rtSkd_enchant: '隨機 3 顆符石變成強化符石。',
         rtSkd_bless: '隨機 4 顆符石變成心珠。',
+        rtRecruitTitle: '招募', rtRecruitHint: '選一位新成員，再點要替換的隊員', rtSkip: '略過',
+        rtStatAtk: '攻', rtStatHp: '血', rtStatRec: '復',
+        rtP_pAtk: '加攻', rtP_pHp: '加血', rtP_pRec: '加回復', rtP_pLifesteal: '吸血',
+        rtP_pLastStand: '背水', rtP_pStoneskin: '減傷', rtP_pUndying: '不倒', rtP_pElement: '本屬強化',
+        rtP_pGlass: '玻璃大砲', rtP_pHeal: '每回合回血', rtP_pWarband: '戰團', rtP_pFaith: '信仰',
         rtU_timeSand: '時之沙',      rtUd_timeSand: '轉珠時間 +1 秒',
         rtU_comboFervor: '連擊狂熱',  rtUd_comboFervor: '連擊加成更高',
         rtU_heavyStrike: '重擊',      rtUd_heavyStrike: '基礎傷害 +4',
@@ -207,6 +217,7 @@
         fallAnim: 0.16,
         bigThreshold: 5,        // clearing this many of a colour forges an enhanced rune
         draftEvery: 2,          // offer an upgrade draft every N floors
+        recruitEvery: 4,        // offer a recruit (team swap) every N floors (takes that floor's draft slot)
         teamSize: 5,            // members in your team (each drives HP / per-element attack / heal / a skill)
         scoreCap: 999999,
     };
@@ -359,6 +370,14 @@
         G.playerMaxHp = Math.max(1, Math.round((BALANCE.baseHp + G.ts.hp + (run.hpBonus || 0)) * G.ts.hpMult * (run.hpMult || 1)));
         G.playerHp = prev > 0 ? Math.min(G.playerHp, G.playerMaxHp) : G.playerMaxHp;
     }
+    function openRecruit() { G.recruit = { candidates: [makeMember(), makeMember(), makeMember()], selected: null }; }
+    function doRecruitSwap(candIdx, memberIdx) {
+        G.team[memberIdx] = G.recruit.candidates[candIdx];
+        G.recruit = null;
+        recomputeTeam();   // new member may change HP / attack coverage
+        updateHud();
+        AC.audio.play('levelup');
+    }
 
     // =================================================================
     // State
@@ -378,6 +397,7 @@
         resolve: null,          // { stage, t, combos, pending, popIndex, wave }
         draft: null,            // { options: [upgradeId, ...] } while choosing
         skillPopup: null,       // { i } while a member's skill confirm popup is open
+        recruit: null,          // { candidates:[member×3], selected } while recruiting
         team: [],               // members: [{ role, element, atk, hp, rec, active, passive, cd }]
         ts: null,               // derived team stats (recomputed on team change)
         undyingUsed: false,
@@ -589,6 +609,14 @@
             const L = skillPopupLayout(), m = G.team[G.skillPopup.i];
             if (m && m.active && m.cd <= 0 && inRect(p, L.cast)) { const i = G.skillPopup.i; G.skillPopup = null; AC.audio.unlock(); activateSkill(i); }
             else if (!inRect(p, L.card)) { G.skillPopup = null; }
+            if (e.cancelable) e.preventDefault();
+            return;
+        }
+        if (G.recruit) {                     // pick a candidate, then a member to replace (or Skip)
+            const L = recruitLayout();
+            for (const c of L.cands) if (inRect(p, c)) { G.recruit.selected = c.i; AC.audio.unlock(); if (e.cancelable) e.preventDefault(); return; }
+            if (G.recruit.selected != null) for (const mb of L.members) if (inRect(p, mb)) { AC.audio.unlock(); doRecruitSwap(G.recruit.selected, mb.i); if (e.cancelable) e.preventDefault(); return; }
+            if (inRect(p, L.skip)) G.recruit = null;
             if (e.cancelable) e.preventDefault();
             return;
         }
@@ -815,7 +843,8 @@
         if (G.run.snowball) G.run.atkFlat += 1;
         const next = G.enemy.index + 1;
         spawnEnemy(next);
-        if (next % CONFIG.draftEvery === 0) openDraft();
+        if (next % CONFIG.recruitEvery === 0) openRecruit();
+        else if (next % CONFIG.draftEvery === 0) openDraft();
     }
     // Roll a shield for the foe on floor `index` (0-based). None for the first
     // couple of floors; then a growing chance of a random mechanic, scaled up.
@@ -946,6 +975,7 @@
         drawTeam();
         drawSpinTimer();
         if (G.skillPopup) drawSkillPopup();
+        if (G.recruit) drawRecruit();
         if (G.draft) drawDraft();
         if (DEBUG) drawDebug(); // [DEBUG-HOOK]
     }
@@ -1185,6 +1215,60 @@
             ctx.restore();
         }
     }
+    function recruitLayout() {
+        const n = G.recruit.candidates.length, pad = 16, gap = 12;
+        const cw = (W - pad * 2 - gap * (n - 1)) / n, cy = BOARD_TOP + 44, ch = 176;
+        const cands = G.recruit.candidates.map((m, i) => ({ i, x: pad + i * (cw + gap), y: cy, w: cw, h: ch }));
+        const mN = G.team.length, mgap = 8, mw = Math.min(104, (W - 32 - mgap * (mN - 1)) / mN), mh = 46;
+        const mx0 = (W - (mw * mN + mgap * (mN - 1))) / 2, my = cy + ch + 24;
+        const members = G.team.map((m, i) => ({ i, x: mx0 + i * (mw + mgap), y: my, w: mw, h: mh }));
+        return { cands, members, skip: { x: W / 2 - 70, y: my + mh + 16, w: 140, h: 38 } };
+    }
+    function drawRecruitCandidate(c, f) {
+        const m = G.recruit.candidates[c.i], ecol = ELEMENT_COLORS[m.element], sel = G.recruit.selected === c.i;
+        ctx.save();
+        ctx.fillStyle = sel ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)';
+        roundRect(c.x, c.y, c.w, c.h, 12); ctx.fill();
+        ctx.lineWidth = sel ? 3 : 2; ctx.strokeStyle = ecol;
+        roundRect(c.x, c.y, c.w, c.h, 12); ctx.stroke();
+        const cx = c.x + c.w / 2;
+        ctx.fillStyle = ecol; ctx.beginPath(); ctx.arc(c.x + 24, c.y + 26, 13, 0, PI2); ctx.fill();
+        drawRuneIcon(m.element, c.x + 24, c.y + 26, 20, 'rgba(255,255,255,0.95)', 2);
+        ctx.fillStyle = shade(ecol, 0.3); ctx.font = `700 15px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(t('rtRole_' + m.role), c.x + 42, c.y + 26);
+        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = m.active ? '#fff' : 'rgba(255,255,255,0.4)'; ctx.font = `700 15px ${f}`;
+        ctx.fillText(m.active ? t('rtSk_' + m.active) : '—', cx, c.y + 70);
+        ctx.fillStyle = 'rgba(200,210,255,0.75)'; ctx.font = `600 12px ${f}`;
+        ctx.fillText(t('rtP_' + m.passive), cx, c.y + 94);
+        ctx.fillStyle = 'rgba(255,255,255,0.7)'; ctx.font = `600 12px ${f}`;
+        ctx.fillText(t('rtStatAtk') + ' ' + m.atk + '   ' + t('rtStatHp') + ' ' + m.hp + '   ' + t('rtStatRec') + ' ' + m.rec, cx, c.y + 122);
+        ctx.restore();
+    }
+    function drawRecruit() {
+        const f = getFont(), L = recruitLayout();
+        ctx.save();
+        ctx.fillStyle = 'rgba(8,6,16,0.9)';
+        ctx.fillRect(0, BOARD_TOP - 4, W, H - (BOARD_TOP - 4));
+        ctx.fillStyle = '#eaf0ff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ctx.font = `800 22px ${f}`; ctx.fillText(t('rtRecruitTitle'), W / 2, BOARD_TOP + 30);
+        for (const c of L.cands) drawRecruitCandidate(c, f);
+        ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'center';
+        ctx.fillText(t('rtRecruitHint'), W / 2, L.members[0].y - 8);
+        for (const mb of L.members) {
+            const m = G.team[mb.i], ecol = ELEMENT_COLORS[m.element], active = G.recruit.selected != null;
+            ctx.fillStyle = 'rgba(255,255,255,0.05)'; roundRect(mb.x, mb.y, mb.w, mb.h, 8); ctx.fill();
+            ctx.lineWidth = 1.5; ctx.strokeStyle = active ? ecol : shade(ecol, -0.25); roundRect(mb.x, mb.y, mb.w, mb.h, 8); ctx.stroke();
+            ctx.fillStyle = ecol; ctx.beginPath(); ctx.arc(mb.x + 11, mb.y + mb.h / 2, 4, 0, PI2); ctx.fill();
+            ctx.fillStyle = active ? '#fff' : 'rgba(255,255,255,0.55)'; ctx.font = `600 11px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(t('rtRole_' + m.role), mb.x + mb.w / 2 + 6, mb.y + mb.h / 2);
+            ctx.textBaseline = 'alphabetic';
+        }
+        ctx.fillStyle = 'rgba(255,255,255,0.1)'; roundRect(L.skip.x, L.skip.y, L.skip.w, L.skip.h, 10); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = `700 14px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(t('rtSkip'), L.skip.x + L.skip.w / 2, L.skip.y + L.skip.h / 2);
+        ctx.restore();
+    }
     function skillPopupLayout() {
         const cw = 400, ch = 250, cx = (W - cw) / 2, cy = BOARD_TOP + 60;
         return { card: { x: cx, y: cy, w: cw, h: ch }, cast: { x: cx + cw / 2 - 85, y: cy + ch - 60, w: 170, h: 44 } };
@@ -1367,6 +1451,7 @@
         G.resolve = null;
         G.draft = null;
         G.skillPopup = null;
+        G.recruit = null;
         G.team = makeTeam(CONFIG.teamSize);
         G.ts = null;
         G.playerHp = G.playerMaxHp = 0;
@@ -1456,6 +1541,7 @@
             cast(i) { activateSkill(i | 0); return G.team; },
             team() { return G.team; },
             reroll() { G.team = makeTeam(CONFIG.teamSize); recomputeTeam(); updateHud(); return G.team; },
+            recruit() { openRecruit(); return G.recruit; },
             info() { return { run: G.run, ts: G.ts, foe: G.enemy, hp: G.playerHp, dmg: G.score, team: G.team }; },
         };
         console.log('%c[Rune Tower] debug on', 'color:#f5b23d;font-weight:700');
