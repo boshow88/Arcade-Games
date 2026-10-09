@@ -64,6 +64,7 @@
         rtGuarded: 'Guarded!',
         rtSk_mend: 'Mend', rtSk_empower: 'Empower', rtSk_focus: 'Focus', rtSk_shuffle: 'Shuffle',
         rtSk_smite: 'Smite', rtSk_guard: 'Guard', rtSk_freeze: 'Freeze', rtSk_enchant: 'Enchant', rtSk_bless: 'Bless',
+        rtRole_warrior: 'Warrior', rtRole_warden: 'Warden', rtRole_mage: 'Mage', rtRole_priest: 'Priest',
         // upgrades — name + short desc
         rtU_timeSand: 'Time Sand',        rtUd_timeSand: '+1s spin time',
         rtU_comboFervor: 'Combo Fervor',  rtUd_comboFervor: 'Bigger combo scaling',
@@ -81,7 +82,6 @@
         rtU_undying: 'Undying',           rtUd_undying: 'Survive a lethal hit once',
         rtU_snowball: 'Snowball',         rtUd_snowball: '+1 base damage per kill',
         rtU_glassCannon: 'Glass Cannon',  rtUd_glassCannon: '+40% damage, \u221225% max HP',
-        rtU_newSkill: 'New Skill',        rtUd_newSkill: 'Gain a random active skill',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
         rtHp: '生命',
@@ -108,6 +108,7 @@
         rtGuarded: '格擋！',
         rtSk_mend: '療癒', rtSk_empower: '增幅', rtSk_focus: '凝神', rtSk_shuffle: '洗盤',
         rtSk_smite: '制裁', rtSk_guard: '守護', rtSk_freeze: '凍結', rtSk_enchant: '附魔', rtSk_bless: '祝福',
+        rtRole_warrior: '戰士', rtRole_warden: '守衛', rtRole_mage: '法師', rtRole_priest: '祭司',
         rtU_timeSand: '時之沙',      rtUd_timeSand: '轉珠時間 +1 秒',
         rtU_comboFervor: '連擊狂熱',  rtUd_comboFervor: '連擊加成更高',
         rtU_heavyStrike: '重擊',      rtUd_heavyStrike: '基礎傷害 +4',
@@ -124,7 +125,6 @@
         rtU_undying: '不倒',          rtUd_undying: '整局一次免死',
         rtU_snowball: '複利',         rtUd_snowball: '每擊殺基礎傷害 +1',
         rtU_glassCannon: '玻璃大砲',  rtUd_glassCannon: '傷害 +40%、最大生命 −25%',
-        rtU_newSkill: '新技能',       rtUd_newSkill: '獲得一個隨機主動技',
     });
 
     // =================================================================
@@ -187,15 +187,13 @@
         fallAnim: 0.16,
         bigThreshold: 5,        // clearing this many of a colour forges an enhanced rune
         draftEvery: 2,          // offer an upgrade draft every N floors
-        skillSlots: 4,          // max active skills you can hold
-        startSkills: 2,         // active skills you begin a run with
+        teamSize: 5,            // members in your team (each drives HP / per-element attack / heal / a skill)
         scoreCap: 999999,
     };
 
     const BALANCE = {
-        playerHp: 120,
+        baseHp: 10,             // flat HP before the team's HP is added
         spinTime: 6,
-        baseDamage: 12,
         comboStep: 0.25,
         enhancedMult: 1.5,      // an enhanced rune's cell counts this × in damage
         enemyHp: 80, enemyHpGrow: 30,
@@ -208,21 +206,20 @@
     const UPGRADES = [
         { id: 'timeSand',      tier: 'C', max: 3, apply: (G) => { G.run.spinTime += 1; } },
         { id: 'comboFervor',   tier: 'R', max: 3, apply: (G) => { G.run.comboStep += 0.08; } },
-        { id: 'heavyStrike',   tier: 'C', max: 0, apply: (G) => { G.run.baseDamage += 4; } },
+        { id: 'heavyStrike',   tier: 'C', max: 0, apply: (G) => { G.run.atkFlat += 4; } },
         { id: 'attunement',    tier: 'R', max: 3, apply: (G) => { G.run.dmgMult += 0.08; } },
         { id: 'shapewright',   tier: 'R', max: 3, apply: (G) => { G.run.enhancedMult += 0.25; } },
         { id: 'enrich',        tier: 'R', max: 2, apply: (G) => { G.run.enhanceOnBig += 1; } },
         { id: 'piercingFirst', tier: 'R', max: 1, apply: (G) => { G.run.piercingFirst = true; } },
         { id: 'chainReaction', tier: 'R', max: 2, apply: (G) => { G.run.chainBonus += 0.5; } },
-        { id: 'vitality',      tier: 'C', max: 4, apply: (G) => { G.playerMaxHp += 25; G.playerHp += 25; } },
+        { id: 'vitality',      tier: 'C', max: 4, apply: (G) => { G.run.hpBonus += 25; G.playerHp += 25; recomputeMaxHp(); } },
         { id: 'morningDew',    tier: 'C', max: 5, apply: (G) => { G.run.healPerTurnFrac += 0.03; } },
         { id: 'soulEater',     tier: 'C', max: 3, apply: (G) => { G.run.healOnKillFrac += 0.20; } },
         { id: 'lastStand',     tier: 'R', max: 1, apply: (G) => { G.run.lastStand = true; } },
         { id: 'stoneskin',     tier: 'C', max: 3, apply: (G) => { G.run.stoneskinFrac = Math.min(0.45, G.run.stoneskinFrac + 0.12); } },
         { id: 'undying',       tier: 'E', max: 1, apply: (G) => { G.run.undying = true; } },
         { id: 'snowball',      tier: 'R', max: 1, apply: (G) => { G.run.snowball = true; } },
-        { id: 'glassCannon',   tier: 'E', max: 1, apply: (G) => { G.run.dmgMult += 0.40; G.playerMaxHp = Math.round(G.playerMaxHp * 0.75); G.playerHp = Math.min(G.playerHp, G.playerMaxHp); } },
-        { id: 'newSkill',      tier: 'C', max: 0, avail: () => G.skills.length < CONFIG.skillSlots && SKILLS.some((s) => !G.skills.some((o) => o.id === s.id)), apply: () => grantRandomSkill() },
+        { id: 'glassCannon',   tier: 'E', max: 1, apply: (G) => { G.run.dmgMult += 0.40; G.run.hpMult *= 0.75; recomputeMaxHp(); } },
     ];
     const TIER_WEIGHT = { C: 3, R: 2, E: 1 };
     const TIER_COLOR = { C: '#6fb0ff', R: '#b483ff', E: '#f6c24a' }; // blue / purple / gold
@@ -241,17 +238,6 @@
         { id: 'bless',   cd: 5, run: () => blessRandom(4) },
     ];
     function skillDef(id) { return SKILLS.find((s) => s.id === id); }
-    function pickStartingSkills(n) {
-        const pool = SKILLS.map((s) => s.id);
-        for (let i = pool.length - 1; i > 0; i--) { const j = AC.rng.int(G.rng, 0, i + 1); const tmp = pool[i]; pool[i] = pool[j]; pool[j] = tmp; }
-        return pool.slice(0, n).map((id) => ({ id, cd: 0 }));
-    }
-    function grantRandomSkill() {
-        if (G.skills.length >= CONFIG.skillSlots) return;
-        const owned = new Set(G.skills.map((s) => s.id));
-        const pool = SKILLS.filter((s) => !owned.has(s.id));
-        if (pool.length) G.skills.push({ id: pool[AC.rng.int(G.rng, 0, pool.length)].id, cd: 0 });
-    }
     function effectiveSpinTime() { return G.run.spinTime + (G.bonusTimeNext || 0); }
     function reshuffleBoard() {
         for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o) { o.el = randomEl(); o.enhanced = false; o.shape = makeShape(G.rng); o.gfx = null; } }
@@ -274,14 +260,84 @@
         updateHud();
     }
     function activateSkill(i) {
-        const s = G.skills[i];
-        if (!s || s.cd > 0 || !shell.isPlaying() || G.resolving || G.held || G.draft) return;
-        const def = skillDef(s.id);
+        const m = G.team[i];
+        if (!m || !m.active || m.cd > 0 || !shell.isPlaying() || G.resolving || G.held || G.draft) return;
+        const def = skillDef(m.active);
         if (!def) return;
         def.run();
-        s.cd = def.cd;
+        m.cd = def.cd;
         AC.audio.play('gem');
+        addFloat(W / 2, 170, t('rtSk_' + m.active), accent(), 18);   // brief cast feedback
         updateHud();
+    }
+
+    // =================================================================
+    // Team — up to CONFIG.teamSize members drive HP, per-element attack,
+    // healing (recovery) and your active skills. Each member has a role, an
+    // element, a (maybe null) active skill, and a passive that patches stats.
+    // =================================================================
+
+    const ROLES = {
+        warrior: { atk: 13, hp: 28, rec: 3 },   // balanced
+        warden:  { atk: 8,  hp: 44, rec: 3 },   // low attack, high HP
+        mage:    { atk: 18, hp: 16, rec: 2 },   // high attack, low HP
+        priest:  { atk: 11, hp: 22, rec: 7 },   // balanced, support-leaning
+    };
+    const ROLE_IDS = Object.keys(ROLES);
+    const ROLE_ACTIVES = {
+        warrior: ['empower', 'smite', 'enchant'],
+        warden:  ['guard', 'freeze', 'mend'],
+        mage:    ['empower', 'smite', 'enchant', 'shuffle'],
+        priest:  ['mend', 'bless', 'focus', 'shuffle'],
+    };
+    const ROLE_PASSIVES = {
+        warrior: ['pAtk', 'pLifesteal', 'pLastStand', 'pWarband'],
+        warden:  ['pHp', 'pStoneskin', 'pUndying'],
+        mage:    ['pAtk', 'pElement', 'pGlass'],
+        priest:  ['pRec', 'pHeal', 'pFaith'],
+    };
+    // Passives patch the derived team-stats object `ts` (see recomputeTeam).
+    const PASSIVES = {
+        pAtk:       { apply: (ts) => { ts.atkFlat += 3; } },
+        pHp:        { apply: (ts) => { ts.hp += 25; } },
+        pRec:       { apply: (ts) => { ts.rec += 4; } },
+        pLifesteal: { apply: (ts) => { ts.lifestealFrac += 0.10; } },
+        pLastStand: { apply: (ts) => { ts.lastStand = true; } },
+        pStoneskin: { apply: (ts) => { ts.stoneskinFrac = Math.min(0.4, ts.stoneskinFrac + 0.1); } },
+        pUndying:   { apply: (ts) => { ts.undying = true; } },
+        pElement:   { apply: (ts, team, m) => { ts.elementBonus[m.element] = (ts.elementBonus[m.element] || 1) * 1.25; } },
+        pGlass:     { apply: (ts) => { ts.dmgMult *= 1.25; ts.hpMult *= 0.85; } },
+        pHeal:      { apply: (ts) => { ts.healPerTurnFrac += 0.03; } },
+        pWarband:   { apply: (ts, team) => { ts.atkFlat += 2 * team.filter((x) => x.role === 'warrior').length; } },  // synergy
+        pFaith:     { apply: (ts, team) => { ts.rec += 3 * team.filter((x) => x.role === 'priest').length; } },       // synergy
+    };
+    function pickOne(list) { return list[AC.rng.int(G.rng, 0, list.length)]; }
+    function makeMember() {
+        const role = pickOne(ROLE_IDS);
+        const base = ROLES[role];
+        return {
+            role,
+            element: ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)],
+            atk: base.atk, hp: base.hp, rec: base.rec,
+            active: AC.rng.float(G.rng, 0, 1) < 0.75 ? pickOne(ROLE_ACTIVES[role]) : null, // some are passive-only
+            passive: pickOne(ROLE_PASSIVES[role]),
+            cd: 0,
+        };
+    }
+    function makeTeam(n) { const t2 = []; for (let i = 0; i < n; i++) t2.push(makeMember()); return t2; }
+    function recomputeTeam() {
+        const ts = { atk: { fire: 0, water: 0, wood: 0, light: 0, dark: 0 }, rec: 0, hp: 0, atkFlat: 0, dmgMult: 1, hpMult: 1, elementBonus: {}, lifestealFrac: 0, lastStand: false, stoneskinFrac: 0, undying: false, healPerTurnFrac: 0 };
+        for (const m of G.team) { ts.atk[m.element] += m.atk; ts.rec += m.rec; ts.hp += m.hp; }
+        for (const m of G.team) { const p = PASSIVES[m.passive]; if (p) p.apply(ts, G.team, m); }
+        G.ts = ts;
+        recomputeMaxHp();
+    }
+    function recomputeMaxHp() {
+        if (!G.ts) return;
+        const prev = G.playerMaxHp;
+        const run = G.run || {};
+        G.playerMaxHp = Math.max(1, Math.round((BALANCE.baseHp + G.ts.hp + (run.hpBonus || 0)) * G.ts.hpMult * (run.hpMult || 1)));
+        G.playerHp = prev > 0 ? Math.min(G.playerHp, G.playerMaxHp) : G.playerMaxHp;
     }
 
     // =================================================================
@@ -301,7 +357,9 @@
         resolving: false,
         resolve: null,          // { stage, t, combos, pending, popIndex, wave }
         draft: null,            // { options: [upgradeId, ...] } while choosing
-        skills: [],             // owned active skills: [{ id, cd }]
+        team: [],               // members: [{ role, element, atk, hp, rec, active, passive, cd }]
+        ts: null,               // derived team stats (recomputed on team change)
+        undyingUsed: false,
         empowerNext: 1,         // damage × for the next spin (Empower skill)
         bonusTimeNext: 0,       // extra seconds for the next spin (Focus skill)
         guardNext: false,       // block the foe's next attack (Guard skill)
@@ -506,8 +564,8 @@
         const p = boardPos(e);
         if (G.draft) { handleDraftClick(p); if (e.cancelable) e.preventDefault(); return; }
         if (G.resolving || G.held) return;
-        if (p.y < BOARD_TOP) {               // above the board: skill buttons live here
-            for (const b of skillButtonRects()) {
+        if (p.y < BOARD_TOP) {               // above the board: team skill tiles live here
+            for (const b of teamTileRects()) {
                 if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
                     AC.audio.unlock(); activateSkill(b.i); if (e.cancelable) e.preventDefault(); return;
                 }
@@ -635,23 +693,25 @@
         const stats = { combos: n, firstWave: 0, enhancedCleared: 0, elements: new Set() };
         if (n === 0) return { dmg: 0, heal: 0, n: 0, blocked: false };
         const comboMult = 1 + G.run.comboStep * (n - 1);
+        const ts = G.ts;
         let dmg = 0, heal = 0;
         for (const g of combos) {
             if (g.wave === 0) stats.firstWave++;
             stats.enhancedCleared += (g.enhanced || 0);
             stats.elements.add(g.el);
             const enh = g.enhanced || 0;
-            const base = (g.cells.length + enh * (G.run.enhancedMult - 1)) * G.run.baseDamage;
-            if (g.el === 'heart') { heal += base; continue; }
+            const count = g.cells.length + enh * (G.run.enhancedMult - 1);
+            if (g.el === 'heart') { heal += count * ts.rec; continue; }   // healing = team recovery
+            const perCell = (ts.atk[g.el] || 0) + G.run.atkFlat;          // attack = team's attack for this element
             let em = elementMult(g.el, G.enemy.element);
             if (G.run.piercingFirst && g.wave === 0 && em < 1) em = 1;   // 首批 ignores weakness
-            let gd = base * em;
+            let gd = count * perCell * em;
             if (g.wave > 0) gd *= (1 + G.run.chainBonus);                 // 非首批 cascade bonus
-            if (G.run.elementBonus[g.el]) gd *= G.run.elementBonus[g.el];
+            gd *= (G.run.elementBonus[g.el] || 1) * (ts.elementBonus[g.el] || 1);
             dmg += gd;
         }
-        let total = dmg * comboMult * G.run.dmgMult * (G.empowerNext || 1);
-        if (G.run.lastStand && G.playerMaxHp > 0 && G.playerHp / G.playerMaxHp < 0.3) total *= 1.5;
+        let total = dmg * comboMult * G.run.dmgMult * ts.dmgMult * (G.empowerNext || 1);
+        if ((G.run.lastStand || ts.lastStand) && G.playerMaxHp > 0 && G.playerHp / G.playerMaxHp < 0.3) total *= 1.5;
         const blocked = shieldBlocks(G.enemy.shield, stats);
         if (blocked) total = 0;
         return { dmg: Math.round(total), heal: Math.round(heal * comboMult), n, blocked };
@@ -676,14 +736,16 @@
             } else if (dmg > 0) {
                 damageEnemy(dmg);
                 addFloat(W / 2, 96, '-' + dmg, '#ffd0d0', 26);
+                if (G.ts.lifestealFrac > 0) G.playerHp = Math.min(G.playerMaxHp, G.playerHp + Math.round(dmg * G.ts.lifestealFrac));
             }
             addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
         }
-        if (G.run.healPerTurnFrac > 0) G.playerHp = Math.min(G.playerMaxHp, G.playerHp + G.playerMaxHp * G.run.healPerTurnFrac);
+        const hpt = G.run.healPerTurnFrac + G.ts.healPerTurnFrac;
+        if (hpt > 0) G.playerHp = Math.min(G.playerMaxHp, G.playerHp + G.playerMaxHp * hpt);
 
         G.empowerNext = 1;            // consume this-turn skill buffs
         G.bonusTimeNext = 0;
-        for (const s of G.skills) if (s.cd > 0) s.cd--;   // skill cooldowns advance one turn
+        for (const m of G.team) if (m.active && m.cd > 0) m.cd--;   // skill cooldowns advance one turn
 
         G.resolving = false;
         G.resolve = null;
@@ -703,13 +765,14 @@
                 AC.audio.play('empty');
                 return;
             }
-            const dmg = Math.max(1, Math.round(G.enemy.atk * (1 - G.run.stoneskinFrac)));
+            const sk = Math.min(0.6, G.run.stoneskinFrac + G.ts.stoneskinFrac);
+            const dmg = Math.max(1, Math.round(G.enemy.atk * (1 - sk)));
             G.playerHp -= dmg;
             G.shake = 0.4;
             addFloat(W / 2, BOARD_TOP - 70, '-' + dmg, '#ff6b6b', 24);
             AC.audio.play('rock');
             if (G.playerHp <= 0) {
-                if (G.run.undying && !G.run.undyingUsed) { G.run.undyingUsed = true; G.playerHp = 1; addFloat(W / 2, BOARD_TOP - 70, '1 HP', '#ffe08a', 22); }
+                if ((G.run.undying || G.ts.undying) && !G.undyingUsed) { G.undyingUsed = true; G.playerHp = 1; addFloat(W / 2, BOARD_TOP - 70, '1 HP', '#ffe08a', 22); }
                 else { G.playerHp = 0; die(); }
             }
         }
@@ -717,7 +780,7 @@
     function defeatEnemy() {
         AC.audio.play('levelup');
         if (G.run.healOnKillFrac > 0) G.playerHp = Math.min(G.playerMaxHp, G.playerHp + G.playerMaxHp * G.run.healOnKillFrac);
-        if (G.run.snowball) G.run.baseDamage += 1;
+        if (G.run.snowball) G.run.atkFlat += 1;
         const next = G.enemy.index + 1;
         spawnEnemy(next);
         if (next % CONFIG.draftEvery === 0) openDraft();
@@ -848,7 +911,7 @@
         drawFloats();
         ctx.restore();
 
-        drawSkills();
+        drawTeam();
         drawSpinTimer();
         if (G.draft) drawDraft();
         if (DEBUG) drawDebug(); // [DEBUG-HOOK]
@@ -1047,32 +1110,44 @@
         drawBar(112, 148, 466, 18, ratio, col, Math.max(0, Math.ceil(G.playerHp)) + ' / ' + G.playerMaxHp);
     }
 
-    // Active-skill buttons, in the gap between the player bar and the board.
-    function skillButtonRects() {
-        const n = G.skills.length;
+    // Team panel, in the gap between the player bar and the board. Each tile is a
+    // member (element-tinted border, role, and its active skill); tap a ready one
+    // to cast. Passive-only members show "—" and aren't tappable.
+    function teamTileRects() {
+        const n = G.team.length;
         if (n === 0) return [];
-        const gap = 10, maxW = 118, h = 54, y = 182;
-        const w = Math.min(maxW, (W - 44 - gap * (n - 1)) / n);
+        const gap = 8, h = 56, y = 180;
+        const w = Math.min(112, (W - 32 - gap * (n - 1)) / n);
         const x0 = (W - (w * n + gap * (n - 1))) / 2;
-        return G.skills.map((s, i) => ({ i, x: x0 + i * (w + gap), y, w, h }));
+        return G.team.map((m, i) => ({ i, x: x0 + i * (w + gap), y, w, h }));
     }
-    function drawSkills() {
+    function drawTeam() {
         if (!shell || !shell.isPlaying()) return;
         const f = getFont();
-        for (const b of skillButtonRects()) {
-            const s = G.skills[b.i], ready = s.cd <= 0;
+        for (const b of teamTileRects()) {
+            const m = G.team[b.i];
+            const ecol = ELEMENT_COLORS[m.element];
+            const castable = !!m.active, ready = castable && m.cd <= 0;
             ctx.save();
-            ctx.fillStyle = ready ? 'rgba(245,178,61,0.14)' : 'rgba(255,255,255,0.05)';
-            roundRect(b.x, b.y, b.w, b.h, 10); ctx.fill();
-            ctx.lineWidth = 1.5; ctx.strokeStyle = ready ? accent() : 'rgba(255,255,255,0.15)';
-            roundRect(b.x, b.y, b.w, b.h, 10); ctx.stroke();
-            ctx.fillStyle = ready ? '#fff' : 'rgba(255,255,255,0.4)';
-            ctx.font = `700 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(t('rtSk_' + s.id), b.x + b.w / 2, b.y + b.h / 2);
-            if (!ready) {
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; roundRect(b.x, b.y, b.w, b.h, 10); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = `800 22px ${f}`;
-                ctx.fillText(String(s.cd), b.x + b.w / 2, b.y + b.h / 2);
+            ctx.fillStyle = 'rgba(255,255,255,0.04)';
+            roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = ready ? ecol : shade(ecol, -0.25);
+            roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
+            // element dot + role
+            ctx.fillStyle = ecol;
+            ctx.beginPath(); ctx.arc(b.x + 12, b.y + 13, 4, 0, PI2); ctx.fill();
+            ctx.fillStyle = 'rgba(255,255,255,0.55)';
+            ctx.font = `600 10px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText(t('rtRole_' + m.role), b.x + 22, b.y + 13);
+            // active skill name (or dash)
+            ctx.textAlign = 'center';
+            ctx.fillStyle = castable ? (ready ? '#fff' : 'rgba(255,255,255,0.45)') : 'rgba(255,255,255,0.3)';
+            ctx.font = `700 14px ${f}`;
+            ctx.fillText(castable ? t('rtSk_' + m.active) : '—', b.x + b.w / 2, b.y + 38);
+            if (castable && !ready) {
+                ctx.fillStyle = 'rgba(0,0,0,0.45)'; roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
+                ctx.fillStyle = '#fff'; ctx.font = `800 20px ${f}`; ctx.textBaseline = 'middle';
+                ctx.fillText(String(m.cd), b.x + b.w / 2, b.y + b.h / 2);
             }
             ctx.restore();
         }
@@ -1193,10 +1268,11 @@
         G.rng = AC.rng.make(seedCounter++);
         G.run = {
             spinTime: BALANCE.spinTime,
-            baseDamage: BALANCE.baseDamage,
+            atkFlat: 0,
             comboStep: BALANCE.comboStep,
             enhancedMult: BALANCE.enhancedMult,
             dmgMult: 1,
+            hpBonus: 0, hpMult: 1,
             enhanceOnBig: 0,
             healPerTurnFrac: 0,
             healOnKillFrac: 0,
@@ -1204,19 +1280,22 @@
             chainBonus: 0,
             lastStand: false,
             stoneskinFrac: 0,
-            undying: false, undyingUsed: false,
+            undying: false,
             snowball: false,
             elementBonus: {},
             levels: {},
         };
-        G.playerHp = G.playerMaxHp = BALANCE.playerHp;
         G.score = 0;
         G.held = null;
         G.spinTimer = 0;
         G.resolving = false;
         G.resolve = null;
         G.draft = null;
-        G.skills = pickStartingSkills(CONFIG.startSkills);
+        G.team = makeTeam(CONFIG.teamSize);
+        G.ts = null;
+        G.playerHp = G.playerMaxHp = 0;
+        recomputeTeam();          // sets G.ts, playerMaxHp, and full HP
+        G.undyingUsed = false;
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
         G.guardNext = false;
@@ -1273,7 +1352,7 @@
             'foe hp ' + Math.ceil(e.hp) + '/' + e.maxHp,
             'foe atk ' + e.atk + '  cd ' + e.cd + '/' + e.cdMax,
             'you ' + Math.ceil(G.playerHp) + '/' + G.playerMaxHp,
-            'dmg ' + G.score + '  bD ' + G.run.baseDamage,
+            'dmg ' + G.score + '  aF ' + G.run.atkFlat,
         ];
         ctx.save();
         ctx.font = `600 12px ${getFont()}`;
@@ -1298,12 +1377,13 @@
                 if (G.enemy && type in map) G.enemy.shield = map[type];
                 return G.enemy && G.enemy.shield;
             },
-            cast(i) { activateSkill(i | 0); return G.skills; },
-            giveSkill(id) { if (!G.skills.some((s) => s.id === id) && skillDef(id)) G.skills.push({ id, cd: 0 }); return G.skills; },
-            info() { return { run: G.run, foe: G.enemy, hp: G.playerHp, dmg: G.score, skills: G.skills }; },
+            cast(i) { activateSkill(i | 0); return G.team; },
+            team() { return G.team; },
+            reroll() { G.team = makeTeam(CONFIG.teamSize); recomputeTeam(); updateHud(); return G.team; },
+            info() { return { run: G.run, ts: G.ts, foe: G.enemy, hp: G.playerHp, dmg: G.score, team: G.team }; },
         };
         console.log('%c[Rune Tower] debug on', 'color:#f5b23d;font-weight:700');
-        console.log('RT.kill() hp(n) foe(n) draft() give("timeSand"…) shield(...) cast(i) giveSkill(id) info()');
+        console.log('RT.kill() hp(n) foe(n) draft() give("timeSand"…) shield(...) cast(i) team() reroll() info()');
     }
 
     if (document.readyState === 'loading') {

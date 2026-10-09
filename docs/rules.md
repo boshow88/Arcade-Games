@@ -230,20 +230,35 @@ curve lives in the **per-floor growth**: each foe has more HP and attack than
 the last. Every `CONFIG.draftEvery` floors you pick **one of three upgrades**
 (leveled stat / board / relic picks) that patch your run.
 
-### Active skills
+### Team
 
-You carry up to `CONFIG.skillSlots` **active skills** (you start with
-`CONFIG.startSkills` random ones; the "New Skill" draft grants more). Tap a skill
-button (in the gap between the player bar and the board) to cast — casting is a
-**free action**, but a turn (and every skill's cooldown, counted in turns) only
-advances when you **spin**. Current pool: Mend, Empower, Focus, Shuffle, Smite,
-Guard, Freeze, Enchant, Bless. Only **one** full-"block" source exists (Guard,
-on cooldown), per the design's anti-infinite-block rule.
+Your power comes from a **team of `CONFIG.teamSize` members** (random at run
+start). Each member has a **role** (Warrior / Warden / Mage / Priest), an
+**element**, a **passive**, and usually an **active skill** (some are
+passive-only). The team drives everything:
+
+- **HP** = base + the sum of members' HP (Wardens are tanky, Mages fragile).
+- **Attack per element** = the sum of the attack of members **of that element**
+  — so clearing a colour only hits hard if you have members of it (clearing an
+  unmanned colour still counts for combos and shields).
+- **Healing** from heart runes scales with the team's total **recovery**
+  (Priests lead here).
+- **Passives** patch derived stats — flat/element attack, HP, recovery,
+  lifesteal, last-stand, etc. — including a couple of **composition synergies**
+  (e.g. more attack per Warrior, more recovery per Priest).
+
+Members show as tiles in the gap above the board; tap a member's **active skill**
+(when off cooldown) to cast. Casting is a **free action**, but a turn (and every
+cooldown, counted in turns) only advances when you **spin**. Skill pool: Mend,
+Empower, Focus, Shuffle, Smite, Guard, Freeze, Enchant, Bless. Only **one**
+full-"block" source exists (Guard, on cooldown), per the anti-infinite-block
+rule. *(Recruiting to reshape the team mid-run is the next step.)*
 
 ### Tuning
 
-All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (HP, spin
-time, damage, enhanced multiplier, per-floor `enemy*Grow`), `CONFIG` (timings,
-`bigThreshold`, `draftEvery`), and the `UPGRADES` draft pool. Each run copies
-the mutable knobs into `G.run`, which upgrades patch; damage math is in
-`computeSpinResult()` and all foe damage flows through `damageEnemy()`.
+All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (base HP,
+spin time, enhanced multiplier, per-floor `enemy*Grow`), `CONFIG` (timings,
+`bigThreshold`, `draftEvery`, `teamSize`), `ROLES` + `PASSIVES` (team), the
+`SKILLS` pool, and the `UPGRADES` draft pool. Draft upgrades patch `G.run`; the
+team recomputes into `G.ts`; damage math merges both in `computeSpinResult()`
+and all foe damage flows through `damageEnemy()`.
