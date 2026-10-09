@@ -260,6 +260,14 @@ slot) offer **3 candidate members** — tap one, then tap the member to replace;
 team grows stronger and better-covered as you climb (new element coverage,
 better passives / synergies).
 
+### Bosses
+
+Every **5th floor** is a **Boss** (every **20th**, an Elite Boss): far more HP
+and attack, and **two health bars**. Deplete the first bar and it refills, swaps
+to a **tougher shield**, and skips its strike that turn (Phase 2). Remaining bars
+show as gold diamonds by the foe. *(Signature boss mechanics — heart-reversal,
+twins, player status effects — are the next step.)*
+
 ### Tuning
 
 All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (base HP,

@@ -44,6 +44,7 @@
         rtFloor: 'Floor',
         rtReady: 'Ready',
         rtFoe: 'Foe',
+        rtBoss: 'BOSS', rtBossSpecial: 'ELITE BOSS', rtPhase: (n) => `Phase ${n}`,
         rtIntro: 'Drag a rune to line up 3+ of a colour and clear them. Chain combos, strike the foe\u2019s weak element, and heal with hearts. Each spin is a turn \u2014 climb as high as you can.',
         rtStartHintHtml: 'Drag a rune on the board · <kbd>P</kbd> pause',
         rtAttackIn: (n) => `Strikes in ${n}`,
@@ -103,6 +104,7 @@
         rtFloor: '層',
         rtReady: '準備好了',
         rtFoe: '敵人',
+        rtBoss: '首領', rtBossSpecial: '強首領', rtPhase: (n) => `第 ${n} 階段`,
         rtIntro: '拖動符石，把同色連成 3 顆以上消除。串連擊、打敵人的弱屬性、用心珠回血。每轉一次就是一回合——盡量往上爬。',
         rtStartHintHtml: '在盤面上拖動符石 · <kbd>P</kbd> 暫停',
         rtAttackIn: (n) => `${n} 回合後攻擊`,
@@ -287,7 +289,7 @@
         const dmg = Math.round(G.playerMaxHp * 0.15);
         damageEnemy(dmg);
         addFloat(W / 2, 96, '-' + dmg, '#ffe08a', 24);
-        if (G.enemy.hp <= 0) defeatEnemy();
+        if (G.enemy.hp <= 0 && enemyDefeatedOrPhase()) defeatEnemy();
         updateHud();
     }
     function activateSkill(i) {
@@ -811,7 +813,7 @@
         G.resolving = false;
         G.resolve = null;
 
-        if (G.enemy.hp <= 0) defeatEnemy();
+        if (G.enemy.hp <= 0) { if (enemyDefeatedOrPhase()) defeatEnemy(); }   // boss phase-break skips its turn
         else enemyTurn();
         updateHud();
     }
@@ -862,17 +864,57 @@
             default: return { type: 'element', mode: 'ban', elements: [el()] };
         }
     }
+    // A forced, escalating shield for bosses. phase 0 = first bar, 1 = second bar.
+    function bossShield(index, phase) {
+        const el = () => ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)];
+        if (phase === 0) {
+            return AC.rng.int(G.rng, 0, 2) === 0
+                ? { type: 'enhanced' }
+                : { type: 'combo', mode: 'min', n: 5 + Math.min(3, (index / 5) | 0) };
+        }
+        return AC.rng.int(G.rng, 0, 2) === 0
+            ? { type: 'firstWaveMax', n: 2 }
+            : { type: 'element', mode: 'contains', elements: [el()] };
+    }
     function spawnEnemy(index) {
-        const maxHp = Math.round(BALANCE.enemyHp + BALANCE.enemyHpGrow * index);
+        const floor = index + 1;
+        const isBoss = floor % 5 === 0;
+        const isSpecial = floor % 20 === 0;
+        let maxHp = Math.round(BALANCE.enemyHp + BALANCE.enemyHpGrow * index);
+        let atk = Math.round(BALANCE.enemyAtk + BALANCE.enemyAtkGrow * index);
+        let bars = 1, shield = rollShield(index);
+        if (isBoss) {
+            maxHp = Math.round(maxHp * (isSpecial ? 3.2 : 2.2));
+            atk = Math.round(atk * (isSpecial ? 1.4 : 1.2));
+            bars = 2;
+            shield = bossShield(index, 0);
+        }
         G.enemy = {
-            index,
+            index, floor,
             element: ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)],
-            hp: maxHp, maxHp,
-            atk: Math.round(BALANCE.enemyAtk + BALANCE.enemyAtkGrow * index),
+            hp: maxHp, maxHp, atk,
             cd: BALANCE.enemyCd, cdMax: BALANCE.enemyCd,
-            shield: rollShield(index),
+            shield,
             shape: makeShape(G.rng),
+            boss: isBoss, special: isSpecial, bars, bar: 0,
         };
+    }
+    // Call when hp <= 0. Returns true if the foe is fully dead; a boss with bars
+    // left instead refills, advances a phase (new shield) and returns false.
+    function enemyDefeatedOrPhase() {
+        const e = G.enemy;
+        if (e.hp > 0) return false;
+        if (e.boss && e.bar < e.bars - 1) {
+            e.bar++;
+            e.hp = e.maxHp;
+            e.shield = bossShield(e.index, e.bar);
+            e.cd = e.cdMax;
+            G.shake = 0.5;
+            addFloat(W / 2, 70, t('rtPhase', e.bar + 1), '#ffcf5a', 24);
+            AC.audio.play('levelup');
+            return false;
+        }
+        return true;
     }
     function die() {
         if (G.ended) return;
@@ -1129,17 +1171,26 @@
         const e = G.enemy;
         const f = getFont();
         ctx.textBaseline = 'alphabetic';
-        ctx.fillStyle = 'rgba(255,255,255,0.5)';
-        ctx.font = `600 14px ${f}`; ctx.textAlign = 'left';
-        ctx.fillText(t('rtFoe') + ' #' + (e.index + 1), 22, 28);
+        const label = e.boss ? t(e.special ? 'rtBossSpecial' : 'rtBoss') : t('rtFoe');
+        ctx.fillStyle = e.boss ? '#ffcf5a' : 'rgba(255,255,255,0.5)';
+        ctx.font = (e.boss ? '800 14px ' : '600 14px ') + f; ctx.textAlign = 'left';
+        ctx.fillText(label + ' #' + e.floor, 22, 28);
 
-        drawStone(e.element, 62, 70, 34, e.shape, false, false);
+        drawStone(e.element, 62, 70, e.boss ? 42 : 34, e.shape, e.boss, false);
 
         ctx.fillStyle = shade(ELEMENT_COLORS[e.element], 0.35);
         ctx.font = `700 18px ${f}`; ctx.textAlign = 'left';
         ctx.fillText(t('el_' + e.element), 112, 52);
 
-        drawBar(112, 62, 466, 16, e.hp / e.maxHp, '#ff5566', Math.max(0, Math.ceil(e.hp)) + ' / ' + e.maxHp);
+        // boss health-bar pips (filled diamonds = bars remaining, including the current one)
+        if (e.boss) {
+            for (let i = 0; i < e.bars; i++) {
+                ctx.fillStyle = i < (e.bars - e.bar) ? '#ffcf5a' : 'rgba(255,255,255,0.2)';
+                ctx.save(); ctx.translate(W - 24 - i * 18, 46); ctx.rotate(Math.PI / 4); ctx.fillRect(-5, -5, 10, 10); ctx.restore();
+            }
+        }
+
+        drawBar(112, 62, 466, 16, e.hp / e.maxHp, e.boss ? '#ff7a4d' : '#ff5566', Math.max(0, Math.ceil(e.hp)) + ' / ' + e.maxHp);
 
         ctx.fillStyle = e.cd <= 1 ? '#ff8f8f' : 'rgba(255,255,255,0.7)';
         ctx.font = `600 14px ${f}`; ctx.textAlign = 'left';
