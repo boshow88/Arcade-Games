@@ -16,8 +16,6 @@ retry.
 | Colour Ladder | Playable | Real-time ghost-leg: move colour-gated rungs to route colour balls into baskets |
 | Bullet Storm   | Playable | Omnidirectional bullet-dodge survival; relative-drag control, lasers & homing, score = survival time |
 | Rune Tower     | WIP      | Orb-matching combat climb: drag an orb, chain combos, element matchups; score = total damage (Phase 1: core loop vs endless foes) |
-| Bamboo Dash    | WIP      | One-tap endless runner                                             |
-| Beat Bamboo    | WIP      | Rhythm tapper                                                      |
 
 Full rule reference: [`docs/rules.md`](docs/rules.md).
 Architecture & dev notes: [`docs/DEV.md`](docs/DEV.md).

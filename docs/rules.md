@@ -191,12 +191,15 @@ enemy shields yet (those are Phase 2+). Your **score is the total damage dealt**
 
 ### Board & spinning
 
-- A **6×5** board (30 orbs), 6 elements: **fire · water · wood · light · dark ·
-  heart**. Press and **drag one orb**; it swaps with each cell it moves into
-  (diagonals allowed), so a drag sweeps a whole path. Each drag is limited to a
-  few seconds (the bar above the board) — on **release or timeout** it resolves.
-- On resolve, every **horizontal/vertical run of 3+** of a colour clears. Orbs
-  fall, new ones pour in from the top, and any new runs **cascade** — each
+- A **6×5** board (30 runes), 6 elements: **fire · water · wood · light · dark ·
+  heart**. Press and **drag one rune**; it swaps with each cell it moves into
+  (diagonals allowed), so a drag sweeps a whole path. The **spin timer only
+  starts on the first swap** (picking a rune up just to look around costs
+  nothing); it resolves on **release or timeout**. A stray tap with no swap is
+  cancelled — no turn is spent.
+- On resolve, every **horizontal/vertical run of 3+** of a colour clears, and
+  each connected group **pops one at a time** (its own rising chime) for feel.
+  Runes fall, new ones pour in from the top, and any new runs **cascade** — each
   connected cleared group is one **combo**.
 
 ### Combat (turn-based)
@@ -210,13 +213,14 @@ enemy shields yet (those are Phase 2+). Your **score is the total damage dealt**
   the foe lives longer = you eat more hits. Clear a foe and a **stronger one**
   steps up (more HP and attack). At **0 HP** the run ends.
 
-### Difficulty
+### The climb
 
-Pick **Easy / Normal / Hard** (each keeps its own Best). Difficulty sets your HP
-pool, the per-spin time limit, and the foe's HP/attack growth and strike
-countdown.
+There is **no difficulty selector** — one shared leaderboard. The whole
+challenge curve lives in the **per-floor growth**: each foe has more HP and
+attack than the last, so the run gets harder the higher you climb.
 
 ### Tuning
 
-All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
-`js/games/rune-tower.js`.
+All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (HP, spin
+time, damage, and the per-floor `enemy*Grow` curve) and `CONFIG` (timings). Each
+run copies the mutable knobs into `G.run`, which Phase 2 upgrades will patch.

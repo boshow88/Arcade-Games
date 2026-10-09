@@ -373,9 +373,7 @@
             wip: 'WIP',
             tagReflex: 'Reflex',
             tagScore: 'Score chase',
-            tagTimed: 'Timed',
             tagCombo: 'Combo',
-            tagRhythm: 'Rhythm',
             tagEndless: 'Endless',
 
             // Colour Ladder card (real-time ghost-leg / amidakuji)
@@ -433,9 +431,7 @@
             wip: '開發中',
             tagReflex: '反應',
             tagScore: '衝分',
-            tagTimed: '限時',
             tagCombo: '連擊',
-            tagRhythm: '節奏',
             tagEndless: '無盡',
 
             ladderConnectName: '彩球梯',

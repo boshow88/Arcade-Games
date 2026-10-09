@@ -239,12 +239,6 @@ button {
     text-decoration: none;
 }
 
-.game-card.coming-soon {
-    opacity: 0.7;
-    cursor: not-allowed;
-    pointer-events: none;
-}
-
 .game-card-header {
     display: flex;
     align-items: center;
