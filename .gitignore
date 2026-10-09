@@ -29,6 +29,3 @@ dist/
 # Scratch (commit messages, etc.)
 *.tmp
 .commit_msg.*
-
-# Original reference scripts (kept locally, not shipped)
-/falling_dot_avoidance.js

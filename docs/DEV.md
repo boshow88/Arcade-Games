@@ -37,7 +37,7 @@ docs/DEV.md                  This file
 | --- | --- |
 | `storage` | `readJSON` / `writeJSON` / `storageKey` — namespaced `localStorage` (prefix `arcadeGames`). |
 | `prefs` | `get(game)` / `set(game, patch)` — per-game preferences. |
-| `scores` | `best(game, mode)` / `submit(game, mode, score, meta)` / `stats(game)` — per-(game, mode) high scores + a recent-runs ring buffer. |
+| `scores` | `best(game, mode)` / `submit(game, mode, score, meta)` / `stats(game)` / `resetIfStale(game, epoch)` — per-(game, mode) high scores + a recent-runs ring buffer. |
 | `rng` | `make(seed)` (mulberry32) + `int` / `float` / `one` / `shuffle`. |
 | `math` | `clamp` / `lerp` / `dist`. |
 | `format` | `score(n)` (thousands) / `clock(ms|sec, asSeconds)` (mm:ss). |
@@ -59,10 +59,18 @@ their keyboard shortcuts. The game supplies `update(dt)` / `render()` /
 `reset()` and calls `shell.gameOver({ score, win, meta })` when the run
 ends. It intentionally knows nothing about the game's own HUD.
 
-Config keys: `gameId`, `mode()` (leaderboard bucket), `step`,
-`preventKeys`, `update`, `render`, `reset`, `onStart` / `onPause` /
-`onResume` / `onGameOver`, `restartToReady` (Restart → ready screen), and `overlayContent(state, result)` returning
+Config keys: `gameId`, `mode()` (leaderboard bucket), `scoreEpoch` (one-time
+score reset — see below), `step`, `preventKeys`, `update`, `render`, `reset`,
+`onStart` / `onPause` / `onResume` / `onGameOver`, `restartToReady`
+(Restart → ready screen), and `overlayContent(state, result)` returning
 `{ badge, title, message, button, hint }`.
+
+**Resetting everyone's high scores once**: set `scoreEpoch` to an integer in
+`shell.create` (we just use the date, e.g. `20261009`). Each save is stamped
+with the epoch it was written under; bump `scoreEpoch` whenever a mechanics
+change invalidates old scores, and every returning player's next load wipes
+that game's bests exactly once, then stores the new epoch. Leave it unset to
+never auto-reset. (Manual one-off: `ArcadeCommon.scores.resetIfStale(game, epoch)`.)
 
 DOM ids the shell looks for (all optional): `#overlay`,
 `#overlay-badge`, `#overlay-title`, `#overlay-message`, `#overlay-btn`,
