@@ -255,9 +255,10 @@ full-"block" source exists (Guard, on cooldown), per the anti-infinite-block
 rule.
 
 **Recruit floors** (every `CONFIG.recruitEvery` floors, taking that floor's draft
-slot) offer **3 candidate members** — tap one to select, then tap the member to
-replace (or **Skip**). So the team grows stronger and better-covered as you
-climb (new element coverage, better passives / synergies).
+slot) offer **3 candidate members** — tap one, then tap the member to replace;
+**swap as many as you like** (each candidate once), then press **Done**. So the
+team grows stronger and better-covered as you climb (new element coverage,
+better passives / synergies).
 
 ### Tuning
 

@@ -75,7 +75,7 @@
         rtSkd_freeze: "Push the foe's strike countdown back 2 turns.",
         rtSkd_enchant: 'Turn 3 random runes into enhanced runes.',
         rtSkd_bless: 'Turn 4 random runes into hearts.',
-        rtRecruitTitle: 'Recruit', rtRecruitHint: 'Pick a recruit, then the member to replace', rtSkip: 'Skip',
+        rtRecruitTitle: 'Recruit', rtRecruitHint: 'Pick a recruit, then the member to replace — swap several, then Done', rtDone: 'Done',
         rtStatAtk: 'ATK', rtStatHp: 'HP', rtStatRec: 'REC',
         rtP_pAtk: '+Attack', rtP_pHp: '+HP', rtP_pRec: '+Recovery', rtP_pLifesteal: 'Lifesteal',
         rtP_pLastStand: 'Last Stand', rtP_pStoneskin: 'Stoneskin', rtP_pUndying: 'Undying', rtP_pElement: 'Element+',
@@ -134,7 +134,7 @@
         rtSkd_freeze: '敵人攻擊倒數延後 2 回合。',
         rtSkd_enchant: '隨機 3 顆符石變成強化符石。',
         rtSkd_bless: '隨機 4 顆符石變成心珠。',
-        rtRecruitTitle: '招募', rtRecruitHint: '選一位新成員，再點要替換的隊員', rtSkip: '略過',
+        rtRecruitTitle: '招募', rtRecruitHint: '選新成員→點要換掉的隊員（可換多位，完成後按「完成」）', rtDone: '完成',
         rtStatAtk: '攻', rtStatHp: '血', rtStatRec: '復',
         rtP_pAtk: '加攻', rtP_pHp: '加血', rtP_pRec: '加回復', rtP_pLifesteal: '吸血',
         rtP_pLastStand: '背水', rtP_pStoneskin: '減傷', rtP_pUndying: '不倒', rtP_pElement: '本屬強化',
@@ -217,7 +217,7 @@
         fallAnim: 0.16,
         bigThreshold: 5,        // clearing this many of a colour forges an enhanced rune
         draftEvery: 2,          // offer an upgrade draft every N floors
-        recruitEvery: 4,        // offer a recruit (team swap) every N floors (takes that floor's draft slot)
+        recruitEvery: 8,        // offer a recruit (team swap) every N floors (takes that floor's draft slot)
         teamSize: 5,            // members in your team (each drives HP / per-element attack / heal / a skill)
         scoreCap: 999999,
     };
@@ -370,11 +370,12 @@
         G.playerMaxHp = Math.max(1, Math.round((BALANCE.baseHp + G.ts.hp + (run.hpBonus || 0)) * G.ts.hpMult * (run.hpMult || 1)));
         G.playerHp = prev > 0 ? Math.min(G.playerHp, G.playerMaxHp) : G.playerMaxHp;
     }
-    function openRecruit() { G.recruit = { candidates: [makeMember(), makeMember(), makeMember()], selected: null }; }
+    function openRecruit() { G.recruit = { candidates: [makeMember(), makeMember(), makeMember()], used: [false, false, false], selected: null }; }
     function doRecruitSwap(candIdx, memberIdx) {
         G.team[memberIdx] = G.recruit.candidates[candIdx];
-        G.recruit = null;
-        recomputeTeam();   // new member may change HP / attack coverage
+        G.recruit.used[candIdx] = true;    // consume this recruit; keep the panel open for more swaps
+        G.recruit.selected = null;
+        recomputeTeam();                   // new member may change HP / attack coverage
         updateHud();
         AC.audio.play('levelup');
     }
@@ -612,11 +613,11 @@
             if (e.cancelable) e.preventDefault();
             return;
         }
-        if (G.recruit) {                     // pick a candidate, then a member to replace (or Skip)
+        if (G.recruit) {                     // pick a candidate, then a member to replace; swap several, then Done
             const L = recruitLayout();
-            for (const c of L.cands) if (inRect(p, c)) { G.recruit.selected = c.i; AC.audio.unlock(); if (e.cancelable) e.preventDefault(); return; }
+            for (const c of L.cands) if (inRect(p, c) && !G.recruit.used[c.i]) { G.recruit.selected = c.i; AC.audio.unlock(); if (e.cancelable) e.preventDefault(); return; }
             if (G.recruit.selected != null) for (const mb of L.members) if (inRect(p, mb)) { AC.audio.unlock(); doRecruitSwap(G.recruit.selected, mb.i); if (e.cancelable) e.preventDefault(); return; }
-            if (inRect(p, L.skip)) G.recruit = null;
+            if (inRect(p, L.done)) G.recruit = null;
             if (e.cancelable) e.preventDefault();
             return;
         }
@@ -1222,11 +1223,12 @@
         const mN = G.team.length, mgap = 8, mw = Math.min(104, (W - 32 - mgap * (mN - 1)) / mN), mh = 46;
         const mx0 = (W - (mw * mN + mgap * (mN - 1))) / 2, my = cy + ch + 24;
         const members = G.team.map((m, i) => ({ i, x: mx0 + i * (mw + mgap), y: my, w: mw, h: mh }));
-        return { cands, members, skip: { x: W / 2 - 70, y: my + mh + 16, w: 140, h: 38 } };
+        return { cands, members, done: { x: W / 2 - 70, y: my + mh + 16, w: 140, h: 38 } };
     }
     function drawRecruitCandidate(c, f) {
         const m = G.recruit.candidates[c.i], ecol = ELEMENT_COLORS[m.element], sel = G.recruit.selected === c.i;
         ctx.save();
+        if (G.recruit.used[c.i]) ctx.globalAlpha = 0.3;   // already recruited this candidate
         ctx.fillStyle = sel ? 'rgba(255,255,255,0.09)' : 'rgba(255,255,255,0.04)';
         roundRect(c.x, c.y, c.w, c.h, 12); ctx.fill();
         ctx.lineWidth = sel ? 3 : 2; ctx.strokeStyle = ecol;
@@ -1264,9 +1266,9 @@
             ctx.fillText(t('rtRole_' + m.role), mb.x + mb.w / 2 + 6, mb.y + mb.h / 2);
             ctx.textBaseline = 'alphabetic';
         }
-        ctx.fillStyle = 'rgba(255,255,255,0.1)'; roundRect(L.skip.x, L.skip.y, L.skip.w, L.skip.h, 10); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.8)'; ctx.font = `700 14px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(t('rtSkip'), L.skip.x + L.skip.w / 2, L.skip.y + L.skip.h / 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.12)'; roundRect(L.done.x, L.done.y, L.done.w, L.done.h, 10); ctx.fill();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `700 14px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(t('rtDone'), L.done.x + L.done.w / 2, L.done.y + L.done.h / 2);
         ctx.restore();
     }
     function skillPopupLayout() {
