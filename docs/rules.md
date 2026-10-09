@@ -182,12 +182,14 @@ All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
 
 ---
 
-## Rune Tower (WIP — Phase 1)
+## Rune Tower (WIP — Phase 2)
 
 An orb-matching **combat climb**, in the spirit of Tower of Saviors but built
-as a short run: no long-term cultivation, just spin → fight → climb. **Phase 1
-is the core loop only** — a single endless ladder of foes, no team / drafts /
-enemy shields yet (those are Phase 2+). Your **score is the total damage dealt**.
+as a short run: no long-term cultivation, just spin → fight → climb. Your
+**best is the highest floor reached** (total damage is shown too, as a
+tiebreak). **Phase 2** adds enhanced runes and between-floor upgrade drafts;
+team / active skills / enemy shields / bosses are Phase 3. Full design notes
+live in the local `docs/rune-tower-design.md`.
 
 ### Board & spinning
 
@@ -199,28 +201,35 @@ enemy shields yet (those are Phase 2+). Your **score is the total damage dealt**
   cancelled — no turn is spent.
 - On resolve, every **horizontal/vertical run of 3+** of a colour clears, and
   each connected group **pops one at a time** (its own rising chime) for feel.
-  Runes fall, new ones pour in from the top, and any new runs **cascade** — each
-  connected cleared group is one **combo**.
+  Runes fall, new ones pour in from the top, and any new runs **cascade**. We
+  call the groups cleared before any fall the **first wave (首批)** and the
+  cascade-produced ones **非首批**.
+- **Enhanced runes**: clearing a group of **5+** of a colour forges one
+  **enhanced** rune of that colour (gold rim). When later cleared it counts
+  **×1.5** — and it's the key to breaking future "enhanced shields".
 
 ### Combat (turn-based)
 
-- **One spin = one turn.** Cleared groups deal damage: `orbs × baseDamage ×
-  elementMult × comboMult`, where `comboMult = 1 + 0.25·(combos−1)`. **Heart**
+- **One spin = one turn.** Cleared groups deal damage: `Σ(runes, enhanced ×1.5)
+  × elementMult × comboMult`, where `comboMult = 1 + 0.25·(combos−1)`. **Heart**
   groups heal you instead of attacking.
 - **Element wheel**: water→fire→wood→water and light↔dark. Hitting a foe's weak
   element deals **×2**, its strong element **×0.5**, else ×1.
 - The foe **strikes on a countdown** (every `enemyCd` turns); spinning badly =
   the foe lives longer = you eat more hits. Clear a foe and a **stronger one**
-  steps up (more HP and attack). At **0 HP** the run ends.
+  steps up (more HP and attack) — you **climb a floor**. At **0 HP** the run ends.
 
-### The climb
+### The climb & upgrade drafts
 
-There is **no difficulty selector** — one shared leaderboard. The whole
-challenge curve lives in the **per-floor growth**: each foe has more HP and
-attack than the last, so the run gets harder the higher you climb.
+There is **no difficulty selector** — one shared leaderboard. The challenge
+curve lives in the **per-floor growth**: each foe has more HP and attack than
+the last. Every `CONFIG.draftEvery` floors you pick **one of three upgrades**
+(leveled stat / board / relic picks) that patch your run.
 
 ### Tuning
 
 All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (HP, spin
-time, damage, and the per-floor `enemy*Grow` curve) and `CONFIG` (timings). Each
-run copies the mutable knobs into `G.run`, which Phase 2 upgrades will patch.
+time, damage, enhanced multiplier, per-floor `enemy*Grow`), `CONFIG` (timings,
+`bigThreshold`, `draftEvery`), and the `UPGRADES` draft pool. Each run copies
+the mutable knobs into `G.run`, which upgrades patch; damage math is in
+`computeSpinResult()` and all foe damage flows through `damageEnemy()`.
