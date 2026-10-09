@@ -179,3 +179,44 @@ with a short **3‑2‑1 countdown** so the first moment isn't a scramble.
 
 All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
 `js/games/bullet-storm.js`.
+
+---
+
+## Rune Tower (WIP — Phase 1)
+
+An orb-matching **combat climb**, in the spirit of Tower of Saviors but built
+as a short run: no long-term cultivation, just spin → fight → climb. **Phase 1
+is the core loop only** — a single endless ladder of foes, no team / drafts /
+enemy shields yet (those are Phase 2+). Your **score is the total damage dealt**.
+
+### Board & spinning
+
+- A **6×5** board (30 orbs), 6 elements: **fire · water · wood · light · dark ·
+  heart**. Press and **drag one orb**; it swaps with each cell it moves into
+  (diagonals allowed), so a drag sweeps a whole path. Each drag is limited to a
+  few seconds (the bar above the board) — on **release or timeout** it resolves.
+- On resolve, every **horizontal/vertical run of 3+** of a colour clears. Orbs
+  fall, new ones pour in from the top, and any new runs **cascade** — each
+  connected cleared group is one **combo**.
+
+### Combat (turn-based)
+
+- **One spin = one turn.** Cleared groups deal damage: `orbs × baseDamage ×
+  elementMult × comboMult`, where `comboMult = 1 + 0.25·(combos−1)`. **Heart**
+  groups heal you instead of attacking.
+- **Element wheel**: water→fire→wood→water and light↔dark. Hitting a foe's weak
+  element deals **×2**, its strong element **×0.5**, else ×1.
+- The foe **strikes on a countdown** (every `enemyCd` turns); spinning badly =
+  the foe lives longer = you eat more hits. Clear a foe and a **stronger one**
+  steps up (more HP and attack). At **0 HP** the run ends.
+
+### Difficulty
+
+Pick **Easy / Normal / Hard** (each keeps its own Best). Difficulty sets your HP
+pool, the per-spin time limit, and the foe's HP/attack growth and strike
+countdown.
+
+### Tuning
+
+All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
+`js/games/rune-tower.js`.

@@ -276,6 +276,10 @@
         ladder:
             '<path d="M8 3v18"/><path d="M16 3v18"/>'
             + '<path d="M8 8h8"/><path d="M8 13h8"/><path d="M8 18h8"/>',
+        gem:
+            '<path d="M6 3h12l4 6-10 13L2 9Z"/>'
+            + '<path d="M11 3 8 9l4 13 4-13-3-6"/>'
+            + '<path d="M2 9h20"/>',
         puzzle:
             '<path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 19.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/>',
         skull:
@@ -386,6 +390,12 @@
             dotDodgeCardBody:
                 'Bullets pour in from every side. Fly your dot, weave through the gaps, and last as long as you can.',
 
+            // Rune Tower card (orb-matching roguelite tower climb — WIP)
+            runeTowerName: 'Rune Tower',
+            runeTowerTagline: 'Spin the orbs, climb the tower.',
+            runeTowerCardBody:
+                'Drag an orb to line matching runes into rows, chain big combos, and blast each foe with the right element. A short orb-matching climb — in the works.',
+
         },
         zh: {
             menu: '選單',
@@ -437,6 +447,11 @@
             dotDodgeTagline: '閃避子彈，撐過風暴。',
             dotDodgeCardBody:
                 '子彈從四面八方湧入。在縫隙間穿梭閃避，盡量撐久一點。',
+
+            runeTowerName: '符石塔',
+            runeTowerTagline: '轉動符石，一路爬塔。',
+            runeTowerCardBody:
+                '拖動符石，把同色連成一線、串出大連擊，用對屬性轟掉每個敵人。一款短篇轉珠爬塔——開發中。',
         },
     };
 

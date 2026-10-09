@@ -362,6 +362,7 @@ button {
    in each per-game HTML so the launcher card and game page agree. */
 .game-card.colour-ladder  { --game-color: #5ad0e0; }
 .game-card.bullet-storm   { --game-color: #a78bfa; }
+.game-card.rune-tower     { --game-color: #f5b23d; }
 /* Neutral slate so the cross-link to the sister collection reads as a
    "different kind" of card, set apart from the colourful game cards —
    mirroring how Puzzle Games marks its Arcade entry. */
