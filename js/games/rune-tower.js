@@ -65,6 +65,16 @@
         rtSk_mend: 'Mend', rtSk_empower: 'Empower', rtSk_focus: 'Focus', rtSk_shuffle: 'Shuffle',
         rtSk_smite: 'Smite', rtSk_guard: 'Guard', rtSk_freeze: 'Freeze', rtSk_enchant: 'Enchant', rtSk_bless: 'Bless',
         rtRole_warrior: 'Warrior', rtRole_warden: 'Warden', rtRole_mage: 'Mage', rtRole_priest: 'Priest',
+        rtCast: 'Cast', rtOnCd: 'On cooldown', rtPopupHint: 'Tap outside to cancel', rtCdLabel: 'Cooldown',
+        rtSkd_mend: 'Heal 30% of max HP.',
+        rtSkd_empower: 'This spin: all damage ×1.75.',
+        rtSkd_focus: 'This spin: +3s of spin time.',
+        rtSkd_shuffle: 'Reshuffle the whole board.',
+        rtSkd_smite: 'Fixed true damage (15% of max HP), ignoring element.',
+        rtSkd_guard: "Block the foe's next attack.",
+        rtSkd_freeze: "Push the foe's strike countdown back 2 turns.",
+        rtSkd_enchant: 'Turn 3 random runes into enhanced runes.',
+        rtSkd_bless: 'Turn 4 random runes into hearts.',
         // upgrades — name + short desc
         rtU_timeSand: 'Time Sand',        rtUd_timeSand: '+1s spin time',
         rtU_comboFervor: 'Combo Fervor',  rtUd_comboFervor: 'Bigger combo scaling',
@@ -109,6 +119,16 @@
         rtSk_mend: '療癒', rtSk_empower: '增幅', rtSk_focus: '凝神', rtSk_shuffle: '洗盤',
         rtSk_smite: '制裁', rtSk_guard: '守護', rtSk_freeze: '凍結', rtSk_enchant: '附魔', rtSk_bless: '祝福',
         rtRole_warrior: '戰士', rtRole_warden: '守衛', rtRole_mage: '法師', rtRole_priest: '祭司',
+        rtCast: '施放', rtOnCd: '冷卻中', rtPopupHint: '點擊外面取消', rtCdLabel: '冷卻',
+        rtSkd_mend: '回復 30% 最大生命。',
+        rtSkd_empower: '本回合所有傷害 ×1.75。',
+        rtSkd_focus: '本次轉珠時間 +3 秒。',
+        rtSkd_shuffle: '重新排列整個盤面。',
+        rtSkd_smite: '對敵造成固定真傷（最大生命的 15%），無視屬性。',
+        rtSkd_guard: '擋下敵人的下一次攻擊。',
+        rtSkd_freeze: '敵人攻擊倒數延後 2 回合。',
+        rtSkd_enchant: '隨機 3 顆符石變成強化符石。',
+        rtSkd_bless: '隨機 4 顆符石變成心珠。',
         rtU_timeSand: '時之沙',      rtUd_timeSand: '轉珠時間 +1 秒',
         rtU_comboFervor: '連擊狂熱',  rtUd_comboFervor: '連擊加成更高',
         rtU_heavyStrike: '重擊',      rtUd_heavyStrike: '基礎傷害 +4',
@@ -357,6 +377,7 @@
         resolving: false,
         resolve: null,          // { stage, t, combos, pending, popIndex, wave }
         draft: null,            // { options: [upgradeId, ...] } while choosing
+        skillPopup: null,       // { i } while a member's skill confirm popup is open
         team: [],               // members: [{ role, element, atk, hp, rec, active, passive, cd }]
         ts: null,               // derived team stats (recomputed on team change)
         undyingUsed: false,
@@ -536,6 +557,7 @@
         const rect = canvas.getBoundingClientRect();
         return { x: (e.clientX - rect.left) / rect.width * W, y: (e.clientY - rect.top) / rect.height * H };
     }
+    function inRect(p, r) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
     function swapCells(a, b) { const tmp = board[a]; board[a] = board[b]; board[b] = tmp; }
     function stepToward(from, to) {
         const nr = cellRow(from) + Math.sign(cellRow(to) - cellRow(from));
@@ -563,11 +585,21 @@
         if (!e.target.closest('.stage-pad')) return;
         const p = boardPos(e);
         if (G.draft) { handleDraftClick(p); if (e.cancelable) e.preventDefault(); return; }
+        if (G.skillPopup) {                  // confirm / cancel the skill popup
+            const L = skillPopupLayout(), m = G.team[G.skillPopup.i];
+            if (m && m.active && m.cd <= 0 && inRect(p, L.cast)) { const i = G.skillPopup.i; G.skillPopup = null; AC.audio.unlock(); activateSkill(i); }
+            else if (!inRect(p, L.card)) { G.skillPopup = null; }
+            if (e.cancelable) e.preventDefault();
+            return;
+        }
         if (G.resolving || G.held) return;
         if (p.y < BOARD_TOP) {               // above the board: team skill tiles live here
             for (const b of teamTileRects()) {
-                if (p.x >= b.x && p.x <= b.x + b.w && p.y >= b.y && p.y <= b.y + b.h) {
-                    AC.audio.unlock(); activateSkill(b.i); if (e.cancelable) e.preventDefault(); return;
+                if (inRect(p, b)) {
+                    AC.audio.unlock();
+                    if (G.team[b.i].active) G.skillPopup = { i: b.i };   // show the skill before casting
+                    if (e.cancelable) e.preventDefault();
+                    return;
                 }
             }
             return;
@@ -913,6 +945,7 @@
 
         drawTeam();
         drawSpinTimer();
+        if (G.skillPopup) drawSkillPopup();
         if (G.draft) drawDraft();
         if (DEBUG) drawDebug(); // [DEBUG-HOOK]
     }
@@ -1152,6 +1185,48 @@
             ctx.restore();
         }
     }
+    function skillPopupLayout() {
+        const cw = 400, ch = 250, cx = (W - cw) / 2, cy = BOARD_TOP + 60;
+        return { card: { x: cx, y: cy, w: cw, h: ch }, cast: { x: cx + cw / 2 - 85, y: cy + ch - 60, w: 170, h: 44 } };
+    }
+    function drawSkillPopup() {
+        const m = G.team[G.skillPopup.i];
+        if (!m || !m.active) { G.skillPopup = null; return; }
+        const f = getFont(), ecol = ELEMENT_COLORS[m.element], ready = m.cd <= 0;
+        const L = skillPopupLayout(), c = L.card, cx = c.x + c.w / 2;
+        ctx.save();
+        ctx.fillStyle = 'rgba(8,6,16,0.74)';
+        ctx.fillRect(0, BOARD_TOP - 4, W, H - (BOARD_TOP - 4));
+        ctx.fillStyle = 'rgba(22,19,32,0.98)';
+        roundRect(c.x, c.y, c.w, c.h, 14); ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = ecol;
+        roundRect(c.x, c.y, c.w, c.h, 14); ctx.stroke();
+
+        ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = '#fff'; ctx.font = `800 22px ${f}`;
+        ctx.fillText(t('rtSk_' + m.active), cx, c.y + 42);
+        ctx.fillStyle = shade(ecol, 0.3); ctx.font = `600 13px ${f}`;
+        ctx.fillText(t('rtRole_' + m.role) + ' · ' + t('el_' + m.element), cx, c.y + 64);
+
+        ctx.fillStyle = 'rgba(230,236,255,0.9)'; ctx.font = `500 15px ${f}`;
+        let y = c.y + 100;
+        for (const ln of wrapLines(t('rtSkd_' + m.active), c.w - 48)) { ctx.fillText(ln, cx, y); y += 23; }
+
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 13px ${f}`;
+        ctx.fillText(t('rtCdLabel') + ': ' + skillDef(m.active).cd + (ready ? '' : '  (' + m.cd + ')'), cx, c.y + c.h - 80);
+
+        const bt = L.cast;
+        ctx.fillStyle = ready ? accent() : 'rgba(255,255,255,0.1)';
+        roundRect(bt.x, bt.y, bt.w, bt.h, 10); ctx.fill();
+        ctx.fillStyle = ready ? '#1a1526' : 'rgba(255,255,255,0.4)';
+        ctx.font = `800 16px ${f}`; ctx.textBaseline = 'middle';
+        ctx.fillText(ready ? t('rtCast') : t('rtOnCd'), bt.x + bt.w / 2, bt.y + bt.h / 2);
+
+        ctx.textBaseline = 'alphabetic';
+        ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = `500 12px ${f}`;
+        ctx.fillText(t('rtPopupHint'), cx, c.y + c.h - 12);
+        ctx.restore();
+    }
     function drawSpinTimer() {
         if (!G.held || !G.held.moved) return;
         const ratio = AC.math.clamp(G.spinTimer / effectiveSpinTime(), 0, 1);
@@ -1291,6 +1366,7 @@
         G.resolving = false;
         G.resolve = null;
         G.draft = null;
+        G.skillPopup = null;
         G.team = makeTeam(CONFIG.teamSize);
         G.ts = null;
         G.playerHp = G.playerMaxHp = 0;
