@@ -264,16 +264,19 @@ defense/enhance card + energy system for both sides.)*
 
 ### A round (two phases)
 
-1. **Defense** — draw **defense cards** and spend **energy** on shields for
-   yourself: **Block** (negate the next strike), **Shield** (absorb 400), **Ward**
-   (−40%), **Mend** (heal 250 now). Tap **To attack →** when done. (The rival also
-   "plays its defense": the **shields your spin must break**.)
+1. **Defense** — draw **defense cards** and spend **energy** on **shields the
+   rival's attack must satisfy** to hit you: **Rune Shield** (it must clear an
+   enhanced rune), **Combo Shield** (needs 5+ combos), **Taboo Shield** (if it
+   clears the named colour its attack is blocked), or **Hasten** (cramp its spin →
+   fewer combos). Tap **To attack →** when done. (The rival likewise raises the
+   shields *your* spin must break.)
 2. **Attack** — draw **enhance cards** (fresh energy): **Break** (remove a rival
-   shield), **Focus** (+3s), **Empower** (×1.5), **Transmute**, **Enchant**. Then
-   **spin**: clear **3+ of a colour** to damage the rival (`Σ(runes, enhanced
-   ×1.5) × comboMult`); meet **all** their shields or it's **blocked**. Heart
-   runes heal you; **5+** forges an **enhanced** rune.
-3. **Rival's strike** — it hits you, **reduced by the shields you played**.
+   shield), **Focus** (+3s), **Empower** (×1.5), **Transmute**, **Enchant** — use
+   them to reshape your board to meet the rival's shields. Then **spin**: clear
+   **3+ of a colour** to damage the rival; meet **all** their shields or it's
+   **blocked**. Heart runes heal you; **5+** forges an **enhanced** rune.
+3. **Rival's strike** — the rival **spins too** (simulated): if its result fails
+   **any** shield you raised, its attack is **blocked**; otherwise it hits you.
 
 Drop the rival's HP to **0** to win; at the round cap the higher HP wins. `best`
 = damage dealt. The rival also plays simple cards (mend / empower). *(Next:
