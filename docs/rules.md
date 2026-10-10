@@ -264,21 +264,24 @@ defense/enhance card + energy system for both sides.)*
 
 ### A round
 
-1. **Your attack**: drag a rune, clear **3+ of a colour**, chain **combos**; the
-   cleared runes **damage the rival** (`Σ(runes, enhanced ×1.5) × comboMult`).
-   Heart runes **heal you**; **5+** of a colour forges an **enhanced** rune.
-2. The rival raises a **shield** each round (clear enhanced / N+ combos / first
-   wave ≤ N / clear-or-don't-clear a colour) — meet it or your attack is
-   **blocked**. (Round 1 is free.)
+1. **Cards**: you draw a **hand of enhance cards** and have **energy** to spend.
+   Tap a card to read it and **Play** it (costs energy): **Break** (remove a
+   rival shield), **Focus** (+3s this spin), **Empower** (×1.5 this spin),
+   **Transmute** (recolour a colour), **Enchant** (3 runes → enhanced).
+2. **Attack**: drag a rune, clear **3+ of a colour**, chain **combos**; cleared
+   runes **damage the rival** (`Σ(runes, enhanced ×1.5) × comboMult`). The rival
+   stacks **1–2 shields** each round (clear enhanced / N+ combos / first wave ≤ N
+   / clear-or-don't-clear a colour) — meet them **all** or your attack is
+   **blocked** (round 1 is free). Heart runes **heal you**; **5+** forges an
+   **enhanced** rune.
 3. **Rival's strike**: after a short think it hits you for a round-scaled amount.
 
-Drop the rival's HP to **0** to win; if HP 0 happens to you, you lose; at the
-round cap the **higher HP wins**. You also carry **Focus** (this spin +3s) and
-**Transmute** (recolour one colour → another) to help meet shields. `best` =
-damage dealt.
+Drop the rival's HP to **0** to win; if it happens to you, you lose; at the round
+cap the **higher HP wins**. `best` = damage dealt. *(Next: your own defense
+cards/shields, timed phases, and online PvP.)*
 
 ### Tuning
 
-`DUEL` (HP, round cap, rival think time + damage curve), `BALANCE` (spin time,
-base damage, heart heal, combo/enhanced), `rollDuelShield`, and the `SKILLS`
-cooldowns — all at the top of `js/games/rune-duel.js`.
+`DUEL` (HP, round cap, energy, hand size, rival think/damage curve), `BALANCE`
+(spin time, base damage, heart heal, combo/enhanced), the `CARDS` pool + costs,
+and `rollRivalShields` — all at the top of `js/games/rune-duel.js`.

@@ -1,17 +1,16 @@
 /**
  * Rune Duel — an orb-spinning versus duel (vs AI; online PvP is a later mode).
  *
- * A bounded duel instead of an endless climb: you and a rival each have an HP
- * pool. Each ROUND you drag a rune on your 6×5 board, line up 3+ of a colour,
- * chain COMBOS and the cleared runes damage the rival — but the rival raises a
- * SHIELD each round (clear enhanced / N+ combos / a named colour…) you must meet
- * or your attack is blocked. HEART runes heal you; 5+ of a colour forges an
- * ENHANCED rune (×1.5). Then the rival strikes back. Drop their HP to 0 to win;
- * after a round cap, the higher HP wins.
+ * A bounded duel: you and a rival each have an HP pool; it's a turn-based race to
+ * zero. Each ROUND you draw a HAND of enhance cards and spend ENERGY to play them
+ * (break the rival's shields, buff your spin, recolour runes…), then drag a rune
+ * on your 6×5 board to clear 3+ of a colour, chain COMBOS and damage the rival —
+ * but the rival raises SHIELDS each round (clear enhanced / N+ combos / a colour…)
+ * that you must satisfy or your attack is blocked. HEART runes heal you; 5+ of a
+ * colour forges an ENHANCED rune (×1.5). Then the rival strikes back.
  *
- * This is the vs-AI core; the full design generalises shields + tools into a
- * card/energy hand for both sides, and later swaps the AI for an online rival.
- * Built on window.ArcadeCommon. Canvas 2D at a fixed 600×760 portrait space.
+ * This is the vs-AI card core. Defense cards (your own shields), timed phases and
+ * online PvP come next. Built on window.ArcadeCommon. Canvas 2D at 600×760.
  */
 (function () {
     'use strict';
@@ -29,44 +28,51 @@
 
     Object.assign(AC.i18n.STRINGS.en, {
         rdRound: 'Round', rdHp: 'HP', rdReady: 'Ready', rdRival: 'Rival',
-        rdThinking: 'Rival is thinking…', rdYourTurn: 'Your turn — spin!',
-        rdIntro: 'A turn-based orb duel. Clear 3+ of a colour to hit the rival; meet their shield each round, heal with hearts, and drop their HP to 0. The higher HP wins at the round cap.',
-        rdStartHintHtml: 'Drag a rune on the board · <kbd>P</kbd> pause',
-        rdHelp1Html: 'Each round, <strong>drag a rune</strong> and line up <strong>3+ of a colour</strong> to clear, chaining <strong>combos</strong> — cleared runes <strong>damage the rival</strong>.',
-        rdHelp2Html: 'The rival raises a <strong>shield</strong> each round. Meet it or your attack is blocked. <strong>Heart</strong> runes heal you; <strong>5+</strong> of a colour forges an <strong>enhanced</strong> rune.',
-        rdHelp3Html: 'Then the rival strikes back. Drop their HP to <strong>0</strong> to win. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
+        rdThinking: 'Rival is thinking…', rdYourTurn: 'Your turn — play & spin!',
+        rdEnergy: 'Energy', rdPlay: 'Play', rdCost: 'Cost',
+        rdIntro: 'A turn-based orb duel. Each round, spend energy on cards, then spin: clear 3+ of a colour to hit the rival, meet their shields, and heal with hearts. Drop their HP to 0 to win.',
+        rdStartHintHtml: 'Play cards, then drag a rune · <kbd>P</kbd> pause',
+        rdHelp1Html: 'Each round you draw a <strong>hand of cards</strong>. Tap one to see it and <strong>Play</strong> it (costs <strong>energy</strong>) — break shields, buff your spin, or recolour runes.',
+        rdHelp2Html: 'Then <strong>drag a rune</strong>, line up <strong>3+ of a colour</strong> to clear and damage the rival. Meet the rival\u2019s <strong>shields</strong> or it\u2019s blocked. <strong>Heart</strong> heals; <strong>5+</strong> forges an <strong>enhanced</strong> rune.',
+        rdHelp3Html: 'The rival strikes back each round. Drop their HP to <strong>0</strong> to win. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
         rdWin: 'Victory!', rdLose: 'Defeated',
         rdOverWinHtml: (dmg, round) => `You won in <strong>${round}</strong> rounds (dealt ${dmg} damage).`,
         rdOverLoseHtml: (dmg, round) => `You fell on round <strong>${round}</strong> (dealt ${dmg} damage).`,
         rdOverHint: 'Press R or the button to duel again.',
-        // ported shared keys
+        rdCard_break: 'Break', rdCardd_break: 'Remove one of the rival\u2019s shields.',
+        rdCard_focus: 'Focus', rdCardd_focus: 'This spin: +3s of spin time.',
+        rdCard_empower: 'Empower', rdCardd_empower: 'This spin: damage ×1.5.',
+        rdCard_transmute: 'Transmute', rdCardd_transmute: 'Pick a colour, then a target \u2014 all runes of that colour become it.',
+        rdCard_enchant: 'Enchant', rdCardd_enchant: 'Turn 3 random runes into enhanced runes.',
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
-        rtCast: 'Cast', rtOnCd: 'On cooldown', rtPopupHint: 'Tap outside to cancel', rtCdLabel: 'Cooldown',
-        rtSk_focus: 'Focus', rtSkd_focus: 'This spin: +3s of spin time.',
-        rtSk_transmute: 'Transmute', rtSkd_transmute: 'Pick a colour, then a target \u2014 all runes of that colour become the target colour.',
+        rtPopupHint: 'Tap outside to cancel',
         rtTransmuteFrom: 'Tap a colour to change', rtTransmuteTo: 'Tap the target colour',
         el_fire: 'Fire', el_water: 'Water', el_wood: 'Wood', el_light: 'Light', el_dark: 'Dark', el_heart: 'Heart',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
         rdRound: '回合', rdHp: '生命', rdReady: '準備好了', rdRival: '對手',
-        rdThinking: '對手思考中…', rdYourTurn: '你的回合——轉珠！',
-        rdIntro: '回合制轉珠對決。消除同色 3+ 攻擊對手；每回合要破對手的盾、用心珠回血，把對手血打到 0。到回合上限時血多者勝。',
-        rdStartHintHtml: '在盤面上拖動符石 · <kbd>P</kbd> 暫停',
-        rdHelp1Html: '每回合<strong>拖動符石</strong>、把<strong>同色 3 顆以上</strong>連線消除、串<strong>連擊</strong>——消掉的符石<strong>對對手造成傷害</strong>。',
-        rdHelp2Html: '對手每回合會升起一個<strong>盾</strong>，沒達成攻擊就被擋。<strong>心</strong>珠回血；<strong>同色 5+</strong> 生成<strong>強化符石</strong>。',
-        rdHelp3Html: '接著對手反擊。把對手血打到 <strong>0</strong> 就贏。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
+        rdThinking: '對手思考中…', rdYourTurn: '你的回合——出牌、轉珠！',
+        rdEnergy: '能量', rdPlay: '出牌', rdCost: '消耗',
+        rdIntro: '回合制轉珠對決。每回合花能量出牌，再轉珠：消除同色 3+ 攻擊對手、破對手的盾、用心珠回血。把對手血打到 0 就贏。',
+        rdStartHintHtml: '先出牌，再拖動符石 · <kbd>P</kbd> 暫停',
+        rdHelp1Html: '每回合會抽一手<strong>牌</strong>。點一張看說明並<strong>出牌</strong>（花<strong>能量</strong>）——破盾、強化轉珠、或轉換顏色。',
+        rdHelp2Html: '接著<strong>拖動符石</strong>、把<strong>同色 3 顆以上</strong>連線消除攻擊對手。要破對手的<strong>盾</strong>否則被擋。<strong>心</strong>珠回血；<strong>5+</strong> 生成<strong>強化符石</strong>。',
+        rdHelp3Html: '對手每回合反擊。把對手血打到 <strong>0</strong> 就贏。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
         rdWin: '勝利！', rdLose: '落敗',
         rdOverWinHtml: (dmg, round) => `你在第 <strong>${round}</strong> 回合獲勝（造成 ${dmg} 傷害）。`,
         rdOverLoseHtml: (dmg, round) => `你在第 <strong>${round}</strong> 回合倒下（造成 ${dmg} 傷害）。`,
         rdOverHint: '按 R 或按鈕再對決一次。',
+        rdCard_break: '破盾', rdCardd_break: '移除對手的一個盾。',
+        rdCard_focus: '凝神', rdCardd_focus: '本次轉珠時間 +3 秒。',
+        rdCard_empower: '增幅', rdCardd_empower: '本次轉珠傷害 ×1.5。',
+        rdCard_transmute: '轉換', rdCardd_transmute: '選一個顏色，再選目標色；盤上該色全變目標色。',
+        rdCard_enchant: '附魔', rdCardd_enchant: '隨機 3 顆符石變成強化符石。',
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
-        rtCast: '施放', rtOnCd: '冷卻中', rtPopupHint: '點擊外面取消', rtCdLabel: '冷卻',
-        rtSk_focus: '凝神', rtSkd_focus: '本次轉珠時間 +3 秒。',
-        rtSk_transmute: '轉換', rtSkd_transmute: '選一個顏色，再選目標色；盤上該色符石全變成目標色。',
+        rtPopupHint: '點擊外面取消',
         rtTransmuteFrom: '點選要轉換的顏色', rtTransmuteTo: '點選目標顏色',
         el_fire: '火', el_water: '水', el_wood: '木', el_light: '光', el_dark: '暗', el_heart: '心',
     });
@@ -105,7 +111,7 @@
     const WEIGHT_TOTAL = ELEMENTS.reduce((s, e) => s + WEIGHTS[e], 0);
 
     // =================================================================
-    // Config + balance
+    // Config + balance + cards
     // =================================================================
 
     const CONFIG = {
@@ -113,25 +119,22 @@
         popTime: 0.13, fallAnim: 0.16, bigThreshold: 5, scoreCap: 999999,
     };
     const BALANCE = {
-        spinTime: 6,
-        baseDamage: 12,
-        heartHeal: 12,
-        comboStep: 0.25,
-        enhancedMult: 1.5,
+        spinTime: 6, baseDamage: 12, heartHeal: 12, comboStep: 0.25, enhancedMult: 1.5,
     };
-    // Duel numbers (tunable; the full card version will raise HP a lot).
     const DUEL = {
-        hp: 2000,
-        maxRounds: 30,
-        aiThink: 1.1,       // seconds the rival "thinks" before striking
-        aiBase: 110, aiGrow: 10, aiVar: 30,   // rival damage = aiBase + aiGrow·(round-1) ± aiVar
+        hp: 2500, maxRounds: 30,
+        energy: 10, handSize: 4,
+        aiThink: 1.1, aiBase: 110, aiGrow: 10, aiVar: 30,
     };
-
-    const SKILLS = [
-        { id: 'focus', cd: 4 },
-        { id: 'transmute', cd: 5 },
-    ];
-    function skillDef(id) { return SKILLS.find((s) => s.id === id); }
+    // Enhance-card pool (drawn into the hand each round). cost = energy.
+    const CARDS = {
+        break:     { cost: 4 },   // remove one rival shield
+        focus:     { cost: 2 },   // +3s this spin
+        empower:   { cost: 4 },   // ×1.5 damage this spin
+        transmute: { cost: 3 },   // recolour one colour → another
+        enchant:   { cost: 3 },   // 3 random runes → enhanced
+    };
+    const CARD_IDS = Object.keys(CARDS);
 
     // =================================================================
     // State
@@ -143,19 +146,21 @@
         clearing: [],
         youHp: 0, youMaxHp: 0,
         aiHp: 0, aiMaxHp: 0,
-        aiShield: null,
+        aiShields: [],          // rival shields you must satisfy (all)
         round: 1,
         phase: 'your',          // 'your' | 'ai' | 'over'
         aiTimer: 0,
-        score: 0,               // damage dealt to the rival
+        score: 0,
+        energy: 0,
+        hand: [],               // card ids
+        cardPopup: null,        // { i } while a card's confirm popup is open
+        transmute: null,        // { fromEl }
+        empowerNext: 1,
+        bonusTimeNext: 0,
         held: null,
         spinTimer: 0,
         resolving: false,
         resolve: null,
-        skills: [],
-        skillPopup: null,
-        transmute: null,
-        bonusTimeNext: 0,
         floats: [],
         shake: 0,
     };
@@ -299,6 +304,10 @@
             for (let r = write; r >= 0; r--) { const idx = r * COLS + c; board[idx] = newOrb(randomEl(), cellCX(idx), BOARD_TOP - above * CELL + CELL / 2); above++; }
         }
     }
+    function enchantRandom(n) {
+        const c = []; for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && !o.enhanced) c.push(i); }
+        for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); board[c[j]].enhanced = true; c.splice(j, 1); }
+    }
 
     // =================================================================
     // Input
@@ -334,10 +343,10 @@
         if (e.target.closest('button, a')) return;
         if (!e.target.closest('.stage-pad')) return;
         const p = boardPos(e);
-        if (G.skillPopup) {
-            const L = skillPopupLayout(), s = G.skills[G.skillPopup.i];
-            if (s && s.cd <= 0 && inRect(p, L.cast)) { const i = G.skillPopup.i; G.skillPopup = null; AC.audio.unlock(); activateSkill(i); }
-            else if (!inRect(p, L.card)) { G.skillPopup = null; }
+        if (G.cardPopup) {
+            const L = cardPopupLayout(), id = G.hand[G.cardPopup.i], c = id && CARDS[id];
+            if (c && G.energy >= c.cost && playable(id) && inRect(p, L.cast)) { const i = G.cardPopup.i; G.cardPopup = null; AC.audio.unlock(); playCard(i); }
+            else if (!inRect(p, L.card)) { G.cardPopup = null; }
             if (e.cancelable) e.preventDefault();
             return;
         }
@@ -354,8 +363,8 @@
         }
         if (G.phase !== 'your' || G.resolving || G.held) return;
         if (p.y < BOARD_TOP) {
-            for (const b of skillButtonRects()) {
-                if (inRect(p, b)) { AC.audio.unlock(); G.skillPopup = { i: b.i }; if (e.cancelable) e.preventDefault(); return; }
+            for (const b of handTileRects()) {
+                if (inRect(p, b)) { AC.audio.unlock(); G.cardPopup = { i: b.i }; if (e.cancelable) e.preventDefault(); return; }
             }
             return;
         }
@@ -376,6 +385,40 @@
         if (!G.held) return;
         if (G.held.moved) startResolve();
         else G.held = null;
+    }
+
+    // =================================================================
+    // Cards
+    // =================================================================
+
+    function effectiveSpinTime() { return BALANCE.spinTime + (G.bonusTimeNext || 0); }
+    function drawHandCards() {
+        G.hand = [];
+        for (let i = 0; i < DUEL.handSize; i++) G.hand.push(CARD_IDS[AC.rng.int(G.rng, 0, CARD_IDS.length)]);
+    }
+    function playable(id) {   // some cards need a legal target
+        if (id === 'break') return G.aiShields.length > 0;
+        return true;
+    }
+    function playCard(i) {
+        const id = G.hand[i];
+        const c = id && CARDS[id];
+        if (!c || G.phase !== 'your' || G.resolving || G.held || G.energy < c.cost || !playable(id)) return;
+        if (id === 'break') { G.aiShields.shift(); AC.audio.play('coin'); }
+        else if (id === 'focus') { G.bonusTimeNext += 3; }
+        else if (id === 'empower') { G.empowerNext *= 1.5; }
+        else if (id === 'enchant') { enchantRandom(3); }
+        else if (id === 'transmute') { G.transmute = { fromEl: null }; }
+        G.energy -= c.cost;
+        G.hand.splice(i, 1);
+        if (id !== 'transmute') { AC.audio.play('gem'); addFloat(W / 2, 150, t('rdCard_' + id), accent(), 18); }
+        updateHud();
+    }
+    function applyTransmute(fromEl, toEl) {
+        for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && o.el === fromEl) { o.el = toEl; o.gfx = null; } }
+        G.transmute = null;
+        AC.audio.play('gem');
+        updateHud();
     }
 
     // =================================================================
@@ -424,9 +467,9 @@
         }
     }
 
-    // --- Shields (rival ability) ---
+    // --- Shields ---
 
-    function shieldBlocks(shield, stats) {
+    function shieldUnmet(shield, stats) {
         if (!shield) return false;
         switch (shield.type) {
             case 'enhanced': return stats.enhancedCleared <= 0;
@@ -441,6 +484,7 @@
             default: return false;
         }
     }
+    function shieldsBlock(shields, stats) { return shields.some((s) => shieldUnmet(s, stats)); }
     function shieldLabel(s) {
         if (!s) return '';
         if (s.type === 'enhanced') return t('rtShEnhanced');
@@ -452,8 +496,7 @@
         }
         return '';
     }
-    function rollDuelShield(round) {
-        if (round < 2) return null;   // round 1 is free, to ease in
+    function oneShield(round) {
         const el = () => ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)];
         switch (AC.rng.int(G.rng, 0, 5)) {
             case 0: return { type: 'enhanced' };
@@ -462,6 +505,13 @@
             case 3: return { type: 'element', mode: 'contains', elements: [el()] };
             default: return { type: 'element', mode: 'ban', elements: [el()] };
         }
+    }
+    function rollRivalShields(round) {
+        if (round < 2) return [];                 // round 1 is free
+        const count = round >= 6 ? 2 : 1;         // the rival stacks a 2nd shield later
+        const out = [];
+        for (let i = 0; i < count; i++) out.push(oneShield(round));
+        return out;
     }
 
     // --- Damage / duel flow ---
@@ -478,13 +528,12 @@
             stats.elements.add(g.el);
             const count = g.cells.length + (g.enhanced || 0) * (BALANCE.enhancedMult - 1);
             if (g.el === 'heart') { heal += count * BALANCE.heartHeal; continue; }
-            dmg += count * BALANCE.baseDamage;   // no element wheel in a duel; colours matter via shields
+            dmg += count * BALANCE.baseDamage;
         }
-        const blocked = shieldBlocks(G.aiShield, stats);
-        const total = blocked ? 0 : dmg * comboMult;
+        const blocked = shieldsBlock(G.aiShields, stats);
+        const total = blocked ? 0 : dmg * comboMult * (G.empowerNext || 1);
         return { dmg: Math.round(total), heal: Math.round(heal * comboMult), n, blocked };
     }
-
     function finishResolve() {
         const { dmg, heal, n, blocked } = computeSpinResult(G.resolve.combos);
         if (n > 0) {
@@ -493,17 +542,15 @@
             else if (dmg > 0) { G.aiHp -= dmg; G.score = Math.min(CONFIG.scoreCap, G.score + dmg); addFloat(W / 2, 96, '-' + dmg, '#ffd0d0', 26); }
             addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
         }
-        for (const s of G.skills) if (s.cd > 0) s.cd--;
+        G.empowerNext = 1;
         G.bonusTimeNext = 0;
-        G.skillPopup = null; G.transmute = null;
+        G.cardPopup = null; G.transmute = null;
         G.resolving = false; G.resolve = null;
-
         if (G.aiHp <= 0) { G.aiHp = 0; updateHud(); duelOver(true); return; }
         G.phase = 'ai';
         G.aiTimer = DUEL.aiThink;
         updateHud();
     }
-
     function aiAttack() {
         const dmg = Math.max(1, Math.round(DUEL.aiBase + DUEL.aiGrow * (G.round - 1) + AC.rng.float(G.rng, -DUEL.aiVar, DUEL.aiVar)));
         G.youHp -= dmg;
@@ -513,8 +560,15 @@
         if (G.youHp <= 0) { G.youHp = 0; updateHud(); duelOver(false); return; }
         G.round++;
         if (G.round > DUEL.maxRounds) { duelOver(G.youHp >= G.aiHp); return; }
-        G.aiShield = rollDuelShield(G.round);
+        startYourRound();
+    }
+    function startYourRound() {
         G.phase = 'your';
+        G.energy = DUEL.energy;
+        drawHandCards();
+        G.aiShields = rollRivalShields(G.round);
+        G.empowerNext = 1;
+        G.bonusTimeNext = 0;
         updateHud();
     }
     function duelOver(win) {
@@ -524,28 +578,6 @@
     }
 
     function addFloat(x, y, text, color, size) { G.floats.push({ x, y, text, color, size: size || 18, t: 0, life: 0.9 }); }
-
-    // =================================================================
-    // Skills (Focus + Transmute)
-    // =================================================================
-
-    function effectiveSpinTime() { return BALANCE.spinTime + (G.bonusTimeNext || 0); }
-    function activateSkill(i) {
-        const s = G.skills[i];
-        if (!s || s.cd > 0 || !shell.isPlaying() || G.phase !== 'your' || G.resolving || G.held) return;
-        if (s.id === 'transmute') { G.transmute = { skillIndex: i, fromEl: null }; }
-        else { G.bonusTimeNext = 3; s.cd = skillDef(s.id).cd; AC.audio.play('gem'); addFloat(W / 2, 170, t('rtSk_' + s.id), accent(), 18); }
-        updateHud();
-    }
-    function applyTransmute(fromEl, toEl) {
-        for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && o.el === fromEl) { o.el = toEl; o.gfx = null; } }
-        const s = G.skills[G.transmute.skillIndex];
-        if (s) s.cd = skillDef('transmute').cd;
-        G.transmute = null;
-        AC.audio.play('gem');
-        addFloat(W / 2, 170, t('rtSk_transmute'), accent(), 18);
-        updateHud();
-    }
 
     // =================================================================
     // Simulation
@@ -587,23 +619,18 @@
     function render() {
         ctx.fillStyle = '#0d0b16';
         ctx.fillRect(0, 0, W, H);
-
         ctx.save();
-        if (G.shake > 0) {
-            const s = G.shake * 9;
-            ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s);
-        }
+        if (G.shake > 0) { const s = G.shake * 9; ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s); }
         drawRivalPanel();
         drawYouBar();
         drawBoard();
         if (G.held) { const o = board[G.held.cell]; drawStone(o.el, o.x, o.y, CONFIG.orbRadius * 1.06, o.shape, true, o.enhanced); }
         drawFloats();
         ctx.restore();
-
-        drawSkills();
+        drawHand();
         drawSpinTimer();
         if (G.transmute) drawTransmuteHint();
-        if (G.skillPopup) drawSkillPopup();
+        if (G.cardPopup) drawCardPopup();
         if (DEBUG) drawDebug();
     }
 
@@ -731,102 +758,112 @@
         ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.font = `700 15px ${f}`; ctx.textAlign = 'left';
-        ctx.fillText(t('rdRival'), 22, 28);
+        ctx.fillText(t('rdRival'), 22, 24);
+        drawBar(22, 34, W - 44, 18, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
-        drawBar(22, 38, W - 44, 18, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
-
-        // status (left) + shield pill (right) on the next row
         ctx.textBaseline = 'middle';
         ctx.font = `600 13px ${f}`; ctx.textAlign = 'left';
         ctx.fillStyle = G.phase === 'ai' ? '#ffcf5a' : 'rgba(255,255,255,0.6)';
-        ctx.fillText(G.phase === 'ai' ? t('rdThinking') : t('rdYourTurn'), 22, 78);
+        ctx.fillText(G.phase === 'ai' ? t('rdThinking') : t('rdYourTurn'), 22, 74);
 
-        if (G.aiShield) {
-            const label = shieldLabel(G.aiShield);
-            ctx.font = `700 13px ${f}`; ctx.textAlign = 'center';
-            const pw = ctx.measureText(label).width + 20, px = W - 22 - pw, py = 66;
+        // shield pills (right-aligned, may be several)
+        let px = W - 22;
+        for (let i = G.aiShields.length - 1; i >= 0; i--) {
+            const label = shieldLabel(G.aiShields[i]);
+            ctx.font = `700 12px ${f}`; ctx.textAlign = 'center';
+            const pw = ctx.measureText(label).width + 18;
+            px -= pw;
             ctx.fillStyle = 'rgba(127,212,255,0.16)';
-            roundRect(px, py, pw, 24, 12); ctx.fill();
+            roundRect(px, 64, pw, 22, 11); ctx.fill();
             ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(127,212,255,0.6)';
-            roundRect(px, py, pw, 24, 12); ctx.stroke();
+            roundRect(px, 64, pw, 22, 11); ctx.stroke();
             ctx.fillStyle = '#a9e3ff';
-            ctx.fillText(label, px + pw / 2, py + 12);
+            ctx.fillText(label, px + pw / 2, 75);
+            px -= 6;
         }
         ctx.textBaseline = 'alphabetic';
         ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(16, 100); ctx.lineTo(W - 16, 100); ctx.stroke();
+        ctx.beginPath(); ctx.moveTo(16, 94); ctx.lineTo(W - 16, 94); ctx.stroke();
     }
     function drawYouBar() {
         const f = getFont();
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = `600 14px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(t('rdHp'), 22, 134);
+        ctx.font = `600 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText(t('rdHp'), 22, 124);
         const ratio = G.youHp / G.youMaxHp;
         const col = ratio <= 0.3 ? '#ff6b6b' : '#6bd98a';
-        drawBar(112, 120, W - 134, 18, ratio, col, Math.max(0, Math.ceil(G.youHp)) + ' / ' + G.youMaxHp);
+        drawBar(70, 110, W - 92, 16, ratio, col, Math.max(0, Math.ceil(G.youHp)) + ' / ' + G.youMaxHp);
     }
-    function skillButtonRects() {
-        const n = G.skills.length;
+
+    // card hand
+    function handTileRects() {
+        const n = G.hand.length;
         if (n === 0) return [];
-        const gap = 12, h = 50, y = 160;
-        const w = Math.min(160, (W - 48 - gap * (n - 1)) / n);
+        const gap = 8, h = 54, y = 148;
+        const w = Math.min(130, (W - 28 - gap * (n - 1)) / Math.max(n, 1));
         const x0 = (W - (w * n + gap * (n - 1))) / 2;
-        return G.skills.map((s, i) => ({ i, x: x0 + i * (w + gap), y, w, h }));
+        return G.hand.map((id, i) => ({ i, id, x: x0 + i * (w + gap), y, w, h }));
     }
-    function drawSkills() {
+    function drawHand() {
         if (!shell || !shell.isPlaying()) return;
         const f = getFont();
-        for (const b of skillButtonRects()) {
-            const s = G.skills[b.i], ready = s.cd <= 0 && G.phase === 'your';
+        // energy
+        ctx.fillStyle = accent();
+        ctx.font = `800 14px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText('\u26a1 ' + t('rdEnergy') + ' ' + G.energy + ' / ' + DUEL.energy, 22, 142);
+        for (const b of handTileRects()) {
+            const c = CARDS[b.id];
+            const ok = G.phase === 'your' && G.energy >= c.cost && playable(b.id);
             ctx.save();
-            ctx.fillStyle = ready ? 'rgba(217,84,78,0.16)' : 'rgba(255,255,255,0.05)';
-            roundRect(b.x, b.y, b.w, b.h, 10); ctx.fill();
-            ctx.lineWidth = 1.5; ctx.strokeStyle = ready ? accent() : 'rgba(255,255,255,0.15)';
-            roundRect(b.x, b.y, b.w, b.h, 10); ctx.stroke();
-            ctx.fillStyle = ready ? '#fff' : 'rgba(255,255,255,0.4)';
-            ctx.font = `700 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(t('rtSk_' + s.id), b.x + b.w / 2, b.y + b.h / 2);
-            if (s.cd > 0) {
-                ctx.fillStyle = 'rgba(0,0,0,0.5)'; roundRect(b.x, b.y, b.w, b.h, 10); ctx.fill();
-                ctx.fillStyle = '#fff'; ctx.font = `800 20px ${f}`;
-                ctx.fillText(String(s.cd), b.x + b.w / 2, b.y + b.h / 2);
-            }
+            ctx.fillStyle = ok ? 'rgba(217,84,78,0.16)' : 'rgba(255,255,255,0.05)';
+            roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
+            ctx.lineWidth = 1.5; ctx.strokeStyle = ok ? accent() : 'rgba(255,255,255,0.15)';
+            roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
+            ctx.fillStyle = ok ? '#fff' : 'rgba(255,255,255,0.45)';
+            ctx.font = `700 14px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(t('rdCard_' + b.id), b.x + b.w / 2, b.y + b.h / 2 + 2);
+            // cost chip
+            ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.3)';
+            ctx.font = `800 12px ${f}`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic';
+            ctx.fillText(String(c.cost), b.x + b.w - 8, b.y + 16);
             ctx.restore();
         }
     }
-    function skillPopupLayout() {
-        const cw = 400, ch = 240, cx = (W - cw) / 2, cy = BOARD_TOP + 60;
-        return { card: { x: cx, y: cy, w: cw, h: ch }, cast: { x: cx + cw / 2 - 85, y: cy + ch - 60, w: 170, h: 44 } };
+    function cardPopupLayout() {
+        const cw = 400, ch = 230, cx = (W - cw) / 2, cy = BOARD_TOP + 60;
+        return { card: { x: cx, y: cy, w: cw, h: ch }, cast: { x: cx + cw / 2 - 85, y: cy + ch - 58, w: 170, h: 44 } };
     }
-    function drawSkillPopup() {
-        const s = G.skills[G.skillPopup.i];
-        if (!s) { G.skillPopup = null; return; }
-        const f = getFont(), ready = s.cd <= 0, ac = accent();
-        const L = skillPopupLayout(), c = L.card, cx = c.x + c.w / 2;
+    function drawCardPopup() {
+        const id = G.hand[G.cardPopup.i];
+        if (!id) { G.cardPopup = null; return; }
+        const c = CARDS[id];
+        const f = getFont(), ac = accent();
+        const ok = G.energy >= c.cost && playable(id);
+        const L = cardPopupLayout(), card = L.card, cx = card.x + card.w / 2;
         ctx.save();
         ctx.fillStyle = 'rgba(8,6,16,0.74)';
         ctx.fillRect(0, BOARD_TOP - 4, W, H - (BOARD_TOP - 4));
         ctx.fillStyle = 'rgba(22,19,32,0.98)';
-        roundRect(c.x, c.y, c.w, c.h, 14); ctx.fill();
+        roundRect(card.x, card.y, card.w, card.h, 14); ctx.fill();
         ctx.lineWidth = 2; ctx.strokeStyle = ac;
-        roundRect(c.x, c.y, c.w, c.h, 14); ctx.stroke();
+        roundRect(card.x, card.y, card.w, card.h, 14); ctx.stroke();
         ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = '#fff'; ctx.font = `800 22px ${f}`;
-        ctx.fillText(t('rtSk_' + s.id), cx, c.y + 46);
+        ctx.fillText(t('rdCard_' + id), cx, card.y + 44);
+        ctx.fillStyle = shade(ac, 0.3); ctx.font = `600 13px ${f}`;
+        ctx.fillText(t('rdCost') + ': ' + c.cost + '  ·  ' + t('rdEnergy') + ' ' + G.energy, cx, card.y + 66);
         ctx.fillStyle = 'rgba(230,236,255,0.9)'; ctx.font = `500 15px ${f}`;
-        let y = c.y + 92;
-        for (const ln of wrapLines(t('rtSkd_' + s.id), c.w - 48)) { ctx.fillText(ln, cx, y); y += 23; }
-        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 13px ${f}`;
-        ctx.fillText(t('rtCdLabel') + ': ' + skillDef(s.id).cd + (ready ? '' : '  (' + s.cd + ')'), cx, c.y + c.h - 80);
+        let y = card.y + 100;
+        for (const ln of wrapLines(t('rdCardd_' + id), card.w - 48)) { ctx.fillText(ln, cx, y); y += 23; }
         const bt = L.cast;
-        ctx.fillStyle = ready ? ac : 'rgba(255,255,255,0.1)';
+        ctx.fillStyle = ok ? ac : 'rgba(255,255,255,0.1)';
         roundRect(bt.x, bt.y, bt.w, bt.h, 10); ctx.fill();
-        ctx.fillStyle = ready ? '#1a1526' : 'rgba(255,255,255,0.4)';
+        ctx.fillStyle = ok ? '#1a1526' : 'rgba(255,255,255,0.4)';
         ctx.font = `800 16px ${f}`; ctx.textBaseline = 'middle';
-        ctx.fillText(ready ? t('rtCast') : t('rtOnCd'), bt.x + bt.w / 2, bt.y + bt.h / 2);
+        ctx.fillText(t('rdPlay'), bt.x + bt.w / 2, bt.y + bt.h / 2);
         ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = `500 12px ${f}`;
-        ctx.fillText(t('rtPopupHint'), cx, c.y + c.h - 12);
+        ctx.fillText(t('rtPopupHint'), cx, card.y + card.h - 12);
         ctx.restore();
     }
     function drawTransmuteHint() {
@@ -907,21 +944,24 @@
         G.round = 1;
         G.phase = 'your';
         G.aiTimer = 0;
-        G.aiShield = rollDuelShield(1);
+        G.aiShields = rollRivalShields(1);
         G.score = 0;
+        G.energy = DUEL.energy;
+        G.hand = [];
+        G.cardPopup = null;
+        G.transmute = null;
+        G.empowerNext = 1;
+        G.bonusTimeNext = 0;
         G.held = null;
         G.spinTimer = 0;
         G.resolving = false;
         G.resolve = null;
-        G.skillPopup = null;
-        G.transmute = null;
-        G.skills = SKILLS.map((s) => ({ id: s.id, cd: 0 }));
-        G.bonusTimeNext = 0;
         G.clearing = [];
         G.floats = [];
         G.shake = 0;
         board = G.board = new Array(COLS * ROWS).fill(null);
         fillBoardNoMatches();
+        drawHandCards();
         updateHud();
         if (shell) shell.refreshBest();
     }
@@ -956,10 +996,10 @@
     function drawDebug() {
         const lines = [
             'DEBUG  round ' + G.round + '/' + DUEL.maxRounds + '  ' + G.phase,
-            'you ' + Math.ceil(G.youHp) + '/' + G.youMaxHp,
+            'you ' + Math.ceil(G.youHp) + '/' + G.youMaxHp + '  energy ' + G.energy,
             'rival ' + Math.max(0, Math.ceil(G.aiHp)) + '/' + G.aiMaxHp,
-            'shield ' + (G.aiShield ? G.aiShield.type : 'none'),
-            'dealt ' + G.score,
+            'shields ' + (G.aiShields.map((s) => s.type).join(',') || 'none'),
+            'hand ' + G.hand.join(',') + '  dealt ' + G.score,
         ];
         ctx.save();
         ctx.font = `600 12px ${getFont()}`;
@@ -976,16 +1016,14 @@
         window.RD = {
             kill() { G.aiHp = 0; return 'rival marked dead (resolve a spin)'; },
             hp(n) { G.youHp = AC.math.clamp(n, 0, G.youMaxHp); updateHud(); return G.youHp; },
-            aiShield(type) {
-                const map = { enhanced: { type: 'enhanced' }, combo: { type: 'combo', mode: 'min', n: 5 }, first: { type: 'firstWaveMax', n: 2 }, need: { type: 'element', mode: 'contains', elements: ['fire'] }, ban: { type: 'element', mode: 'ban', elements: ['water'] }, none: null };
-                if (type in map) G.aiShield = map[type];
-                return G.aiShield;
-            },
-            cast(i) { activateSkill(i | 0); return G.skills; },
-            info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, shield: G.aiShield, dealt: G.score }; },
+            energy(n) { G.energy = n | 0; return G.energy; },
+            hand() { return G.hand; },
+            shields(k) { const kk = k | 0; G.aiShields = []; for (let i = 0; i < kk; i++) G.aiShields.push(oneShield(G.round)); return G.aiShields; },
+            play(i) { playCard(i | 0); return G.hand; },
+            info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, energy: G.energy, hand: G.hand, shields: G.aiShields, dealt: G.score }; },
         };
         console.log('%c[Rune Duel] debug on', 'color:#d9544e;font-weight:700');
-        console.log('RD.kill() hp(n) aiShield("enhanced"|"combo"|"first"|"need"|"ban"|"none") cast(i) info()');
+        console.log('RD.kill() hp(n) energy(n) hand() shields(k) play(i) info()');
     }
 
     if (document.readyState === 'loading') {
