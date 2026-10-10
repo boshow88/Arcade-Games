@@ -276,7 +276,8 @@ defense/enhance card + energy system for both sides.)*
 3. **Rival's strike** — it hits you, **reduced by the shields you played**.
 
 Drop the rival's HP to **0** to win; at the round cap the higher HP wins. `best`
-= damage dealt. *(Next: timed phases, an AI that plays cards too, and online PvP.)*
+= damage dealt. The rival also plays simple cards (mend / empower). *(Next:
+timed phases and online PvP.)*
 
 ### Tuning
 

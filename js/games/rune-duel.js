@@ -29,6 +29,7 @@
     Object.assign(AC.i18n.STRINGS.en, {
         rdRound: 'Round', rdHp: 'HP', rdReady: 'Ready', rdRival: 'Rival',
         rdThinking: 'Rival is thinking…', rdYourTurn: 'Your turn — play & spin!',
+        rdRivalMend: 'Rival mends', rdRivalEmpower: 'Rival empowers',
         rdEnergy: 'Energy', rdPlay: 'Play', rdCost: 'Cost',
         rdIntro: 'A turn-based orb duel. Each round, spend energy on cards, then spin: clear 3+ of a colour to hit the rival, meet their shields, and heal with hearts. Drop their HP to 0 to win.',
         rdStartHintHtml: 'Play cards, then drag a rune · <kbd>P</kbd> pause',
@@ -59,6 +60,7 @@
     Object.assign(AC.i18n.STRINGS.zh, {
         rdRound: '回合', rdHp: '生命', rdReady: '準備好了', rdRival: '對手',
         rdThinking: '對手思考中…', rdYourTurn: '你的回合——出牌、轉珠！',
+        rdRivalMend: '對手治療', rdRivalEmpower: '對手增幅',
         rdEnergy: '能量', rdPlay: '出牌', rdCost: '消耗',
         rdIntro: '回合制轉珠對決。每回合花能量出牌，再轉珠：消除同色 3+ 攻擊對手、破對手的盾、用心珠回血。把對手血打到 0 就贏。',
         rdStartHintHtml: '先出牌，再拖動符石 · <kbd>P</kbd> 暫停',
@@ -578,7 +580,15 @@
         updateHud();
     }
     function aiAttack() {
-        let dmg = Math.max(1, Math.round(DUEL.aiBase + DUEL.aiGrow * (G.round - 1) + AC.rng.float(G.rng, -DUEL.aiVar, DUEL.aiVar)));
+        // the rival "plays cards": it may mend itself and/or empower its strike
+        let mult = 1;
+        if (AC.rng.float(G.rng, 0, 1) < 0.35 && G.aiHp < G.aiMaxHp) {
+            const h = Math.round(G.aiMaxHp * 0.06);
+            G.aiHp = Math.min(G.aiMaxHp, G.aiHp + h);
+            addFloat(W / 2, 48, t('rdRivalMend') + ' +' + h, '#8fd1a0', 18);
+        }
+        if (AC.rng.float(G.rng, 0, 1) < 0.35) { mult = 1.5; addFloat(W / 2, 72, t('rdRivalEmpower'), '#ffcf5a', 18); }
+        let dmg = Math.max(1, Math.round((DUEL.aiBase + DUEL.aiGrow * (G.round - 1) + AC.rng.float(G.rng, -DUEL.aiVar, DUEL.aiVar)) * mult));
         const d = G.youDef || { block: false, absorb: 0, reduceFrac: 0 };
         if (d.block) { dmg = 0; addFloat(W / 2, BOARD_TOP - 70, t('rtBlocked'), '#9fe0ff', 22); AC.audio.play('empty'); }
         else { dmg = Math.max(0, Math.round(dmg * (1 - d.reduceFrac) - d.absorb)); }
