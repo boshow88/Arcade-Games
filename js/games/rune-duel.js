@@ -32,7 +32,7 @@
         rdEnergy: 'Energy', rdPlay: 'Play', rdCost: 'Cost',
         rdIntro: 'A turn-based orb duel. Each round, spend energy on cards, then spin: clear 3+ of a colour to hit the rival, meet their shields, and heal with hearts. Drop their HP to 0 to win.',
         rdStartHintHtml: 'Play cards, then drag a rune · <kbd>P</kbd> pause',
-        rdHelp1Html: 'Each round you draw a <strong>hand of cards</strong>. Tap one to see it and <strong>Play</strong> it (costs <strong>energy</strong>) — break shields, buff your spin, or recolour runes.',
+        rdHelp1Html: 'Each round has two steps: play <strong>defense</strong> cards (shields), tap <strong>To attack</strong>, then play <strong>enhance</strong> cards and <strong>spin</strong> to hit the rival. Cards cost <strong>energy</strong>.',
         rdHelp2Html: 'Then <strong>drag a rune</strong>, line up <strong>3+ of a colour</strong> to clear and damage the rival. Meet the rival\u2019s <strong>shields</strong> or it\u2019s blocked. <strong>Heart</strong> heals; <strong>5+</strong> forges an <strong>enhanced</strong> rune.',
         rdHelp3Html: 'The rival strikes back each round. Drop their HP to <strong>0</strong> to win. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
         rdWin: 'Victory!', rdLose: 'Defeated',
@@ -44,6 +44,11 @@
         rdCard_empower: 'Empower', rdCardd_empower: 'This spin: damage ×1.5.',
         rdCard_transmute: 'Transmute', rdCardd_transmute: 'Pick a colour, then a target \u2014 all runes of that colour become it.',
         rdCard_enchant: 'Enchant', rdCardd_enchant: 'Turn 3 random runes into enhanced runes.',
+        rdCard_block: 'Block', rdCardd_block: 'Negate the rival\u2019s next strike.',
+        rdCard_shield: 'Shield', rdCardd_shield: 'Absorb 400 of the next strike.',
+        rdCard_ward: 'Ward', rdCardd_ward: 'Take 40% less from the next strike.',
+        rdCard_mend: 'Mend', rdCardd_mend: 'Heal 250 HP now.',
+        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192',
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
@@ -57,7 +62,7 @@
         rdEnergy: '能量', rdPlay: '出牌', rdCost: '消耗',
         rdIntro: '回合制轉珠對決。每回合花能量出牌，再轉珠：消除同色 3+ 攻擊對手、破對手的盾、用心珠回血。把對手血打到 0 就贏。',
         rdStartHintHtml: '先出牌，再拖動符石 · <kbd>P</kbd> 暫停',
-        rdHelp1Html: '每回合會抽一手<strong>牌</strong>。點一張看說明並<strong>出牌</strong>（花<strong>能量</strong>）——破盾、強化轉珠、或轉換顏色。',
+        rdHelp1Html: '每回合兩步：先出<strong>防禦牌</strong>（護盾），按「<strong>進入攻擊</strong>」，再出<strong>強化牌</strong>並<strong>轉珠</strong>攻擊對手。出牌花<strong>能量</strong>。',
         rdHelp2Html: '接著<strong>拖動符石</strong>、把<strong>同色 3 顆以上</strong>連線消除攻擊對手。要破對手的<strong>盾</strong>否則被擋。<strong>心</strong>珠回血；<strong>5+</strong> 生成<strong>強化符石</strong>。',
         rdHelp3Html: '對手每回合反擊。把對手血打到 <strong>0</strong> 就贏。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
         rdWin: '勝利！', rdLose: '落敗',
@@ -69,6 +74,11 @@
         rdCard_empower: '增幅', rdCardd_empower: '本次轉珠傷害 ×1.5。',
         rdCard_transmute: '轉換', rdCardd_transmute: '選一個顏色，再選目標色；盤上該色全變目標色。',
         rdCard_enchant: '附魔', rdCardd_enchant: '隨機 3 顆符石變成強化符石。',
+        rdCard_block: '格擋', rdCardd_block: '完全擋下對手的下一次攻擊。',
+        rdCard_shield: '護盾', rdCardd_shield: '吸收下一次攻擊 400 傷害。',
+        rdCard_ward: '減傷', rdCardd_ward: '下一次攻擊傷害 −40%。',
+        rdCard_mend: '治療', rdCardd_mend: '立即回復 250 生命。',
+        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192',
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
@@ -126,15 +136,22 @@
         energy: 10, handSize: 4,
         aiThink: 1.1, aiBase: 110, aiGrow: 10, aiVar: 30,
     };
-    // Enhance-card pool (drawn into the hand each round). cost = energy.
+    // Card pool. type = which phase it's played in. cost = energy.
     const CARDS = {
-        break:     { cost: 4 },   // remove one rival shield
-        focus:     { cost: 2 },   // +3s this spin
-        empower:   { cost: 4 },   // ×1.5 damage this spin
-        transmute: { cost: 3 },   // recolour one colour → another
-        enchant:   { cost: 3 },   // 3 random runes → enhanced
+        // defense (defense phase → mitigate the rival's next strike)
+        block:     { type: 'defense', cost: 6 },   // negate next strike
+        shield:    { type: 'defense', cost: 4 },   // absorb 400
+        ward:      { type: 'defense', cost: 4 },   // −40%
+        mend:      { type: 'defense', cost: 3 },   // heal 250 now
+        // enhance (attack phase → buff your spin / break rival shields)
+        break:     { type: 'enhance', cost: 4 },   // remove one rival shield
+        focus:     { type: 'enhance', cost: 2 },   // +3s this spin
+        empower:   { type: 'enhance', cost: 4 },   // ×1.5 damage this spin
+        transmute: { type: 'enhance', cost: 3 },   // recolour one colour → another
+        enchant:   { type: 'enhance', cost: 3 },   // 3 random runes → enhanced
     };
-    const CARD_IDS = Object.keys(CARDS);
+    const DEF_IDS = Object.keys(CARDS).filter((id) => CARDS[id].type === 'defense');
+    const ENH_IDS = Object.keys(CARDS).filter((id) => CARDS[id].type === 'enhance');
 
     // =================================================================
     // State
@@ -148,11 +165,12 @@
         aiHp: 0, aiMaxHp: 0,
         aiShields: [],          // rival shields you must satisfy (all)
         round: 1,
-        phase: 'your',          // 'your' | 'ai' | 'over'
+        phase: 'defense',       // 'defense' | 'attack' | 'ai' | 'over'
         aiTimer: 0,
         score: 0,
         energy: 0,
-        hand: [],               // card ids
+        hand: [],               // card ids (of the current phase's type)
+        youDef: null,           // your mitigation this round: { block, absorb, reduceFrac }
         cardPopup: null,        // { i } while a card's confirm popup is open
         transmute: null,        // { fromEl }
         empowerNext: 1,
@@ -361,13 +379,15 @@
             if (e.cancelable) e.preventDefault();
             return;
         }
-        if (G.phase !== 'your' || G.resolving || G.held) return;
+        if (G.resolving || G.held || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         if (p.y < BOARD_TOP) {
+            if (G.phase === 'defense' && inRect(p, doneButtonRect())) { AC.audio.unlock(); startAttackPhase(); if (e.cancelable) e.preventDefault(); return; }
             for (const b of handTileRects()) {
                 if (inRect(p, b)) { AC.audio.unlock(); G.cardPopup = { i: b.i }; if (e.cancelable) e.preventDefault(); return; }
             }
             return;
         }
+        if (G.phase !== 'attack') return;   // can only spin in the attack phase
         AC.audio.unlock();
         const cell = cellAtPixel(p.x, p.y);
         G.held = { cell, px: p.x, py: p.y, moved: false };
@@ -392,19 +412,25 @@
     // =================================================================
 
     function effectiveSpinTime() { return BALANCE.spinTime + (G.bonusTimeNext || 0); }
-    function drawHandCards() {
+    function drawHandCards(type) {
+        const pool = type === 'defense' ? DEF_IDS : ENH_IDS;
         G.hand = [];
-        for (let i = 0; i < DUEL.handSize; i++) G.hand.push(CARD_IDS[AC.rng.int(G.rng, 0, CARD_IDS.length)]);
+        for (let i = 0; i < DUEL.handSize; i++) G.hand.push(pool[AC.rng.int(G.rng, 0, pool.length)]);
     }
     function playable(id) {   // some cards need a legal target
         if (id === 'break') return G.aiShields.length > 0;
         return true;
     }
+    function cardPhaseOk(id) { return (CARDS[id].type === 'defense') === (G.phase === 'defense'); }
     function playCard(i) {
         const id = G.hand[i];
         const c = id && CARDS[id];
-        if (!c || G.phase !== 'your' || G.resolving || G.held || G.energy < c.cost || !playable(id)) return;
-        if (id === 'break') { G.aiShields.shift(); AC.audio.play('coin'); }
+        if (!c || G.resolving || G.held || G.energy < c.cost || !playable(id) || !cardPhaseOk(id)) return;
+        if (id === 'block') { G.youDef.block = true; }
+        else if (id === 'shield') { G.youDef.absorb += 400; }
+        else if (id === 'ward') { G.youDef.reduceFrac = Math.min(0.8, G.youDef.reduceFrac + 0.4); }
+        else if (id === 'mend') { G.youHp = Math.min(G.youMaxHp, G.youHp + 250); addFloat(W / 2, BOARD_TOP - 40, '+250', ELEMENT_COLORS.heart, 20); }
+        else if (id === 'break') { G.aiShields.shift(); AC.audio.play('coin'); }
         else if (id === 'focus') { G.bonusTimeNext += 3; }
         else if (id === 'empower') { G.empowerNext *= 1.5; }
         else if (id === 'enchant') { enchantRandom(3); }
@@ -552,23 +578,33 @@
         updateHud();
     }
     function aiAttack() {
-        const dmg = Math.max(1, Math.round(DUEL.aiBase + DUEL.aiGrow * (G.round - 1) + AC.rng.float(G.rng, -DUEL.aiVar, DUEL.aiVar)));
-        G.youHp -= dmg;
-        G.shake = 0.4;
-        addFloat(W / 2, BOARD_TOP - 70, '-' + dmg, '#ff6b6b', 24);
-        AC.audio.play('rock');
+        let dmg = Math.max(1, Math.round(DUEL.aiBase + DUEL.aiGrow * (G.round - 1) + AC.rng.float(G.rng, -DUEL.aiVar, DUEL.aiVar)));
+        const d = G.youDef || { block: false, absorb: 0, reduceFrac: 0 };
+        if (d.block) { dmg = 0; addFloat(W / 2, BOARD_TOP - 70, t('rtBlocked'), '#9fe0ff', 22); AC.audio.play('empty'); }
+        else { dmg = Math.max(0, Math.round(dmg * (1 - d.reduceFrac) - d.absorb)); }
+        if (dmg > 0) { G.youHp -= dmg; G.shake = 0.4; addFloat(W / 2, BOARD_TOP - 70, '-' + dmg, '#ff6b6b', 24); AC.audio.play('rock'); }
         if (G.youHp <= 0) { G.youHp = 0; updateHud(); duelOver(false); return; }
         G.round++;
         if (G.round > DUEL.maxRounds) { duelOver(G.youHp >= G.aiHp); return; }
-        startYourRound();
+        startDefensePhase();
     }
-    function startYourRound() {
-        G.phase = 'your';
+    // Defense phase: play shields on yourself; the rival "plays its defense" (the
+    // shields your spin must break). Then "To attack" → the attack phase.
+    function startDefensePhase() {
+        G.phase = 'defense';
         G.energy = DUEL.energy;
-        drawHandCards();
+        G.youDef = { block: false, absorb: 0, reduceFrac: 0 };
         G.aiShields = rollRivalShields(G.round);
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
+        drawHandCards('defense');
+        updateHud();
+    }
+    function startAttackPhase() {
+        G.phase = 'attack';
+        G.energy = DUEL.energy;
+        G.cardPopup = null;
+        drawHandCards('enhance');
         updateHud();
     }
     function duelOver(win) {
@@ -602,7 +638,7 @@
             fl.t += dt; fl.y -= 22 * dt;
             if (fl.t >= fl.life) G.floats.splice(i, 1);
         }
-        if (G.phase === 'your') {
+        if (G.phase === 'attack') {
             if (G.held && G.held.moved) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
             if (G.resolving) stepResolve(dt);
         } else if (G.phase === 'ai') {
@@ -628,6 +664,7 @@
         drawFloats();
         ctx.restore();
         drawHand();
+        if (G.phase === 'defense') drawDoneButton();
         drawSpinTimer();
         if (G.transmute) drawTransmuteHint();
         if (G.cardPopup) drawCardPopup();
@@ -763,8 +800,9 @@
 
         ctx.textBaseline = 'middle';
         ctx.font = `600 13px ${f}`; ctx.textAlign = 'left';
-        ctx.fillStyle = G.phase === 'ai' ? '#ffcf5a' : 'rgba(255,255,255,0.6)';
-        ctx.fillText(G.phase === 'ai' ? t('rdThinking') : t('rdYourTurn'), 22, 74);
+        const status = G.phase === 'ai' ? t('rdThinking') : G.phase === 'defense' ? t('rdDefense') : t('rdAttack');
+        ctx.fillStyle = G.phase === 'ai' ? '#ffcf5a' : accent();
+        ctx.fillText(status, 22, 74);
 
         // shield pills (right-aligned, may be several)
         let px = W - 22;
@@ -804,16 +842,30 @@
         const x0 = (W - (w * n + gap * (n - 1))) / 2;
         return G.hand.map((id, i) => ({ i, id, x: x0 + i * (w + gap), y, w, h }));
     }
+    function doneButtonRect() { return { x: W / 2 - 90, y: 210, w: 180, h: 36 }; }
+    function drawDoneButton() {
+        if (!shell || !shell.isPlaying()) return;
+        const b = doneButtonRect(), f = getFont();
+        ctx.save();
+        ctx.fillStyle = accent();
+        roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
+        ctx.fillStyle = '#1a1526'; ctx.font = `800 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(t('rdDone'), b.x + b.w / 2, b.y + b.h / 2);
+        ctx.restore();
+    }
     function drawHand() {
         if (!shell || !shell.isPlaying()) return;
         const f = getFont();
-        // energy
+        // energy (left) + your active defenses (right)
         ctx.fillStyle = accent();
         ctx.font = `800 14px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText('\u26a1 ' + t('rdEnergy') + ' ' + G.energy + ' / ' + DUEL.energy, 22, 142);
+        ctx.fillText(t('rdEnergy') + ' ' + G.energy + ' / ' + DUEL.energy, 22, 142);
+        const defs = [];
+        if (G.youDef) { if (G.youDef.block) defs.push(t('rdCard_block')); if (G.youDef.absorb > 0) defs.push('+' + G.youDef.absorb); if (G.youDef.reduceFrac > 0) defs.push('-' + Math.round(G.youDef.reduceFrac * 100) + '%'); }
+        if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'right'; ctx.fillText(defs.join(' · '), W - 22, 142); }
         for (const b of handTileRects()) {
             const c = CARDS[b.id];
-            const ok = G.phase === 'your' && G.energy >= c.cost && playable(b.id);
+            const ok = (G.phase === 'defense' || G.phase === 'attack') && G.energy >= c.cost && playable(b.id);
             ctx.save();
             ctx.fillStyle = ok ? 'rgba(217,84,78,0.16)' : 'rgba(255,255,255,0.05)';
             roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
@@ -942,12 +994,8 @@
         G.youHp = G.youMaxHp = DUEL.hp;
         G.aiHp = G.aiMaxHp = DUEL.hp;
         G.round = 1;
-        G.phase = 'your';
         G.aiTimer = 0;
-        G.aiShields = rollRivalShields(1);
         G.score = 0;
-        G.energy = DUEL.energy;
-        G.hand = [];
         G.cardPopup = null;
         G.transmute = null;
         G.empowerNext = 1;
@@ -959,10 +1007,10 @@
         G.clearing = [];
         G.floats = [];
         G.shake = 0;
+        G.youDef = { block: false, absorb: 0, reduceFrac: 0 };
         board = G.board = new Array(COLS * ROWS).fill(null);
         fillBoardNoMatches();
-        drawHandCards();
-        updateHud();
+        startDefensePhase();
         if (shell) shell.refreshBest();
     }
     function init() {
@@ -1020,7 +1068,7 @@
             hand() { return G.hand; },
             shields(k) { const kk = k | 0; G.aiShields = []; for (let i = 0; i < kk; i++) G.aiShields.push(oneShield(G.round)); return G.aiShields; },
             play(i) { playCard(i | 0); return G.hand; },
-            info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, energy: G.energy, hand: G.hand, shields: G.aiShields, dealt: G.score }; },
+            info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, energy: G.energy, hand: G.hand, youDef: G.youDef, shields: G.aiShields, dealt: G.score }; },
         };
         console.log('%c[Rune Duel] debug on', 'color:#d9544e;font-weight:700');
         console.log('RD.kill() hp(n) energy(n) hand() shields(k) play(i) info()');

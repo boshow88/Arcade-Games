@@ -262,26 +262,24 @@ rival. You and the rival each have an HP pool; it's a turn-based race to zero.
 *(Currently vs an AI; online PvP is a planned later mode. The full design adds a
 defense/enhance card + energy system for both sides.)*
 
-### A round
+### A round (two phases)
 
-1. **Cards**: you draw a **hand of enhance cards** and have **energy** to spend.
-   Tap a card to read it and **Play** it (costs energy): **Break** (remove a
-   rival shield), **Focus** (+3s this spin), **Empower** (×1.5 this spin),
-   **Transmute** (recolour a colour), **Enchant** (3 runes → enhanced).
-2. **Attack**: drag a rune, clear **3+ of a colour**, chain **combos**; cleared
-   runes **damage the rival** (`Σ(runes, enhanced ×1.5) × comboMult`). The rival
-   stacks **1–2 shields** each round (clear enhanced / N+ combos / first wave ≤ N
-   / clear-or-don't-clear a colour) — meet them **all** or your attack is
-   **blocked** (round 1 is free). Heart runes **heal you**; **5+** forges an
-   **enhanced** rune.
-3. **Rival's strike**: after a short think it hits you for a round-scaled amount.
+1. **Defense** — draw **defense cards** and spend **energy** on shields for
+   yourself: **Block** (negate the next strike), **Shield** (absorb 400), **Ward**
+   (−40%), **Mend** (heal 250 now). Tap **To attack →** when done. (The rival also
+   "plays its defense": the **shields your spin must break**.)
+2. **Attack** — draw **enhance cards** (fresh energy): **Break** (remove a rival
+   shield), **Focus** (+3s), **Empower** (×1.5), **Transmute**, **Enchant**. Then
+   **spin**: clear **3+ of a colour** to damage the rival (`Σ(runes, enhanced
+   ×1.5) × comboMult`); meet **all** their shields or it's **blocked**. Heart
+   runes heal you; **5+** forges an **enhanced** rune.
+3. **Rival's strike** — it hits you, **reduced by the shields you played**.
 
-Drop the rival's HP to **0** to win; if it happens to you, you lose; at the round
-cap the **higher HP wins**. `best` = damage dealt. *(Next: your own defense
-cards/shields, timed phases, and online PvP.)*
+Drop the rival's HP to **0** to win; at the round cap the higher HP wins. `best`
+= damage dealt. *(Next: timed phases, an AI that plays cards too, and online PvP.)*
 
 ### Tuning
 
-`DUEL` (HP, round cap, energy, hand size, rival think/damage curve), `BALANCE`
-(spin time, base damage, heart heal, combo/enhanced), the `CARDS` pool + costs,
-and `rollRivalShields` — all at the top of `js/games/rune-duel.js`.
+`DUEL` (HP, round cap, energy, hand size, rival think/damage), `BALANCE` (spin
+time, base damage, heart heal, combo/enhanced), the `CARDS` pool (type + cost)
+and `rollRivalShields` — at the top of `js/games/rune-duel.js`.
