@@ -49,7 +49,7 @@
         rdCard_shCombo: 'Combo Shield', rdCardd_shCombo: 'Shield: the rival needs 5+ combos to hit you.',
         rdCard_shBan: 'Taboo Shield', rdCardd_shBan: 'Shield: if the rival clears the named colour, its attack is blocked.',
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
-        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192',
+        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw +1',
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
@@ -80,7 +80,7 @@
         rdCard_shCombo: '連擊盾', rdCardd_shCombo: '盾：對手要 5+ 連擊才打得到你。',
         rdCard_shBan: '禁消盾', rdCardd_shBan: '盾：對手若消到指定顏色，攻擊被擋。',
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
-        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192',
+        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌 +1',
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
@@ -135,11 +135,12 @@
     };
     const DUEL = {
         hp: 2500, maxRounds: 30,
-        energy: 10, handSize: 4,
+        energy: 10, handSize: 4, maxHand: 7, drawCost: 2,   // extra draw digs for a card you need
         aiThink: 1.1,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
         aiComboMin: 3, aiComboMax: 7,   // its simulated combos (before meeting your shields)
         aiSkill: 0.7,                   // chance it meets each of your shields
+        aiHasten: 0.3,                  // chance it hastens your spin (from round 3)
     };
     // Card pool. type = which phase it's played in. cost = energy.
     const CARDS = {
@@ -389,6 +390,7 @@
         if (G.resolving || G.held || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         if (p.y < BOARD_TOP) {
             if (G.phase === 'defense' && inRect(p, doneButtonRect())) { AC.audio.unlock(); startAttackPhase(); if (e.cancelable) e.preventDefault(); return; }
+            if (canDrawMore() && inRect(p, drawMoreRect())) { AC.audio.unlock(); drawOneCard(); if (e.cancelable) e.preventDefault(); return; }
             for (const b of handTileRects()) {
                 if (inRect(p, b)) { AC.audio.unlock(); G.cardPopup = { i: b.i }; if (e.cancelable) e.preventDefault(); return; }
             }
@@ -423,6 +425,18 @@
         const pool = type === 'defense' ? DEF_IDS : ENH_IDS;
         G.hand = [];
         for (let i = 0; i < DUEL.handSize; i++) G.hand.push(pool[AC.rng.int(G.rng, 0, pool.length)]);
+    }
+    function canDrawMore() {
+        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.cardPopup && !G.transmute
+            && G.hand.length < DUEL.maxHand && G.energy >= DUEL.drawCost;
+    }
+    function drawOneCard() {
+        if (!canDrawMore()) return;
+        const pool = G.phase === 'defense' ? DEF_IDS : ENH_IDS;
+        G.hand.push(pool[AC.rng.int(G.rng, 0, pool.length)]);
+        G.energy -= DUEL.drawCost;
+        AC.audio.play('click');
+        updateHud();
     }
     function playable(id) {   // some cards need a legal target
         if (id === 'break') return G.aiShields.length > 0;
@@ -546,6 +560,15 @@
         for (let i = 0; i < count; i++) out.push(oneShield(round));
         return out;
     }
+    // The rival's whole defense decision for the round: which shields to raise, and
+    // whether to hasten your spin. Keeping it in one place (instead of a stray roll)
+    // makes AI difficulty a single knob.
+    function aiDefend(round) {
+        return {
+            shields: rollRivalShields(round),
+            hastenYou: round >= 3 && AC.rng.float(G.rng, 0, 1) < DUEL.aiHasten,
+        };
+    }
 
     // --- Damage / duel flow ---
 
@@ -635,8 +658,9 @@
         G.energy = DUEL.energy;
         G.youShields = [];
         G.aiSpinPenalty = 0;
-        G.spinPenalty = (G.round >= 3 && AC.rng.float(G.rng, 0, 1) < 0.3) ? 2 : 0;   // rival occasionally hastens you
-        G.aiShields = rollRivalShields(G.round);
+        const plan = aiDefend(G.round);
+        G.aiShields = plan.shields;
+        G.spinPenalty = plan.hastenYou ? 2 : 0;   // rival's hasten shortens your spin this round
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
         drawHandCards('defense');
@@ -707,6 +731,7 @@
         ctx.restore();
         drawHand();
         if (G.phase === 'defense') drawDoneButton();
+        drawDrawButton();
         drawSpinTimer();
         if (G.transmute) drawTransmuteHint();
         if (G.cardPopup) drawCardPopup();
@@ -885,6 +910,22 @@
         return G.hand.map((id, i) => ({ i, id, x: x0 + i * (w + gap), y, w, h }));
     }
     function doneButtonRect() { return { x: W / 2 - 90, y: 210, w: 180, h: 36 }; }
+    function drawMoreRect() { return { x: 16, y: 210, w: 108, h: 36 }; }
+    function drawDrawButton() {
+        if (!shell || !shell.isPlaying()) return;
+        if (G.phase !== 'defense' && G.phase !== 'attack') return;
+        if (G.cardPopup || G.transmute || G.held || G.resolving) return;
+        const b = drawMoreRect(), f = getFont(), ok = canDrawMore();
+        ctx.save();
+        ctx.fillStyle = ok ? 'rgba(217,84,78,0.16)' : 'rgba(255,255,255,0.05)';
+        roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = ok ? accent() : 'rgba(255,255,255,0.15)';
+        roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
+        ctx.fillStyle = ok ? '#fff' : 'rgba(255,255,255,0.4)';
+        ctx.font = `700 13px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(t('rdDraw') + ' (' + DUEL.drawCost + ')', b.x + b.w / 2, b.y + b.h / 2);
+        ctx.restore();
+    }
     function drawDoneButton() {
         if (!shell || !shell.isPlaying()) return;
         const b = doneButtonRect(), f = getFont();

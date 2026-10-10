@@ -278,6 +278,10 @@ defense/enhance card + energy system for both sides.)*
 3. **Rival's strike** — the rival **spins too** (simulated): if its result fails
    **any** shield you raised, its attack is **blocked**; otherwise it hits you.
 
+In either phase you start with a few cards; if you need another, tap **Draw +1**
+to add a random card for **2 energy** (hand capped at 7). The rival may also
+**hasten** you from round 3, shortening your spin by 2s that round.
+
 Drop the rival's HP to **0** to win; at the round cap the higher HP wins. `best`
 = damage dealt. The rival also plays simple cards (mend / empower). *(Next:
 timed phases and online PvP.)*
