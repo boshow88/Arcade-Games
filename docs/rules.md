@@ -182,97 +182,73 @@ All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
 
 ---
 
-## Rune Tower (WIP — Phase 2)
+## Rune Tower (WIP)
 
-An orb-matching **combat climb**, in the spirit of Tower of Saviors but built
-as a short run: no long-term cultivation, just spin → fight → climb. Your
-**best is the highest floor reached** (total damage is shown too, as a
-tiebreak). **Phase 2** adds enhanced runes and between-floor upgrade drafts;
-team / active skills / enemy shields / bosses are Phase 3. Full design notes
-live in the local `docs/rune-tower-design.md`.
+An orb-matching **combat climb**, in the spirit of Tower of Saviors but built as
+a short run: no cultivation, no team or upgrade shop — just **spin → fight →
+climb**. The depth lives on the **enemy** side (shields + bosses); the player is
+kept deliberately simple so the focus is the spinning itself. Your **best is the
+highest floor reached** (total damage is shown too, as a tiebreak).
 
 ### Board & spinning
 
 - A **6×5** board (30 runes), 6 elements: **fire · water · wood · light · dark ·
   heart**. Press and **drag one rune**; it swaps with each cell it moves into
   (diagonals allowed), so a drag sweeps a whole path. The **spin timer only
-  starts on the first swap** (picking a rune up just to look around costs
-  nothing); it resolves on **release or timeout**. A stray tap with no swap is
-  cancelled — no turn is spent.
-- On resolve, every **horizontal/vertical run of 3+** of a colour clears, and
-  each connected group **pops one at a time** (its own rising chime) for feel.
-  Runes fall, new ones pour in from the top, and any new runs **cascade**. We
-  call the groups cleared before any fall the **first wave (首批)** and the
-  cascade-produced ones **非首批**.
-- **Enhanced runes**: clearing a group of **5+** of a colour forges one
-  **enhanced** rune of that colour (gold rim). When later cleared it counts
-  **×1.5** — and it's the key to breaking future "enhanced shields".
+  starts on the first swap** (picking a rune up to look around costs nothing); it
+  resolves on **release or timeout**. A stray tap with no swap is cancelled.
+- On resolve, every **horizontal/vertical run of 3+** of a colour clears, each
+  connected group **pops one at a time** (its own rising chime). Runes fall, new
+  ones pour in, and new runs **cascade** (the pre-fall groups are the **first
+  wave / 首批**).
+- **Enhanced runes**: clearing **5+** of a colour forges one **enhanced** rune of
+  that colour (white rim) in a cleared cell; cleared later it counts **×1.5** and
+  breaks "enhanced shields".
 
 ### Combat (turn-based)
 
-- **One spin = one turn.** Cleared groups deal damage: `Σ(runes, enhanced ×1.5)
-  × elementMult × comboMult`, where `comboMult = 1 + 0.25·(combos−1)`. **Heart**
-  groups heal you instead of attacking.
-- **Element wheel**: water→fire→wood→water and light↔dark. Hitting a foe's weak
-  element deals **×2**, its strong element **×0.5**, else ×1.
-- The foe **strikes on a countdown** (every `enemyCd` turns); spinning badly =
-  the foe lives longer = you eat more hits. Clear a foe and a **stronger one**
-  steps up (more HP and attack) — you **climb a floor**. At **0 HP** the run ends.
-- From floor 3+ a foe may carry a **shield** — a condition you must meet that
-  turn to deal any damage: **clear an enhanced rune**, reach **N+ combos**, keep
-  the **first wave ≤ N combos**, **clear** a named element, or **don't clear**
-  one. Healing is never blocked; the requirement is shown by the foe.
+- **One spin = one turn.** Damage: `Σ(runes, enhanced ×1.5) × baseDamage ×
+  elementMult × comboMult`, `comboMult = 1 + 0.25·(combos−1)`. **Heart** groups
+  heal (`runes × heartHeal × comboMult`) instead of attacking.
+- **Element wheel**: water→fire→wood→water, light↔dark — weak element **×2**,
+  strong **×0.5**, else ×1.
+- The foe **strikes on a countdown** (`enemyCd` turns). Clear it and a **stronger
+  one** steps up — you **climb a floor**. At **0 HP** the run ends.
 
-### The climb & upgrade drafts
+### Enemy shields
 
-There is **no difficulty selector** — one shared leaderboard. The challenge
-curve lives in the **per-floor growth**: each foe has more HP and attack than
-the last. Every `CONFIG.draftEvery` floors you pick **one of three upgrades**
-(leveled stat / board / relic picks) that patch your run.
-
-### Team
-
-Your power comes from a **team of `CONFIG.teamSize` members** (random at run
-start). Each member has a **role** (Warrior / Warden / Mage / Priest), an
-**element**, a **passive**, and usually an **active skill** (some are
-passive-only). The team drives everything:
-
-- **HP** = base + the sum of members' HP (Wardens are tanky, Mages fragile).
-- **Attack per element** = the sum of the attack of members **of that element**
-  — so clearing a colour only hits hard if you have members of it (clearing an
-  unmanned colour still counts for combos and shields).
-- **Healing** from heart runes scales with the team's total **recovery**
-  (Priests lead here).
-- **Passives** patch derived stats — flat/element attack, HP, recovery,
-  lifesteal, last-stand, etc. — including a couple of **composition synergies**
-  (e.g. more attack per Warrior, more recovery per Priest).
-
-Members show as tiles in the gap above the board; tap a member's **active skill**
-(when off cooldown) to cast. Casting is a **free action**, but a turn (and every
-cooldown, counted in turns) only advances when you **spin**. Skill pool: Mend,
-Empower, Focus, Shuffle, Smite, Guard, Freeze, Enchant, Bless. Only **one**
-full-"block" source exists (Guard, on cooldown), per the anti-infinite-block
-rule.
-
-**Recruit floors** (every `CONFIG.recruitEvery` floors, taking that floor's draft
-slot) offer **3 candidate members** — tap one, then tap the member to replace;
-**swap as many as you like** (each candidate once), then press **Done**. So the
-team grows stronger and better-covered as you climb (new element coverage,
-better passives / synergies).
+From floor 3+ a foe may carry a **shield** — a condition to meet that turn to
+deal any damage: **clear an enhanced rune**, reach **N+ combos**, keep the
+**first wave ≤ N combos**, **clear** a named element, or **don't clear** one.
+Healing is never blocked; the requirement is shown by the foe.
 
 ### Bosses
 
 Every **5th floor** is a **Boss** (every **20th**, an Elite Boss): far more HP
-and attack, and **two health bars**. Deplete the first bar and it refills, swaps
-to a **tougher shield**, and skips its strike that turn (Phase 2). Remaining bars
-show as gold diamonds by the foe. *(Signature boss mechanics — heart-reversal,
-twins, player status effects — are the next step.)*
+and attack, and **two health bars**. Deplete the first and it refills, swaps to a
+**tougher shield**, and skips its strike that turn (Phase 2). Remaining bars show
+as gold diamonds by the foe.
+
+### Player skills
+
+The player keeps just **two light tools** (buttons in the gap above the board;
+tap one to see its effect, then **Cast** — casting is free, cooldowns count in
+turns and only advance when you spin):
+
+- **Focus** — this spin gets **+3s** of time.
+- **Transmute** — tap a colour, then a target; every rune of that colour becomes
+  the target colour (useful for element shields or setting up combos).
+
+### The climb
+
+There is **no difficulty selector** — one shared leaderboard. The whole
+challenge curve lives in the **per-floor growth** (`enemy*Grow`) plus the enemy
+shields and bosses.
 
 ### Tuning
 
-All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (base HP,
-spin time, enhanced multiplier, per-floor `enemy*Grow`), `CONFIG` (timings,
-`bigThreshold`, `draftEvery`, `teamSize`), `ROLES` + `PASSIVES` (team), the
-`SKILLS` pool, and the `UPGRADES` draft pool. Draft upgrades patch `G.run`; the
-team recomputes into `G.ts`; damage math merges both in `computeSpinResult()`
-and all foe damage flows through `damageEnemy()`.
+All balance lives at the top of `js/games/rune-tower.js`: `BALANCE` (HP, spin
+time, base damage, heart heal, enhanced multiplier, per-floor `enemy*Grow`),
+`CONFIG` (timings, `bigThreshold`), the `SKILLS` cooldowns, and `rollShield` /
+`bossShield`. Damage math is in `computeSpinResult()`; all foe damage flows
+through `damageEnemy()`.
