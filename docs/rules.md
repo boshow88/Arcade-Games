@@ -282,9 +282,13 @@ In either phase you start with a few cards; if you need another, tap **Draw +1**
 to add a random card for **2 energy** (hand capped at 7). The rival may also
 **hasten** you from round 3, shortening your spin by 2s that round.
 
+Each phase has a **20s clock** (shown by the status). If the defense clock runs
+out it auto-advances to attack; if the attack clock runs out before you start
+spinning you **forfeit that strike** and the rival takes its turn.
+
 Drop the rival's HP to **0** to win; at the round cap the higher HP wins. `best`
 = damage dealt. The rival also plays simple cards (mend / empower). *(Next:
-timed phases and online PvP.)*
+online PvP.)*
 
 ### Tuning
 

@@ -49,7 +49,7 @@
         rdCard_shCombo: 'Combo Shield', rdCardd_shCombo: 'Shield: the rival needs 5+ combos to hit you.',
         rdCard_shBan: 'Taboo Shield', rdCardd_shBan: 'Shield: if the rival clears the named colour, its attack is blocked.',
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
-        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw +1',
+        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw +1', rdTimeUp: 'Time up!',
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
@@ -80,7 +80,7 @@
         rdCard_shCombo: '連擊盾', rdCardd_shCombo: '盾：對手要 5+ 連擊才打得到你。',
         rdCard_shBan: '禁消盾', rdCardd_shBan: '盾：對手若消到指定顏色，攻擊被擋。',
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
-        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌 +1',
+        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌 +1', rdTimeUp: '時間到！',
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
@@ -136,6 +136,7 @@
     const DUEL = {
         hp: 2500, maxRounds: 30,
         energy: 10, handSize: 4, maxHand: 7, drawCost: 2,   // extra draw digs for a card you need
+        phaseTime: 20,                  // seconds to decide in the defense / attack phase
         aiThink: 1.1,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
         aiComboMin: 3, aiComboMax: 7,   // its simulated combos (before meeting your shields)
@@ -172,6 +173,7 @@
         aiShields: [],          // rival shields you must satisfy (all)
         round: 1,
         phase: 'defense',       // 'defense' | 'attack' | 'ai' | 'over'
+        phaseTimer: 0,          // seconds left to decide in defense / attack
         aiTimer: 0,
         score: 0,
         energy: 0,
@@ -663,6 +665,7 @@
         G.spinPenalty = plan.hastenYou ? 2 : 0;   // rival's hasten shortens your spin this round
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
+        G.phaseTimer = DUEL.phaseTime;
         drawHandCards('defense');
         updateHud();
     }
@@ -670,8 +673,21 @@
         G.phase = 'attack';
         G.energy = DUEL.energy;
         G.cardPopup = null;
+        G.phaseTimer = DUEL.phaseTime;
         drawHandCards('enhance');
         updateHud();
+    }
+    // Phase clock ran out: defense → go attack; attack (not yet spinning) → forfeit
+    // this strike and hand over to the rival.
+    function onPhaseTimeout() {
+        if (G.phase === 'defense') { startAttackPhase(); return; }
+        if (G.phase === 'attack') {
+            addFloat(W / 2, 150, t('rdTimeUp'), '#ff6b6b', 20);
+            AC.audio.play('empty');
+            G.empowerNext = 1; G.bonusTimeNext = 0; G.cardPopup = null; G.transmute = null;
+            G.phase = 'ai'; G.aiTimer = DUEL.aiThink;
+            updateHud();
+        }
     }
     function duelOver(win) {
         if (G.phase === 'over') return;
@@ -704,8 +720,12 @@
             fl.t += dt; fl.y -= 22 * dt;
             if (fl.t >= fl.life) G.floats.splice(i, 1);
         }
-        if (G.phase === 'attack') {
+        if (G.phase === 'defense') {
+            G.phaseTimer -= dt;
+            if (G.phaseTimer <= 0) onPhaseTimeout();
+        } else if (G.phase === 'attack') {
             if (G.held && G.held.moved) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
+            else if (!G.resolving) { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
             if (G.resolving) stepResolve(dt);
         } else if (G.phase === 'ai') {
             G.aiTimer -= dt;
@@ -870,6 +890,12 @@
         const status = G.phase === 'ai' ? t('rdThinking') : G.phase === 'defense' ? t('rdDefense') : t('rdAttack');
         ctx.fillStyle = G.phase === 'ai' ? '#ffcf5a' : accent();
         ctx.fillText(status, 22, 74);
+        if ((G.phase === 'defense' || G.phase === 'attack') && !(G.held && G.held.moved)) {
+            const sw = ctx.measureText(status).width;
+            ctx.fillStyle = G.phaseTimer <= 5 ? '#ff6b6b' : 'rgba(255,255,255,0.7)';
+            ctx.font = `800 13px ${f}`;
+            ctx.fillText(Math.max(0, Math.ceil(G.phaseTimer)) + 's', 22 + sw + 12, 74);
+        }
 
         // shield pills (right-aligned, may be several)
         let px = W - 22;
@@ -1078,6 +1104,7 @@
         G.aiHp = G.aiMaxHp = DUEL.hp;
         G.round = 1;
         G.aiTimer = 0;
+        G.phaseTimer = 0;
         G.score = 0;
         G.cardPopup = null;
         G.transmute = null;
