@@ -252,3 +252,33 @@ time, base damage, heart heal, enhanced multiplier, per-floor `enemy*Grow`),
 `CONFIG` (timings, `bigThreshold`), the `SKILLS` cooldowns, and `rollShield` /
 `bossShield`. Damage math is in `computeSpinResult()`; all foe damage flows
 through `damageEnemy()`.
+
+---
+
+## Rune Duel (WIP — vs AI)
+
+An orb-spinning **versus duel**: a bounded match (not an endless climb) against a
+rival. You and the rival each have an HP pool; it's a turn-based race to zero.
+*(Currently vs an AI; online PvP is a planned later mode. The full design adds a
+defense/enhance card + energy system for both sides.)*
+
+### A round
+
+1. **Your attack**: drag a rune, clear **3+ of a colour**, chain **combos**; the
+   cleared runes **damage the rival** (`Σ(runes, enhanced ×1.5) × comboMult`).
+   Heart runes **heal you**; **5+** of a colour forges an **enhanced** rune.
+2. The rival raises a **shield** each round (clear enhanced / N+ combos / first
+   wave ≤ N / clear-or-don't-clear a colour) — meet it or your attack is
+   **blocked**. (Round 1 is free.)
+3. **Rival's strike**: after a short think it hits you for a round-scaled amount.
+
+Drop the rival's HP to **0** to win; if HP 0 happens to you, you lose; at the
+round cap the **higher HP wins**. You also carry **Focus** (this spin +3s) and
+**Transmute** (recolour one colour → another) to help meet shields. `best` =
+damage dealt.
+
+### Tuning
+
+`DUEL` (HP, round cap, rival think time + damage curve), `BALANCE` (spin time,
+base damage, heart heal, combo/enhanced), `rollDuelShield`, and the `SKILLS`
+cooldowns — all at the top of `js/games/rune-duel.js`.

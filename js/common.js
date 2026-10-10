@@ -280,6 +280,11 @@
             '<path d="M6 3h12l4 6-10 13L2 9Z"/>'
             + '<path d="M11 3 8 9l4 13 4-13-3-6"/>'
             + '<path d="M2 9h20"/>',
+        swords:
+            '<path d="m13 19 6-6"/>'
+            + '<path d="M14.5 17.5 3.586 6.586A2 2 0 0 1 3 5.172V3h2.172a2 2 0 0 1 1.414.586L17.5 14.5"/>'
+            + '<path d="m14.828 6.172 2.586-2.586A2 2 0 0 1 18.828 3H21v2.172a2 2 0 0 1-.586 1.414l-2.586 2.586"/>'
+            + '<path d="m16 16 4 4"/><path d="m19 21 2-2"/><path d="m5 14 4 4"/><path d="m5 21-2-2"/><path d="M7.5 16.5 4 20"/>',
         puzzle:
             '<path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 19.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/>',
         skull:
@@ -394,6 +399,12 @@
             runeTowerCardBody:
                 'Drag an orb to line matching runes into rows, chain big combos, and blast each foe with the right element. A short orb-matching climb — in the works.',
 
+            // Rune Duel card (orb-spinning versus duel — WIP)
+            runeDuelName: 'Rune Duel',
+            runeDuelTagline: 'Spin to duel; break their shields.',
+            runeDuelCardBody:
+                'A turn-based orb-spinning duel against an AI — chain combos, break shields, and outlast your rival. In the works.',
+
         },
         zh: {
             menu: '選單',
@@ -448,6 +459,11 @@
             runeTowerTagline: '轉動符石，一路爬塔。',
             runeTowerCardBody:
                 '拖動符石，把同色連成一線、串出大連擊，用對屬性轟掉每個敵人。一款短篇轉珠爬塔——開發中。',
+
+            runeDuelName: '符石對決',
+            runeDuelTagline: '轉珠對決，破盾取勝。',
+            runeDuelCardBody:
+                '回合制的轉珠對決，對手是 AI——串連擊、破敵盾、拚到對方先沒血。開發中。',
         },
     };
 
