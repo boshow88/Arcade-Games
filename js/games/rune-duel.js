@@ -58,6 +58,7 @@
         rdMatched: (name) => `Matched with ${name}!`, rdStartDuel: 'Start duel', rdWaitHost: 'Waiting for host to start\u2026',
         rdRoomNotFound: 'Room not found', rdRoomFull: 'Room is full', rdNetErr: 'Network error',
         rdDiscard: 'Discard', rdOppBoard: 'Rival\u2019s board', rdYouWin: 'You win!', rdYouLose: 'You lose',
+        rdHastened: (n) => `Rival hastens you! Spin \u2212${n}s`,
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
@@ -97,6 +98,7 @@
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
         rdRoomNotFound: '找不到房間', rdRoomFull: '房間已滿', rdNetErr: '連線錯誤',
         rdDiscard: '丟棄', rdOppBoard: '對手盤面', rdYouWin: '你贏了！', rdYouLose: '你輸了',
+        rdHastened: (n) => `對手催促！轉珠 \u2212${n}秒`,
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
@@ -488,7 +490,7 @@
         if (id === 'shEnhanced') { G.youShields.push({ type: 'enhanced' }); }
         else if (id === 'shCombo') { G.youShields.push({ type: 'combo', mode: 'min', n: 5 }); }
         else if (id === 'shBan') { G.youShields.push({ type: 'element', mode: 'ban', elements: [ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)]] }); }
-        else if (id === 'hasten') { G.aiSpinPenalty += 2; }
+        else if (id === 'hasten') { G.aiSpinPenalty += 2; if (G.online) G.online.hastenOpp = (G.online.hastenOpp || 0) + 2; }
         else if (id === 'break') { G.aiShields.shift(); AC.audio.play('coin'); }
         else if (id === 'focus') { G.bonusTimeNext += 3; }
         else if (id === 'empower') { G.empowerNext *= 1.5; }
@@ -716,7 +718,7 @@
         G.bonusTimeNext = 0;
         G.phaseTimer = DUEL.phaseTime;
         if (G.round > 1) drawRoundCard();     // one new card per round; the rest of the hand persists
-        if (G.online) { G.online.sub = 'def'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
+        if (G.online) { G.online.sub = 'def'; G.online.hastenOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
         const plan = aiDefend(G.round);
         G.aiShields = plan.shields;
         G.spinPenalty = plan.hastenYou ? 2 : 0;   // rival's hasten shortens your spin this round
@@ -820,7 +822,10 @@
         if (!G.online || G.online.sub !== 'def') return;
         G.online.sub = 'waitDef';
         G.online.waitSince = Date.now();
-        net.updateRoom(room.code, { ['game.def.' + G.online.myUid]: serializeShields(G.youShields) }).catch((e) => console.warn('[duel]', e));
+        net.updateRoom(room.code, {
+            ['game.def.' + G.online.myUid]: serializeShields(G.youShields),
+            ['game.hasten.' + G.online.myUid]: G.online.hastenOpp || 0,
+        }).catch((e) => console.warn('[duel]', e));
         updateHud();
     }
     function submitAttack(dmg, heal) {
@@ -903,7 +908,10 @@
         // reveal: both defense submitted → attack phase, see the opponent's shields
         if (G.online.sub === 'waitDef' && g.def && g.def[my] && g.def[opp]) {
             G.aiShields = (g.def[opp] || []).slice();
+            const hz = (g.hasten && g.hasten[opp]) || 0;   // opponent's Hasten shortens YOUR spin this round
+            G.spinPenalty = hz;
             startAttackPhase();
+            if (hz > 0) addFloat(W / 2, 150, t('rdHastened', hz), '#ff9f43', 20);
             return;
         }
         // resolve: both attacks in (animate the opponent's strike once per round)
@@ -977,9 +985,12 @@
             if (G.aiTimer <= 0) aiAttack();
         }
         // repaint once per second while a phase clock is visibly counting down
-        if ((G.phase === 'defense' || G.phase === 'attack') && !onlineWaiting() && !(G.held && G.held.moved)) {
+        if ((G.phase === 'defense' || G.phase === 'attack') && !onlineWaiting() && !(G.held && G.held.moved) && !G.resolving) {
             const sec = Math.ceil(G.phaseTimer);
-            if (sec !== lastSecShown) { lastSecShown = sec; markDirty(); }
+            if (sec !== lastSecShown) {
+                lastSecShown = sec; markDirty();
+                if (sec <= 5 && sec > 0) AC.audio.tone(900, 0.07, { type: 'square', volume: 0.1 });   // urgency tick
+            }
         }
         settleOrbs(dt);
     }
@@ -1020,6 +1031,7 @@
         drawHand();
         if (G.phase === 'defense') drawDoneButton();
         drawDrawButton();
+        drawPhaseTimer();
         drawSpinTimer();
         if (G.transmute) drawTransmuteHint();
         if (G.cardPopup) drawCardPopup();
@@ -1340,6 +1352,24 @@
         ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.font = `700 15px ${f}`;
         ctx.fillText(G.transmute.fromEl == null ? t('rtTransmuteFrom') : t('rtTransmuteTo'), W / 2, BOARD_TOP - 17);
+        ctx.restore();
+    }
+    function drawPhaseTimer() {
+        if (G.phase !== 'defense' && G.phase !== 'attack') return;
+        if (onlineWaiting() || (G.held && G.held.moved) || G.resolving) return;   // spin timer / waiting own this slot
+        const ratio = AC.math.clamp(G.phaseTimer / DUEL.phaseTime, 0, 1);
+        const urgent = G.phaseTimer <= 5;
+        ctx.save();
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        ctx.fillRect(0, BOARD_TOP - 8, W, 6);
+        ctx.fillStyle = urgent ? '#ff5a5a' : '#6ad1ff';
+        ctx.fillRect(0, BOARD_TOP - 8, W * ratio, 6);
+        if (urgent) {
+            const a = 0.28 + 0.2 * Math.sin(Date.now() / 110);
+            ctx.strokeStyle = `rgba(255,70,70,${a})`;
+            ctx.lineWidth = 6;
+            ctx.strokeRect(3, BOARD_TOP + 3, W - 6, ROWS * CELL - 6);
+        }
         ctx.restore();
     }
     function drawSpinTimer() {
