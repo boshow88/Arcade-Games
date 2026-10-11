@@ -853,6 +853,7 @@
     }
     function onRoomGame(data) {
         markDirty();
+        if (G.online && !data && G.phase !== 'over') { duelOver(true); return; }   // room vanished → opponent left, you win
         const g = data && data.game;
         if (!g) return;
         if (g.status === 'playing' && !G.online) { enterOnline(data); return; }
@@ -957,7 +958,11 @@
         return false;
     }
     function render() {
-        if (!needsRender && !animating()) return;   // skip repaint when nothing changed (saves CPU/GPU)
+        // Only skip repaint while genuinely idle (waiting for opponent / AI thinking /
+        // over / ready). During active play and animations we always repaint, so the
+        // board can never visually "freeze" mid-cascade.
+        const idle = onlineWaiting() || G.phase === 'ai' || G.phase === 'over' || G.phase === 'idle';
+        if (idle && !needsRender && !animating()) return;
         needsRender = false;
         ctx.fillStyle = '#0d0b16';
         ctx.fillRect(0, 0, W, H);
@@ -1499,7 +1504,11 @@
         setupOnline();
         setInterval(onlineWatchdog, 1000);
         window.addEventListener('pagehide', () => {
-            if (G.online && room && G.phase !== 'over') { try { net.updateRoom(room.code, { 'game.status': 'over', 'game.winner': G.online.oppUid }); } catch (e) { /* ignore */ } }
+            if (!(G.online && room && room.code)) return;
+            try {
+                if (G.online.host) net.deleteRoom(room.code);                                                   // host leaves → room gone
+                else net.updateRoom(room.code, { 'game.status': 'over', 'game.winner': G.online.oppUid });        // guest leaves → host wins
+            } catch (e) { /* ignore */ }
         });
         if (DEBUG) setupDebug();
         resetRun();
