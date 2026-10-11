@@ -34,6 +34,7 @@ function fail(err) {
         const {
             getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
             runTransaction, serverTimestamp, deleteField,
+            collection, query, where, getDocs,
         } = fsMod;
 
         const app = initializeApp(window.FIREBASE_CONFIG);
@@ -126,6 +127,22 @@ function fail(err) {
         }
         function deleteRoom(code) { return deleteDoc(roomRef(code)); }
 
+        // Lazy garbage collection: whenever someone opens the lobby, purge rooms with
+        // no activity for a while. Firestore has no onDisconnect, and unload-time
+        // writes aren't reliable, so this is how abandoned/F5'd rooms get cleaned —
+        // reliably, for free, next time anyone uses the app. Live games refresh
+        // lastActionAt every round, so they're never collected mid-match.
+        async function cleanupStaleRooms(maxAgeMs) {
+            try {
+                const cutoff = new Date(Date.now() - (maxAgeMs || 5 * 60 * 1000));
+                const snap = await getDocs(query(collection(db, ROOMS), where('lastActionAt', '<', cutoff)));
+                const dels = [];
+                snap.forEach((d) => dels.push(deleteDoc(d.ref)));
+                await Promise.allSettled(dels);
+                return snap.size;
+            } catch (e) { console.warn('[ArcadeNet] cleanup', e && (e.message || e)); return 0; }
+        }
+
         window.ArcadeNet = {
             ok: true,
             sdk: SDK,
@@ -136,7 +153,7 @@ function fail(err) {
             signInGuest() { return signInAnonymously(auth); },
             signOut() { return signOut(auth); },
             // rooms
-            createRoom, joinRoom, leaveRoom, deleteRoom,
+            createRoom, joinRoom, leaveRoom, deleteRoom, cleanupStaleRooms,
             watchRoom(code, cb) { return onSnapshot(roomRef(code), (s) => cb(s.exists() ? s.data() : null), (err) => cb(null, err)); },
             updateRoom(code, data) { return updateDoc(roomRef(code), Object.assign({ lastActionAt: serverTimestamp() }, data)); },
             getRoom(code) { return getDoc(roomRef(code)).then((s) => (s.exists() ? s.data() : null)); },

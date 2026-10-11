@@ -1005,7 +1005,7 @@
                 if (label) label.textContent = state === 'paused' ? t('resume') : t('pause');
             }
             if (dom.restartBtn) {
-                dom.restartBtn.disabled = state === 'idle';
+                dom.restartBtn.disabled = state === 'idle' || (opts.canRestart ? !opts.canRestart() : false);
             }
         }
 
@@ -1036,6 +1036,7 @@
         }
         if (dom.restartBtn) {
             dom.restartBtn.addEventListener('click', () => {
+                if (opts.canRestart && !opts.canRestart()) return;
                 audio.play('click');
                 restartToReady ? goIdle() : start();
             });
@@ -1060,6 +1061,7 @@
                 return;
             }
             if (k === 'r' || k === 'R') {
+                if (opts.canRestart && !opts.canRestart()) return;
                 if (state !== 'idle') (restartToReady ? goIdle() : start());
                 return;
             }

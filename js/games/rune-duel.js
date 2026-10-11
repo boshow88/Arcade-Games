@@ -1464,7 +1464,7 @@
         else if (room && room.data) { const opp = opponentName(room.data); s = opp ? t('rdMatched', opp) : t('rdRoomCreated', room.code); }
         lobbyRefs.status.textContent = s;
     }
-    function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); markDirty(); }
+    function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); markDirty(); if (net.cleanupStaleRooms) net.cleanupStaleRooms().catch(() => {}); }
     function closeLobby() { if (lobbyEl) lobbyEl.hidden = true; markDirty(); }
 
     function setupOnline() {
@@ -1475,6 +1475,7 @@
             net = N;
             buildLobby();
             net.onAuth((u) => { netUser = u; renderLobby(); });
+            if (net.cleanupStaleRooms) net.cleanupStaleRooms().catch(() => {});   // purge abandoned rooms on load
             if (btn) { btn.hidden = false; btn.addEventListener('click', openLobby); }
         };
         if (window.ArcadeNet) onReady();
@@ -1495,6 +1496,7 @@
             overlayContent,
             restartToReady: true,
             canPause: () => !G.online,     // no pausing during online PvP
+            canRestart: () => !G.online,   // no restart during online PvP
         });
         document.addEventListener('pointerdown', onPointerDown, { passive: false });
         window.addEventListener('pointermove', onPointerMove, { passive: false });
