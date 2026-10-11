@@ -803,6 +803,17 @@
         G.online.waitSince = Date.now();
         net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0 } }).catch((e) => console.warn('[duel]', e));
     }
+    // Heartbeat: keep our own room's lastActionAt fresh (so it's never GC'd while we're
+    // present), and periodically purge rooms others abandoned. Firestore has no
+    // onDisconnect, so this is how F5'd/closed rooms get cleaned — reliably & for free,
+    // within ~90s, without anyone needing to reopen the lobby.
+    function heartbeatAndGc() {
+        if (!net) return;
+        if (room && room.code && netUser && room.data && room.data.players && room.data.players[netUser.uid]) {
+            net.updateRoom(room.code, {}).catch(() => {});
+        }
+        net.cleanupStaleRooms().catch(() => {});
+    }
     function forfeitOpponent() {
         if (!G.online) return;
         net.updateRoom(room.code, { 'game.status': 'over', 'game.winner': G.online.myUid }).catch(() => {});
@@ -1505,6 +1516,7 @@
         AC.i18n.subscribe(() => { markDirty(); updateHud(); if (lobbyEl && !lobbyEl.hidden) renderLobby(); });
         setupOnline();
         setInterval(onlineWatchdog, 1000);
+        setInterval(heartbeatAndGc, 30000);
         window.addEventListener('pagehide', () => {
             if (!(G.online && room && room.code)) return;
             try {

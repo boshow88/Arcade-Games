@@ -134,7 +134,7 @@ function fail(err) {
         // lastActionAt every round, so they're never collected mid-match.
         async function cleanupStaleRooms(maxAgeMs) {
             try {
-                const cutoff = new Date(Date.now() - (maxAgeMs || 5 * 60 * 1000));
+                const cutoff = new Date(Date.now() - (maxAgeMs || 90 * 1000));
                 const snap = await getDocs(query(collection(db, ROOMS), where('lastActionAt', '<', cutoff)));
                 const dels = [];
                 snap.forEach((d) => dels.push(deleteDoc(d.ref)));
