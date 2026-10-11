@@ -49,7 +49,8 @@
         rdCard_shCombo: 'Combo Shield', rdCardd_shCombo: 'Shield: the rival needs 5+ combos to hit you.',
         rdCard_shBan: 'Taboo Shield', rdCardd_shBan: 'Shield: if the rival clears the named colour, its attack is blocked.',
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
-        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw +1', rdTimeUp: 'Time up!',
+        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!',
+        rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
         rdOnline: 'Online duel', rdOnlineBtn: 'Online', rdClose: 'Close',
         rdSignInGoogle: 'Sign in with Google', rdSignInGuest: 'Play as guest', rdSignOut: 'Sign out', rdGuest: 'Guest',
         rdSignedIn: (name) => `Signed in: ${name}`, rdSignInFirst: 'Sign in to create or join a room.',
@@ -92,7 +93,8 @@
         rdCard_shCombo: '連擊盾', rdCardd_shCombo: '盾：對手要 5+ 連擊才打得到你。',
         rdCard_shBan: '禁消盾', rdCardd_shBan: '盾：對手若消到指定顏色，攻擊被擋。',
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
-        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌 +1', rdTimeUp: '時間到！',
+        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！',
+        rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
         rdOnline: '線上對戰', rdOnlineBtn: '線上', rdClose: '關閉',
         rdSignInGoogle: '用 Google 登入', rdSignInGuest: '以訪客身分遊玩', rdSignOut: '登出', rdGuest: '訪客',
         rdSignedIn: (name) => `已登入：${name}`, rdSignInFirst: '登入後即可建立或加入房間。',
@@ -121,6 +123,8 @@
     const COLS = 6, ROWS = 5;
     const CELL = 100;
     const BOARD_TOP = H - ROWS * CELL; // = 260
+    // layout anchors for the top HUD (above the board) — tweak here to re-space
+    const LAY = { handY: 58, handH: 94, energyY: 162, actY: 172, actH: 32, youShieldY: 214, youHpY: 238, youHpH: 12 };
 
     const ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark', 'heart'];
     const ATTACK_ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark'];
@@ -159,7 +163,7 @@
     };
     const DUEL = {
         hp: 2500, maxRounds: 30,
-        energy: 10, handSize: 4, maxHand: 7, drawCost: 2,   // extra draw digs for a card you need
+        energy: 10, startPerType: 2, maxPerType: 3, drawCost: 2,   // balanced draw: each type capped separately
         phaseTime: 20,                  // seconds to decide in the defense / attack phase
         aiThink: 1.1,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
@@ -417,17 +421,16 @@
         if (G.resolving || G.held || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         if (onlineWaiting()) { if (e.cancelable) e.preventDefault(); return; }
         if (p.y < BOARD_TOP) {
-            if (G.phase === 'defense' && inRect(p, doneButtonRect())) { AC.audio.unlock(); if (G.online) submitDefense(); else startAttackPhase(); if (e.cancelable) e.preventDefault(); return; }
-            if (canDrawMore() && inRect(p, drawMoreRect())) { AC.audio.unlock(); G.cardSel = null; drawOneCard(); if (e.cancelable) e.preventDefault(); return; }
+            // action row: when a card is selected it shows big Play / Discard buttons
+            if (G.cardSel != null) {
+                if (inRect(p, playBtnRect())) { const i = G.cardSel; G.cardSel = null; AC.audio.unlock(); playCard(i); if (e.cancelable) e.preventDefault(); return; }
+                if (inRect(p, discardBtnRect())) { const i = G.cardSel; G.cardSel = null; AC.audio.unlock(); discardCard(i); if (e.cancelable) e.preventDefault(); return; }
+            } else {
+                if (G.phase === 'defense' && inRect(p, doneButtonRect())) { AC.audio.unlock(); if (G.online) submitDefense(); else startAttackPhase(); if (e.cancelable) e.preventDefault(); return; }
+                if (canDrawMore() && inRect(p, drawMoreRect())) { AC.audio.unlock(); drawOneCard(); if (e.cancelable) e.preventDefault(); return; }
+            }
             for (const base of handTileRects()) {
-                const b = tileRect(base);
-                if (inRect(p, cardCloseRect(b))) { AC.audio.unlock(); G.cardSel = null; discardCard(base.i); if (e.cancelable) e.preventDefault(); return; }
-                if (inRect(p, b)) {
-                    AC.audio.unlock();
-                    if (G.cardSel === base.i) { G.cardSel = null; playCard(base.i); }   // second tap → play
-                    else { G.cardSel = base.i; }                                        // first tap → select/enlarge
-                    if (e.cancelable) e.preventDefault(); return;
-                }
+                if (inRect(p, tileRect(base))) { AC.audio.unlock(); G.cardSel = (G.cardSel === base.i ? null : base.i); if (e.cancelable) e.preventDefault(); return; }
             }
             G.cardSel = null;   // tapped empty area → deselect
             return;
@@ -460,21 +463,26 @@
     function effectiveSpinTime() { return Math.max(2, BALANCE.spinTime - (G.spinPenalty || 0)) + (G.bonusTimeNext || 0); }
     // One persistent hand: deal once at the start, then draw a single new card each
     // round. Unplayed cards carry over (they no longer re-roll every phase).
+    function countType(type) { let n = 0; for (const id of G.hand) if (CARDS[id].type === type) n++; return n; }
+    function drawOfType(type) {
+        if (countType(type) >= DUEL.maxPerType) return false;
+        const pool = type === 'defense' ? DEF_IDS : ENH_IDS;
+        G.hand.push(pool[AC.rng.int(G.rng, 0, pool.length)]);
+        return true;
+    }
     function dealStartingHand() {
         G.hand = [];
-        for (let i = 0; i < DUEL.handSize; i++) G.hand.push(ALL_IDS[AC.rng.int(G.rng, 0, ALL_IDS.length)]);
+        for (let i = 0; i < DUEL.startPerType; i++) { drawOfType('defense'); drawOfType('enhance'); }
     }
-    function drawRoundCard() {
-        if (G.hand.length >= DUEL.maxHand) return;
-        G.hand.push(ALL_IDS[AC.rng.int(G.rng, 0, ALL_IDS.length)]);
-    }
+    function drawRoundCard() { drawOfType('defense'); drawOfType('enhance'); }   // balanced: +1 of each type per round
+    function curType() { return G.phase === 'defense' ? 'defense' : 'enhance'; }
     function canDrawMore() {
         return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.transmute && !onlineWaiting()
-            && G.hand.length < DUEL.maxHand && G.energy >= DUEL.drawCost;
+            && countType(curType()) < DUEL.maxPerType && G.energy >= DUEL.drawCost;
     }
     function drawOneCard() {
         if (!canDrawMore()) return;
-        G.hand.push(ALL_IDS[AC.rng.int(G.rng, 0, ALL_IDS.length)]);
+        drawOfType(curType());
         G.energy -= DUEL.drawCost;
         AC.audio.play('click');
         updateHud();
@@ -1037,8 +1045,9 @@
         drawFloats();
         ctx.restore();
         drawHand();
-        if (G.phase === 'defense') drawDoneButton();
-        drawDrawButton();
+        drawEnergyPips();
+        if (G.cardSel != null) drawCardActions();
+        else { if (G.phase === 'defense') drawDoneButton(); drawDrawButton(); }
         drawPhaseTimer();
         drawSpinTimer();
         if (G.transmute) drawTransmuteHint();
@@ -1196,11 +1205,6 @@
         drawBar(22, 20, (G.online ? MINI.ox - 34 : W - 44), 12, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
         ctx.textBaseline = 'middle';
-        ctx.font = `600 12px ${f}`; ctx.textAlign = 'left';
-        const status = onlineWaiting() ? t('rdWaitingOpp') : (G.phase === 'ai' ? t('rdThinking') : G.phase === 'defense' ? t('rdDefense') : t('rdAttack'));
-        ctx.fillStyle = G.phase === 'ai' ? '#ffcf5a' : accent();
-        ctx.fillText(status, 22, 46);
-
         // shield pills (right-aligned, may be several)
         let px = rightEdge;
         for (let i = G.aiShields.length - 1; i >= 0; i--) {
@@ -1220,29 +1224,33 @@
     }
     function drawYouBar() {
         const f = getFont();
-        ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(t('rdHp'), 22, 74);
-        const ratio = G.youHp / G.youMaxHp;
-        const col = ratio <= 0.3 ? '#ff6b6b' : '#6bd98a';
-        const barX = 54, barW = (G.online ? MINI.ox - 12 : W - 22) - barX;
-        drawBar(barX, 65, barW, 12, ratio, col, Math.max(0, Math.ceil(G.youHp)) + ' / ' + G.youMaxHp);
+        // your defence state (shields + spin penalty), on your side just above your HP
+        const defs = G.youShields.map((s) => shieldLabel(s));
+        if (G.spinPenalty > 0) defs.push('-' + G.spinPenalty + 's');
+        if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(defs.join(' · '), 22, LAY.youShieldY); }
+        // HP bar hugging the board (right above the timer bar)
+        ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText(t('rdHp'), 22, LAY.youHpY + 10);
+        const ratio = G.youHp / G.youMaxHp, col = ratio <= 0.3 ? '#ff6b6b' : '#6bd98a';
+        drawBar(54, LAY.youHpY, W - 76, LAY.youHpH, ratio, col, Math.max(0, Math.ceil(G.youHp)) + ' / ' + G.youMaxHp);
     }
 
     // card hand — tiles show name + effect + cost inline; tap to select (pops up),
     // tap again to play; the × badge discards. No modal popup.
     function handTileRects() {
-        const n = G.hand.length;
+        const order = G.hand.map((id, i) => ({ id, i })).sort((a, b) => (cardPhaseOk(b.id) ? 1 : 0) - (cardPhaseOk(a.id) ? 1 : 0));
+        const n = order.length;
         if (n === 0) return [];
-        const gap = 7, h = 84, y = 110;
+        const gap = 7, h = LAY.handH, y = LAY.handY;
         const w = Math.min(120, (W - 24 - gap * (n - 1)) / Math.max(n, 1));
         const x0 = (W - (w * n + gap * (n - 1))) / 2;
-        return G.hand.map((id, i) => ({ i, id, x: x0 + i * (w + gap), y, w, h }));
+        return order.map((o, k) => ({ i: o.i, id: o.id, x: x0 + k * (w + gap), y, w, h }));
     }
-    function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 3, y: b.y - 9, w: b.w + 6, h: b.h + 11 } : b; }
-    function cardCloseRect(r) { return { x: r.x + r.w - 19, y: r.y + 3, w: 16, h: 16 }; }
-    function doneButtonRect() { return { x: W / 2 - 90, y: 202, w: 180, h: 34 }; }
-    function drawMoreRect() { return { x: 16, y: 202, w: 104, h: 34 }; }
+    function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 3, y: b.y - 10, w: b.w + 6, h: b.h + 12 } : b; }
+    function doneButtonRect() { return { x: W / 2 - 90, y: LAY.actY, w: 180, h: LAY.actH }; }
+    function drawMoreRect() { return { x: 16, y: LAY.actY, w: 100, h: LAY.actH }; }
+    function playBtnRect() { return { x: W / 2 - 150, y: LAY.actY, w: 146, h: LAY.actH }; }
+    function discardBtnRect() { return { x: W / 2 + 4, y: LAY.actY, w: 146, h: LAY.actH }; }
     function drawDrawButton() {
         if (!shell || !shell.isPlaying()) return;
         if (G.phase !== 'defense' && G.phase !== 'attack') return;
@@ -1255,7 +1263,7 @@
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
         ctx.fillStyle = ok ? '#fff' : 'rgba(255,255,255,0.4)';
         ctx.font = `700 13px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText(t('rdDraw') + ' (' + DUEL.drawCost + ')', b.x + b.w / 2, b.y + b.h / 2);
+        ctx.fillText(t('rdDraw') + ' ' + DUEL.drawCost, b.x + b.w / 2, b.y + b.h / 2);
         ctx.restore();
     }
     function drawDoneButton() {
@@ -1272,13 +1280,6 @@
     function drawHand() {
         if (!shell || !shell.isPlaying()) return;
         const f = getFont();
-        // energy (left) + your active defenses (right)
-        ctx.fillStyle = accent();
-        ctx.font = `800 14px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(t('rdEnergy') + ' ' + G.energy + ' / ' + DUEL.energy, 22, 96);
-        const defs = G.youShields.map((s) => shieldLabel(s));
-        if (G.spinPenalty > 0) defs.push('-' + G.spinPenalty + 's');
-        if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'right'; ctx.fillText(defs.join(' · '), W - 22, 96); }
         let selected = null;
         for (const base of handTileRects()) {
             if (base.i === G.cardSel) { selected = base; continue; }   // draw selected last (on top)
@@ -1288,35 +1289,55 @@
     }
     function drawCardTile(base, f) {
         const b = tileRect(base), c = CARDS[b.id], sel = base.i === G.cardSel;
-        const ok = (G.phase === 'defense' || G.phase === 'attack') && cardPhaseOk(b.id) && G.energy >= c.cost && playable(b.id);
+        const active = cardPhaseOk(b.id);   // this phase's type is bright; the other dimmed
+        const ok = active && G.energy >= c.cost && playable(b.id);
         ctx.save();
-        ctx.fillStyle = sel ? 'rgba(217,84,78,0.34)' : (ok ? 'rgba(217,84,78,0.14)' : 'rgba(255,255,255,0.05)');
+        ctx.globalAlpha = active ? 1 : 0.5;
+        ctx.fillStyle = sel ? 'rgba(217,84,78,0.34)' : (ok ? 'rgba(217,84,78,0.14)' : 'rgba(255,255,255,0.06)');
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
-        ctx.lineWidth = sel ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : (ok ? accent() : 'rgba(255,255,255,0.15)');
+        ctx.lineWidth = sel ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : (ok ? accent() : 'rgba(255,255,255,0.18)');
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
         // cost (top-left)
-        ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.35)';
+        ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.45)';
         ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(String(c.cost), b.x + 8, b.y + 20);
         // name
-        ctx.fillStyle = ok || sel ? '#fff' : 'rgba(255,255,255,0.5)';
+        ctx.fillStyle = '#fff';
         ctx.font = `700 14px ${f}`; ctx.textAlign = 'center';
         ctx.fillText(t('rdCard_' + b.id), b.x + b.w / 2, b.y + 20);
         // short effect (wrapped, up to 3 lines)
-        ctx.fillStyle = 'rgba(230,236,255,0.72)'; ctx.font = `500 11px ${f}`;
+        ctx.fillStyle = 'rgba(230,236,255,0.82)'; ctx.font = `500 11px ${f}`;
         let ey = b.y + 42;
         const lines = wrapLines(t('rdCardShort_' + b.id), b.w - 12);
         for (let k = 0; k < Math.min(lines.length, 3); k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 14; }
-        // bottom: "tap to play" when selected
-        if (sel) {
-            ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.4)';
-            ctx.font = `700 11px ${f}`; ctx.fillText(t('rdTapPlay'), b.x + b.w / 2, b.y + b.h - 8);
+        ctx.restore();
+    }
+    function drawEnergyPips() {
+        if (!shell || !shell.isPlaying()) return;
+        if (G.phase !== 'defense' && G.phase !== 'attack') return;
+        const r = 5, gap = 5, x0 = 22, y = LAY.energyY, max = DUEL.energy;
+        for (let i = 0; i < max; i++) {
+            ctx.beginPath(); ctx.arc(x0 + r + i * (r * 2 + gap), y, r, 0, PI2);
+            ctx.fillStyle = i < G.energy ? accent() : 'rgba(255,255,255,0.16)'; ctx.fill();
         }
-        // × discard badge (top-right)
-        const xr = cardCloseRect(b);
-        ctx.fillStyle = 'rgba(255,255,255,0.12)'; roundRect(xr.x, xr.y, xr.w, xr.h, 5); ctx.fill();
-        ctx.fillStyle = 'rgba(255,255,255,0.75)'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillText('\u00d7', xr.x + xr.w / 2, xr.y + xr.h / 2 + 1);
+        const f = getFont();
+        ctx.fillStyle = 'rgba(255,255,255,0.65)'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'right'; ctx.textBaseline = 'middle';
+        ctx.fillText(onlineWaiting() ? t('rdWaitingOpp') : t(G.phase === 'defense' ? 'rdPhaseDef' : 'rdPhaseAtk'), W - 22, y);
+    }
+    function drawCardActions() {
+        if (!shell || !shell.isPlaying() || G.cardSel == null) return;
+        const id = G.hand[G.cardSel]; if (!id) { G.cardSel = null; return; }
+        const c = CARDS[id], f = getFont();
+        const ok = (G.phase === 'defense' || G.phase === 'attack') && cardPhaseOk(id) && G.energy >= c.cost && playable(id);
+        const pb = playBtnRect(), db = discardBtnRect();
+        ctx.save();
+        ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.1)';
+        roundRect(pb.x, pb.y, pb.w, pb.h, 9); ctx.fill();
+        ctx.fillStyle = ok ? '#1a1526' : 'rgba(255,255,255,0.4)'; ctx.font = `800 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillText(t('rdPlay'), pb.x + pb.w / 2, pb.y + pb.h / 2);
+        ctx.fillStyle = 'rgba(255,255,255,0.08)'; roundRect(db.x, db.y, db.w, db.h, 9); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.28)'; roundRect(db.x, db.y, db.w, db.h, 9); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillText(t('rdDiscard'), db.x + db.w / 2, db.y + db.h / 2);
         ctx.restore();
     }
     // Transmute colour picker — choose source then target colour directly (no board tapping).
