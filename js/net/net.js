@@ -32,7 +32,7 @@ function fail(err) {
             GoogleAuthProvider, signInWithPopup,
         } = authMod;
         const {
-            getFirestore, doc, getDoc, setDoc, updateDoc, onSnapshot,
+            getFirestore, doc, getDoc, setDoc, updateDoc, deleteDoc, onSnapshot,
             runTransaction, serverTimestamp, deleteField,
         } = fsMod;
 
@@ -108,23 +108,23 @@ function fail(err) {
             if (!user) return;
             const ref = roomRef(code);
             try {
-                await runTransaction(db, async (tx) => {
-                    const snap = await tx.get(ref);
-                    if (!snap.exists()) return;
-                    const d = snap.data();
-                    const upd = { [`players.${user.uid}`]: deleteField(), lastActionAt: serverTimestamp() };
-                    if (d.hostUid === user.uid) {
-                        upd.status = 'finished';                      // host closed the room
-                    } else {
-                        const slots = Array.isArray(d.slots) ? d.slots.slice() : [d.hostUid || null, null];
-                        if (slots[1] === user.uid) slots[1] = null;   // free the guest seat
-                        upd.slots = slots;
-                        if (d.status !== 'finished') upd.status = 'waiting';
-                    }
-                    tx.update(ref, upd);
+                const snap = await getDoc(ref);
+                if (!snap.exists()) return;
+                if (snap.data().hostUid === user.uid) {
+                    await deleteDoc(ref);                             // host closes → remove the room entirely
+                    return;
+                }
+                await runTransaction(db, async (tx) => {              // guest leaves → free the seat, reopen the room
+                    const s = await tx.get(ref);
+                    if (!s.exists()) return;
+                    const d = s.data();
+                    const slots = Array.isArray(d.slots) ? d.slots.slice() : [d.hostUid || null, null];
+                    if (slots[1] === user.uid) slots[1] = null;
+                    tx.update(ref, { [`players.${user.uid}`]: deleteField(), slots, status: d.status !== 'finished' ? 'waiting' : d.status, lastActionAt: serverTimestamp() });
                 });
             } catch (e) { /* ignore */ }
         }
+        function deleteRoom(code) { return deleteDoc(roomRef(code)); }
 
         window.ArcadeNet = {
             ok: true,
@@ -136,7 +136,7 @@ function fail(err) {
             signInGuest() { return signInAnonymously(auth); },
             signOut() { return signOut(auth); },
             // rooms
-            createRoom, joinRoom, leaveRoom,
+            createRoom, joinRoom, leaveRoom, deleteRoom,
             watchRoom(code, cb) { return onSnapshot(roomRef(code), (s) => cb(s.exists() ? s.data() : null), (err) => cb(null, err)); },
             updateRoom(code, data) { return updateDoc(roomRef(code), Object.assign({ lastActionAt: serverTimestamp() }, data)); },
             getRoom(code) { return getDoc(roomRef(code)).then((s) => (s.exists() ? s.data() : null)); },

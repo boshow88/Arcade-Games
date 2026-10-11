@@ -747,8 +747,12 @@
     function duelOver(win) {
         if (G.phase === 'over') return;
         G.phase = 'over';
+        const wasOnline = !!G.online;
+        const code = room && room.code;
         G.online = null;   // return to normal (vs-AI) flow on restart
         shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win } });
+        // clean up the room shortly after both sides have shown the result
+        if (wasOnline && code && net) { setTimeout(() => { net.deleteRoom(code).catch(() => {}); detachRoom(); }, 3000); }
     }
 
     function addFloat(x, y, text, color, size) { G.floats.push({ x, y, text, color, size: size || 18, t: 0, life: 0.9 }); }
