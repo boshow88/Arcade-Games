@@ -89,10 +89,12 @@ function fail(err) {
                 if (!snap.exists()) throw new Error('room not found');
                 const d = snap.data();
                 if (d.players && d.players[user.uid]) return code;   // rejoin
-                if (d.status !== 'waiting' || (d.slots && d.slots[1])) throw new Error('room full');
+                const slots = Array.isArray(d.slots) ? d.slots.slice() : [d.hostUid || null, null];
+                if (d.status !== 'waiting' || slots[1]) throw new Error('room full');
+                slots[1] = user.uid;                                 // write the whole array (no array dot-paths)
                 tx.update(ref, {
                     status: 'playing',
-                    'slots.1': user.uid,
+                    slots,
                     [`players.${user.uid}`]: { uid: user.uid, name: user.name, photo: user.photo, anon: user.anon, slot: 1 },
                     round: 1,
                     lastActionAt: serverTimestamp(),
@@ -103,7 +105,24 @@ function fail(err) {
 
         async function leaveRoom(code) {
             if (!user) return;
-            try { await updateDoc(roomRef(code), { [`players.${user.uid}`]: deleteField(), status: 'finished', lastActionAt: serverTimestamp() }); } catch (e) { /* ignore */ }
+            const ref = roomRef(code);
+            try {
+                await runTransaction(db, async (tx) => {
+                    const snap = await tx.get(ref);
+                    if (!snap.exists()) return;
+                    const d = snap.data();
+                    const upd = { [`players.${user.uid}`]: deleteField(), lastActionAt: serverTimestamp() };
+                    if (d.hostUid === user.uid) {
+                        upd.status = 'finished';                      // host closed the room
+                    } else {
+                        const slots = Array.isArray(d.slots) ? d.slots.slice() : [d.hostUid || null, null];
+                        if (slots[1] === user.uid) slots[1] = null;   // free the guest seat
+                        upd.slots = slots;
+                        if (d.status !== 'finished') upd.status = 'waiting';
+                    }
+                    tx.update(ref, upd);
+                });
+            } catch (e) { /* ignore */ }
         }
 
         window.ArcadeNet = {

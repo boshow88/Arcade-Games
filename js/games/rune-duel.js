@@ -763,7 +763,7 @@
     function enterOnline(data) {
         if (!netUser) return;
         const myUid = netUser.uid;
-        const oppUid = (data.slots || []).find((u) => u && u !== myUid) || null;
+        const oppUid = Object.keys(data.players || {}).find((u) => u !== myUid) || null;
         if (!oppUid) return;
         G.online = {
             myUid, oppUid,
@@ -840,8 +840,8 @@
     }
     function hostStartGame() {
         if (!room || !room.data) return;
-        const h = room.data.hostUid, slots = room.data.slots || [];
-        const guest = slots.find((u) => u && u !== h);
+        const h = room.data.hostUid;
+        const guest = Object.keys(room.data.players || {}).find((u) => u !== h);
         if (!guest) return;
         const hp = {}; hp[h] = DUEL.hp; hp[guest] = DUEL.hp;
         net.updateRoom(room.code, { 'game.status': 'playing', 'game.round': 1, 'game.hp': hp, 'game.def': {}, 'game.atk': {}, 'game.winner': null }).catch((e) => showLobbyError(e));
