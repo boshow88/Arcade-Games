@@ -854,7 +854,10 @@
         // tabs can no longer pause/stall the match: your move auto-submits at the deadline.
         if (!onlineWaiting() && now > (G.online.phaseDeadline || Infinity)) {
             if (G.phase === 'defense' && G.online.sub === 'def') { onPhaseTimeout(); return; }
-            if (G.phase === 'attack' && G.online.sub === 'atk' && !G.held) { onPhaseTimeout(); return; }
+            // never cut in while a spin is dragging OR its cascade is resolving — once a
+            // spin starts it finishes on its own timer and submits via finishResolve,
+            // even past the deadline. (This was the mid-cascade "freeze" cause.)
+            if (G.phase === 'attack' && G.online.sub === 'atk' && !G.held && !G.resolving) { onPhaseTimeout(); return; }
         }
         // (1) opponent idle too long → they forfeit, you win
         if (onlineWaiting()) {
