@@ -175,6 +175,7 @@
     };
     const DEF_IDS = Object.keys(CARDS).filter((id) => CARDS[id].type === 'defense');
     const ENH_IDS = Object.keys(CARDS).filter((id) => CARDS[id].type === 'enhance');
+    const ALL_IDS = Object.keys(CARDS);   // one persistent hand draws from the whole pool
 
     // =================================================================
     // State
@@ -393,7 +394,7 @@
         const p = boardPos(e);
         if (G.cardPopup) {
             const L = cardPopupLayout(), id = G.hand[G.cardPopup.i], c = id && CARDS[id];
-            if (c && G.energy >= c.cost && playable(id) && inRect(p, L.cast)) { const i = G.cardPopup.i; G.cardPopup = null; AC.audio.unlock(); playCard(i); }
+            if (c && G.energy >= c.cost && playable(id) && cardPhaseOk(id) && inRect(p, L.cast)) { const i = G.cardPopup.i; G.cardPopup = null; AC.audio.unlock(); playCard(i); }
             else if (!inRect(p, L.card)) { G.cardPopup = null; }
             if (e.cancelable) e.preventDefault();
             return;
@@ -445,10 +446,15 @@
     // =================================================================
 
     function effectiveSpinTime() { return Math.max(2, BALANCE.spinTime - (G.spinPenalty || 0)) + (G.bonusTimeNext || 0); }
-    function drawHandCards(type) {
-        const pool = type === 'defense' ? DEF_IDS : ENH_IDS;
+    // One persistent hand: deal once at the start, then draw a single new card each
+    // round. Unplayed cards carry over (they no longer re-roll every phase).
+    function dealStartingHand() {
         G.hand = [];
-        for (let i = 0; i < DUEL.handSize; i++) G.hand.push(pool[AC.rng.int(G.rng, 0, pool.length)]);
+        for (let i = 0; i < DUEL.handSize; i++) G.hand.push(ALL_IDS[AC.rng.int(G.rng, 0, ALL_IDS.length)]);
+    }
+    function drawRoundCard() {
+        if (G.hand.length >= DUEL.maxHand) return;
+        G.hand.push(ALL_IDS[AC.rng.int(G.rng, 0, ALL_IDS.length)]);
     }
     function canDrawMore() {
         return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.cardPopup && !G.transmute && !onlineWaiting()
@@ -456,8 +462,7 @@
     }
     function drawOneCard() {
         if (!canDrawMore()) return;
-        const pool = G.phase === 'defense' ? DEF_IDS : ENH_IDS;
-        G.hand.push(pool[AC.rng.int(G.rng, 0, pool.length)]);
+        G.hand.push(ALL_IDS[AC.rng.int(G.rng, 0, ALL_IDS.length)]);
         G.energy -= DUEL.drawCost;
         AC.audio.play('click');
         updateHud();
@@ -701,11 +706,11 @@
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
         G.phaseTimer = DUEL.phaseTime;
-        if (G.online) { G.online.sub = 'def'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; drawHandCards('defense'); updateHud(); return; }
+        if (G.round > 1) drawRoundCard();     // one new card per round; the rest of the hand persists
+        if (G.online) { G.online.sub = 'def'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; updateHud(); return; }
         const plan = aiDefend(G.round);
         G.aiShields = plan.shields;
         G.spinPenalty = plan.hastenYou ? 2 : 0;   // rival's hasten shortens your spin this round
-        drawHandCards('defense');
         updateHud();
     }
     function startAttackPhase() {
@@ -714,7 +719,6 @@
         G.cardPopup = null;
         G.phaseTimer = DUEL.phaseTime;
         if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; }
-        drawHandCards('enhance');
         updateHud();
     }
     // Phase clock ran out: defense → go attack; attack (not yet spinning) → forfeit
@@ -1187,7 +1191,7 @@
         if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'right'; ctx.fillText(defs.join(' · '), W - 22, 142); }
         for (const b of handTileRects()) {
             const c = CARDS[b.id];
-            const ok = (G.phase === 'defense' || G.phase === 'attack') && G.energy >= c.cost && playable(b.id);
+            const ok = (G.phase === 'defense' || G.phase === 'attack') && cardPhaseOk(b.id) && G.energy >= c.cost && playable(b.id);
             ctx.save();
             ctx.fillStyle = ok ? 'rgba(217,84,78,0.16)' : 'rgba(255,255,255,0.05)';
             roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
@@ -1212,7 +1216,7 @@
         if (!id) { G.cardPopup = null; return; }
         const c = CARDS[id];
         const f = getFont(), ac = accent();
-        const ok = G.energy >= c.cost && playable(id);
+        const ok = G.energy >= c.cost && playable(id) && cardPhaseOk(id);
         const L = cardPopupLayout(), card = L.card, cx = card.x + card.w / 2;
         ctx.save();
         ctx.fillStyle = 'rgba(8,6,16,0.74)';
@@ -1336,6 +1340,7 @@
         G.aiSpinPenalty = 0;
         board = G.board = new Array(COLS * ROWS).fill(null);
         fillBoardNoMatches();
+        dealStartingHand();
         startDefensePhase();
         if (shell) shell.refreshBest();
     }
