@@ -50,6 +50,13 @@
         rdCard_shBan: 'Taboo Shield', rdCardd_shBan: 'Shield: if the rival clears the named colour, its attack is blocked.',
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw +1', rdTimeUp: 'Time up!',
+        rdOnline: 'Online duel', rdOnlineBtn: 'Online', rdClose: 'Close',
+        rdSignInGoogle: 'Sign in with Google', rdSignInGuest: 'Play as guest', rdSignOut: 'Sign out', rdGuest: 'Guest',
+        rdSignedIn: (name) => `Signed in: ${name}`, rdSignInFirst: 'Sign in to create or join a room.',
+        rdCreateRoom: 'Create room', rdJoinRoom: 'Join', rdRoomCode: 'Code', rdLeaveRoom: 'Leave room',
+        rdRoomCreated: (code) => `Room ${code} — waiting for opponent\u2026`, rdWaitingOpp: 'Waiting for opponent\u2026',
+        rdMatched: (name) => `Matched with ${name}! (Online sync arrives in the next step.)`,
+        rdRoomNotFound: 'Room not found', rdRoomFull: 'Room is full', rdNetErr: 'Network error',
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
@@ -81,6 +88,13 @@
         rdCard_shBan: '禁消盾', rdCardd_shBan: '盾：對手若消到指定顏色，攻擊被擋。',
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌 +1', rdTimeUp: '時間到！',
+        rdOnline: '線上對戰', rdOnlineBtn: '線上', rdClose: '關閉',
+        rdSignInGoogle: '用 Google 登入', rdSignInGuest: '以訪客身分遊玩', rdSignOut: '登出', rdGuest: '訪客',
+        rdSignedIn: (name) => `已登入：${name}`, rdSignInFirst: '登入後即可建立或加入房間。',
+        rdCreateRoom: '建立房間', rdJoinRoom: '加入', rdRoomCode: '房號', rdLeaveRoom: '離開房間',
+        rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
+        rdMatched: (name) => `已配對：${name}！（對戰同步功能將於下一步完成。）`,
+        rdRoomNotFound: '找不到房間', rdRoomFull: '房間已滿', rdNetErr: '連線錯誤',
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
@@ -1125,6 +1139,131 @@
         startDefensePhase();
         if (shell) shell.refreshBest();
     }
+    // =================================================================
+    // Online lobby (Google / guest sign-in + room-code matchmaking)
+    // Stage 1: auth + pairing. Per-round sync arrives next.
+    // =================================================================
+
+    let net = null;             // window.ArcadeNet once it's ready & ok
+    let netUser = undefined;    // undefined = unknown, null = signed out, else {uid,name,...}
+    let room = null;            // { code, data, unsub }
+    let lobbyEl = null, lobbyRefs = null;
+
+    function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
+    function lbtn(label, cls) { const b = el('button', cls || 'btn', label); b.type = 'button'; return b; }
+    function lrow() { const r = el('div', 'lobby-row'); for (const a of arguments) if (a) r.appendChild(a); return r; }
+
+    function buildLobby() {
+        const wrap = document.querySelector('.stage-wrap') || document.body;
+        const ov = el('div', 'overlay');
+        ov.id = 'lobby';
+        ov.hidden = true;
+        ov.addEventListener('pointerdown', (e) => e.stopPropagation());   // never fall through to the board
+        const card = el('div', 'overlay-card');
+        const title = el('h2', 'overlay-title');
+        const auth = el('div', 'lobby-auth');
+        const roomBox = el('div', 'lobby-room');
+        const status = el('p', 'lobby-status');
+        const close = lbtn('', 'btn');
+        close.addEventListener('click', closeLobby);
+        card.append(title, auth, roomBox, status, close);
+        ov.appendChild(card);
+        wrap.appendChild(ov);
+        lobbyEl = ov;
+        lobbyRefs = { title, auth, room: roomBox, status, close };
+    }
+
+    function opponentName(data) {
+        if (!data || !data.players || !netUser) return null;
+        for (const uid in data.players) if (uid !== netUser.uid) return data.players[uid].name || t('rdGuest');
+        return null;
+    }
+    function detachRoom() { if (room && room.unsub) { try { room.unsub(); } catch (e) { /* ignore */ } } room = null; }
+    function attachRoom(code) {
+        detachRoom();
+        room = { code, data: null, unsub: null };
+        room.unsub = net.watchRoom(code, (data, err) => {
+            if (err) { showLobbyError(err); return; }
+            if (room) room.data = data;
+            renderLobby();
+        });
+        renderLobby();
+    }
+    function showLobbyError(e) {
+        const m = String((e && e.message) || e);
+        let msg = t('rdNetErr');
+        if (m.indexOf('not found') !== -1) msg = t('rdRoomNotFound');
+        else if (m.indexOf('full') !== -1) msg = t('rdRoomFull');
+        if (lobbyRefs) lobbyRefs.status.textContent = msg;
+        console.warn('[lobby]', e);
+    }
+    async function doSignIn(kind) {
+        try { if (kind === 'google') await net.signInGoogle(); else await net.signInGuest(); }
+        catch (e) { showLobbyError(e); }
+    }
+    async function doCreate() { try { const code = await net.createRoom(seedCounter + 1000); attachRoom(code); } catch (e) { showLobbyError(e); } }
+    async function doJoin(code) {
+        code = String(code || '').trim().toUpperCase();
+        if (!code) return;
+        try { const c = await net.joinRoom(code); attachRoom(c); } catch (e) { showLobbyError(e); }
+    }
+    async function doLeave() { if (room) { const c = room.code; detachRoom(); try { await net.leaveRoom(c); } catch (e) { /* ignore */ } } renderLobby(); }
+
+    function renderLobby() {
+        if (!lobbyEl) return;
+        lobbyRefs.title.textContent = t('rdOnline');
+        lobbyRefs.close.textContent = t('rdClose');
+        const u = netUser;
+        // auth
+        const auth = lobbyRefs.auth; auth.innerHTML = '';
+        if (!u) {
+            const g = lbtn(t('rdSignInGoogle'), 'btn btn-primary'); g.onclick = () => doSignIn('google');
+            const a = lbtn(t('rdSignInGuest'), 'btn'); a.onclick = () => doSignIn('guest');
+            auth.appendChild(lrow(g, a));
+        } else {
+            const info = el('span', null, t('rdSignedIn', u.name || t('rdGuest')));
+            const out = lbtn(t('rdSignOut'), 'btn'); out.onclick = () => { doLeave(); net.signOut(); };
+            auth.appendChild(lrow(info, out));
+        }
+        // room
+        const r = lobbyRefs.room; r.innerHTML = '';
+        if (u && !(room && room.data)) {
+            const create = lbtn(t('rdCreateRoom'), 'btn btn-primary'); create.onclick = doCreate;
+            const input = el('input'); input.placeholder = t('rdRoomCode'); input.maxLength = 4;
+            const join = lbtn(t('rdJoinRoom'), 'btn'); join.onclick = () => doJoin(input.value);
+            input.addEventListener('keydown', (e) => { if (e.key === 'Enter') doJoin(input.value); });
+            r.appendChild(lrow(create));
+            r.appendChild(lrow(input, join));
+        } else if (u && room && room.data && !opponentName(room.data)) {
+            const leave = lbtn(t('rdLeaveRoom'), 'btn'); leave.onclick = doLeave;
+            r.appendChild(lrow(leave));
+        } else if (u && room && room.data && opponentName(room.data)) {
+            const leave = lbtn(t('rdLeaveRoom'), 'btn'); leave.onclick = doLeave;
+            r.appendChild(lrow(leave));
+        }
+        // status
+        let s = '';
+        if (!u) s = t('rdSignInFirst');
+        else if (room && room.data) { const opp = opponentName(room.data); s = opp ? t('rdMatched', opp) : t('rdRoomCreated', room.code); }
+        lobbyRefs.status.textContent = s;
+    }
+    function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); }
+    function closeLobby() { if (lobbyEl) lobbyEl.hidden = true; }
+
+    function setupOnline() {
+        const onReady = () => {
+            const N = window.ArcadeNet;
+            const btn = document.getElementById('online-btn');
+            if (!N || !N.ok) { if (btn) btn.hidden = true; return; }
+            net = N;
+            buildLobby();
+            net.onAuth((u) => { netUser = u; renderLobby(); });
+            if (btn) { btn.hidden = false; btn.addEventListener('click', openLobby); }
+        };
+        if (window.ArcadeNet) onReady();
+        else window.addEventListener('arcade-net-ready', onReady, { once: true });
+    }
+
     function init() {
         fitCanvas();
         window.addEventListener('resize', () => { fitCanvas(); render(); });
@@ -1143,7 +1282,8 @@
         window.addEventListener('pointermove', onPointerMove, { passive: false });
         window.addEventListener('pointerup', onPointerUp);
         window.addEventListener('pointercancel', () => { if (G.held && !G.held.moved) G.held = null; else if (G.held) startResolve(); });
-        AC.i18n.subscribe(() => { updateHud(); });
+        AC.i18n.subscribe(() => { updateHud(); if (lobbyEl && !lobbyEl.hidden) renderLobby(); });
+        setupOnline();
         if (DEBUG) setupDebug();
         resetRun();
         render();
