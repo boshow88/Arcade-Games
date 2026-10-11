@@ -951,6 +951,7 @@
 
         function pause() {
             if (state !== 'playing') return;
+            if (opts.canPause && !opts.canPause()) return;   // e.g. no pausing during online PvP
             state = 'paused';
             loop.stop();
             if (typeof opts.onPause === 'function') opts.onPause();

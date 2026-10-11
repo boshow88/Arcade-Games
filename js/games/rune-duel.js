@@ -156,6 +156,8 @@
         aiComboMin: 3, aiComboMax: 7,   // its simulated combos (before meeting your shields)
         aiSkill: 0.7,                   // chance it meets each of your shields
         aiHasten: 0.3,                  // chance it hastens your spin (from round 3)
+        stallSec: 45,                   // online: opponent idle this long → they forfeit
+        takeoverSec: 6,                 // online: both attacked but host didn't tally → take over
     };
     // Card pool. type = which phase it's played in. cost = energy.
     const CARDS = {
@@ -213,6 +215,9 @@
     let fontCache = null;
     let accentCache = null;
     let defaultShape = null;
+    let needsRender = true;     // render-on-demand: only repaint when something changed/animates
+    let lastSecShown = -1;
+    function markDirty() { needsRender = true; }
 
     const canvas = document.getElementById('stage');
     const ctx = canvas.getContext('2d');
@@ -382,6 +387,7 @@
     }
     function onPointerDown(e) {
         if (!shell.isPlaying()) return;
+        markDirty();
         if (e.target.closest('button, a')) return;
         if (!e.target.closest('.stage-pad')) return;
         const p = boardPos(e);
@@ -424,6 +430,7 @@
     }
     function onPointerMove(e) {
         if (!G.held) return;
+        markDirty();
         dragTo(boardPos(e).x, boardPos(e).y);
         if (e.cancelable) e.preventDefault();
     }
@@ -769,7 +776,7 @@
             myUid, oppUid,
             host: data.hostUid === myUid,
             oppName: (data.players[oppUid] && data.players[oppUid].name) || t('rdGuest'),
-            sub: null, lastResolvedRound: 0,
+            sub: null, lastResolvedRound: 0, waitSince: 0, bothAtkSince: 0,
         };
         closeLobby();
         resetRun();
@@ -778,12 +785,36 @@
     function submitDefense() {
         if (!G.online || G.online.sub !== 'def') return;
         G.online.sub = 'waitDef';
+        G.online.waitSince = Date.now();
         net.updateRoom(room.code, { ['game.def.' + G.online.myUid]: serializeShields(G.youShields) }).catch((e) => console.warn('[duel]', e));
         updateHud();
     }
     function submitAttack(dmg, heal) {
         if (!G.online) return;
+        G.online.waitSince = Date.now();
         net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0 } }).catch((e) => console.warn('[duel]', e));
+    }
+    function forfeitOpponent() {
+        if (!G.online) return;
+        net.updateRoom(room.code, { 'game.status': 'over', 'game.winner': G.online.myUid }).catch(() => {});
+        duelOver(true);
+    }
+    function onlineWatchdog() {
+        if (!G.online || !room || !room.data || !room.data.game) return;
+        const g = room.data.game;
+        if (g.status === 'over') return;
+        const now = Date.now(), my = G.online.myUid, opp = G.online.oppUid;
+        // (1) opponent idle too long → they forfeit, you win
+        if (onlineWaiting()) {
+            const oppIn = G.online.sub === 'waitDef' ? !!(g.def && g.def[opp]) : !!(g.atk && g.atk[opp]);
+            if (!oppIn && now - (G.online.waitSince || now) > DUEL.stallSec * 1000) { forfeitOpponent(); return; }
+        }
+        // (2) both attacked but no one tallied (host gone) → take over the resolve
+        if (g.atk && g.atk[my] && g.atk[opp] && G.online.lastResolvedRound >= (g.round || 1)
+            && G.online.bothAtkSince && now - G.online.bothAtkSince > DUEL.takeoverSec * 1000) {
+            G.online.bothAtkSince = 0;
+            hostResolve(g);
+        }
     }
     function hostResolve(g) {
         const A = G.online.myUid, B = G.online.oppUid, a = g.atk || {};
@@ -805,6 +836,7 @@
         }).catch((e) => console.warn('[duel]', e));
     }
     function onRoomGame(data) {
+        markDirty();
         const g = data && data.game;
         if (!g) return;
         if (g.status === 'playing' && !G.online) { enterOnline(data); return; }
@@ -819,6 +851,7 @@
         // resolve: both attacks in (animate the opponent's strike once per round)
         if (g.atk && g.atk[my] && g.atk[opp] && G.online.lastResolvedRound < (g.round || 1)) {
             G.online.lastResolvedRound = g.round || 1;
+            G.online.bothAtkSince = Date.now();
             const oppDmg = (g.atk[opp] && g.atk[opp].dmg) || 0;
             if (oppDmg > 0) { G.shake = 0.4; addFloat(W / 2, BOARD_TOP - 70, '-' + oppDmg, '#ff6b6b', 24); AC.audio.play('rock'); }
             if (G.online.host) hostResolve(g);
@@ -827,6 +860,7 @@
         // next round
         if (g.status === 'playing' && (g.round || 1) > G.round) {
             G.round = g.round;
+            G.online.bothAtkSince = 0;
             if (g.hp) { G.youHp = g.hp[my]; G.aiHp = g.hp[opp]; }
             updateHud();
             startDefensePhase();
@@ -880,6 +914,11 @@
             G.aiTimer -= dt;
             if (G.aiTimer <= 0) aiAttack();
         }
+        // repaint once per second while a phase clock is visibly counting down
+        if ((G.phase === 'defense' || G.phase === 'attack') && !onlineWaiting() && !(G.held && G.held.moved)) {
+            const sec = Math.ceil(G.phaseTimer);
+            if (sec !== lastSecShown) { lastSecShown = sec; markDirty(); }
+        }
         settleOrbs(dt);
     }
 
@@ -887,7 +926,19 @@
     // Rendering
     // =================================================================
 
+    function animating() {
+        if (G.held || G.resolving || G.shake > 0 || G.floats.length) return true;
+        for (let i = 0; i < COLS * ROWS; i++) {
+            const o = board[i];
+            if (!o) continue;
+            if (Math.abs(o.x - cellCX(i)) > 0.4 || Math.abs(o.y - cellCY(i)) > 0.4) return true;
+            if (Math.abs((o.scale == null ? 1 : o.scale) - 1) > 0.01) return true;
+        }
+        return false;
+    }
     function render() {
+        if (!needsRender && !animating()) return;   // skip repaint when nothing changed (saves CPU/GPU)
+        needsRender = false;
         ctx.fillStyle = '#0d0b16';
         ctx.fillRect(0, 0, W, H);
         ctx.save();
@@ -1225,6 +1276,7 @@
     // =================================================================
 
     function updateHud() {
+        markDirty();
         if (dom.round) dom.round.textContent = String(G.round);
         if (dom.hp) dom.hp.textContent = String(Math.max(0, Math.ceil(G.youHp)));
         if (hpStat) hpStat.classList.toggle('danger', G.youMaxHp > 0 && G.youHp / G.youMaxHp <= 0.3);
@@ -1386,8 +1438,8 @@
         else if (room && room.data) { const opp = opponentName(room.data); s = opp ? t('rdMatched', opp) : t('rdRoomCreated', room.code); }
         lobbyRefs.status.textContent = s;
     }
-    function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); }
-    function closeLobby() { if (lobbyEl) lobbyEl.hidden = true; }
+    function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); markDirty(); }
+    function closeLobby() { if (lobbyEl) lobbyEl.hidden = true; markDirty(); }
 
     function setupOnline() {
         const onReady = () => {
@@ -1405,7 +1457,7 @@
 
     function init() {
         fitCanvas();
-        window.addEventListener('resize', () => { fitCanvas(); render(); });
+        window.addEventListener('resize', () => { fitCanvas(); markDirty(); render(); });
         shell = AC.shell.create({
             gameId: 'rune-duel',
             mode: () => 'duel',
@@ -1416,13 +1468,18 @@
             reset: resetRun,
             overlayContent,
             restartToReady: true,
+            canPause: () => !G.online,     // no pausing during online PvP
         });
         document.addEventListener('pointerdown', onPointerDown, { passive: false });
         window.addEventListener('pointermove', onPointerMove, { passive: false });
         window.addEventListener('pointerup', onPointerUp);
         window.addEventListener('pointercancel', () => { if (G.held && !G.held.moved) G.held = null; else if (G.held) startResolve(); });
-        AC.i18n.subscribe(() => { updateHud(); if (lobbyEl && !lobbyEl.hidden) renderLobby(); });
+        AC.i18n.subscribe(() => { markDirty(); updateHud(); if (lobbyEl && !lobbyEl.hidden) renderLobby(); });
         setupOnline();
+        setInterval(onlineWatchdog, 1000);
+        window.addEventListener('pagehide', () => {
+            if (G.online && room && G.phase !== 'over') { try { net.updateRoom(room.code, { 'game.status': 'over', 'game.winner': G.online.oppUid }); } catch (e) { /* ignore */ } }
+        });
         if (DEBUG) setupDebug();
         resetRun();
         render();
