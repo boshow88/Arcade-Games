@@ -1040,25 +1040,23 @@
 
     // Rival board preview — shown over the (non-interactive) board during the online
     // defense phase, so you can pick shields based on what the opponent is holding.
+    // Persistent compact preview of the rival's board (top-right), shown every phase
+    // online so you can read what they're holding whenever you plan.
+    const MINI = { cell: 15, get gw() { return COLS * this.cell; }, get gh() { return ROWS * this.cell; }, get ox() { return W - 16 - this.gw; }, oy: 12 };
     function drawOppBoard() {
-        if (!(G.online && (G.phase === 'defense') && G.online.oppBoard)) return;
-        const ob = G.online.oppBoard, f = getFont();
-        const cell = 46, pad = 12, titleH = 26;
-        const gw = COLS * cell, gh = ROWS * cell;
-        const ox = (W - gw) / 2, oy = BOARD_TOP + 56;
+        if (!(G.online && G.online.oppBoard)) return;
+        const ob = G.online.oppBoard, cell = MINI.cell, ox = MINI.ox, oy = MINI.oy;
         ctx.save();
-        ctx.fillStyle = 'rgba(8,6,16,0.86)';
-        roundRect(ox - pad, oy - pad - titleH, gw + pad * 2, gh + pad * 2 + titleH, 14); ctx.fill();
-        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.18)';
-        roundRect(ox - pad, oy - pad - titleH, gw + pad * 2, gh + pad * 2 + titleH, 14); ctx.stroke();
-        ctx.fillStyle = '#fff'; ctx.font = `800 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(t('rdOppBoard'), W / 2, oy - pad - 8);
+        ctx.fillStyle = 'rgba(255,255,255,0.05)';
+        roundRect(ox - 4, oy - 4, MINI.gw + 8, MINI.gh + 8, 6); ctx.fill();
+        ctx.lineWidth = 1; ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        roundRect(ox - 4, oy - 4, MINI.gw + 8, MINI.gh + 8, 6); ctx.stroke();
         for (let i = 0; i < COLS * ROWS; i++) {
             const c = ob[i]; if (!c) continue;
             const x = ox + cellCol(i) * cell, y = oy + cellRow(i) * cell;
             ctx.fillStyle = ELEMENT_COLORS[c.e] || '#666';
-            roundRect(x + 3, y + 3, cell - 6, cell - 6, 8); ctx.fill();
-            if (c.h) { ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; roundRect(x + 3, y + 3, cell - 6, cell - 6, 8); ctx.stroke(); }
+            roundRect(x + 1, y + 1, cell - 2, cell - 2, 3); ctx.fill();
+            if (c.h) { ctx.lineWidth = 1.5; ctx.strokeStyle = '#fff'; roundRect(x + 1, y + 1, cell - 2, cell - 2, 3); ctx.stroke(); }
         }
         ctx.restore();
     }
@@ -1187,7 +1185,7 @@
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.font = `700 15px ${f}`; ctx.textAlign = 'left';
         ctx.fillText(G.online ? G.online.oppName : t('rdRival'), 22, 24);
-        drawBar(22, 34, W - 44, 18, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
+        drawBar(22, 34, G.online ? MINI.ox - 34 : W - 44, 18, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
         ctx.textBaseline = 'middle';
         ctx.font = `600 13px ${f}`; ctx.textAlign = 'left';
@@ -1202,7 +1200,7 @@
         }
 
         // shield pills (right-aligned, may be several)
-        let px = W - 22;
+        let px = G.online ? MINI.ox - 12 : W - 22;
         for (let i = G.aiShields.length - 1; i >= 0; i--) {
             const label = shieldLabel(G.aiShields[i]);
             ctx.font = `700 12px ${f}`; ctx.textAlign = 'center';
