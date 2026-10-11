@@ -57,6 +57,7 @@
         rdRoomCreated: (code) => `Room ${code} — waiting for opponent\u2026`, rdWaitingOpp: 'Waiting for opponent\u2026',
         rdMatched: (name) => `Matched with ${name}!`, rdStartDuel: 'Start duel', rdWaitHost: 'Waiting for host to start\u2026',
         rdRoomNotFound: 'Room not found', rdRoomFull: 'Room is full', rdNetErr: 'Network error',
+        rdDiscard: 'Discard', rdOppBoard: 'Rival\u2019s board', rdYouWin: 'You win!', rdYouLose: 'You lose',
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
@@ -95,6 +96,7 @@
         rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
         rdRoomNotFound: '找不到房間', rdRoomFull: '房間已滿', rdNetErr: '連線錯誤',
+        rdDiscard: '丟棄', rdOppBoard: '對手盤面', rdYouWin: '你贏了！', rdYouLose: '你輸了',
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
@@ -395,6 +397,7 @@
         if (G.cardPopup) {
             const L = cardPopupLayout(), id = G.hand[G.cardPopup.i], c = id && CARDS[id];
             if (c && G.energy >= c.cost && playable(id) && cardPhaseOk(id) && inRect(p, L.cast)) { const i = G.cardPopup.i; G.cardPopup = null; AC.audio.unlock(); playCard(i); }
+            else if (inRect(p, L.discard)) { const i = G.cardPopup.i; G.cardPopup = null; AC.audio.unlock(); discardCard(i); }
             else if (!inRect(p, L.card)) { G.cardPopup = null; }
             if (e.cancelable) e.preventDefault();
             return;
@@ -464,6 +467,12 @@
         if (!canDrawMore()) return;
         G.hand.push(ALL_IDS[AC.rng.int(G.rng, 0, ALL_IDS.length)]);
         G.energy -= DUEL.drawCost;
+        AC.audio.play('click');
+        updateHud();
+    }
+    function discardCard(i) {
+        if (i == null || i < 0 || i >= G.hand.length) return;
+        G.hand.splice(i, 1);
         AC.audio.play('click');
         updateHud();
     }
@@ -707,7 +716,7 @@
         G.bonusTimeNext = 0;
         G.phaseTimer = DUEL.phaseTime;
         if (G.round > 1) drawRoundCard();     // one new card per round; the rest of the hand persists
-        if (G.online) { G.online.sub = 'def'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; updateHud(); return; }
+        if (G.online) { G.online.sub = 'def'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
         const plan = aiDefend(G.round);
         G.aiShields = plan.shields;
         G.spinPenalty = plan.hastenYou ? 2 : 0;   // rival's hasten shortens your spin this round
@@ -748,11 +757,17 @@
         if (G.phase === 'over') return;
         G.phase = 'over';
         const wasOnline = !!G.online;
-        const code = room && room.code;
-        G.online = null;   // return to normal (vs-AI) flow on restart
-        shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win } });
-        // clean up the room shortly after both sides have shown the result
-        if (wasOnline && code && net) { setTimeout(() => { net.deleteRoom(code).catch(() => {}); detachRoom(); }, 3000); }
+        G.online = null;
+        if (shell.syncButtons) shell.syncButtons();   // re-enable pause/restart after an online match
+        if (wasOnline) {
+            // Online: show the result and drop back to the in-room pairing screen so the
+            // host can start a rematch in the same room (room stays; cleaned on leave/GC).
+            lobbyResult = win ? t('rdYouWin') : t('rdYouLose');
+            AC.audio.play(win ? 'levelup' : 'gameover');
+            openLobby();
+        } else {
+            shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win } });
+        }
     }
 
     function addFloat(x, y, text, color, size) { G.floats.push({ x, y, text, color, size: size || 18, t: 0, life: 0.9 }); }
@@ -776,6 +791,14 @@
             return o;
         });
     }
+    function serializeBoard() {
+        const out = [];
+        for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; out.push(o ? { e: o.el, h: o.enhanced ? 1 : 0 } : null); }
+        return out;
+    }
+    function pushMyBoard() {
+        if (G.online && room && room.code) net.updateRoom(room.code, { ['game.board.' + G.online.myUid]: serializeBoard() }).catch(() => {});
+    }
     function enterOnline(data) {
         if (!netUser) return;
         const myUid = netUser.uid;
@@ -787,9 +810,11 @@
             oppName: (data.players[oppUid] && data.players[oppUid].name) || t('rdGuest'),
             sub: null, lastResolvedRound: 0, waitSince: 0, bothAtkSince: 0, phaseDeadline: 0,
         };
+        lobbyResult = '';
         closeLobby();
         resetRun();
         if (!shell.isPlaying()) shell.start();
+        if (shell.syncButtons) shell.syncButtons();   // disable pause/restart now that we're online
     }
     function submitDefense() {
         if (!G.online || G.online.sub !== 'def') return;
@@ -870,6 +895,7 @@
         if (g.status === 'playing' && !G.online) { enterOnline(data); return; }
         if (!G.online) return;
         const my = G.online.myUid, opp = G.online.oppUid;
+        if (g.board && g.board[opp]) G.online.oppBoard = g.board[opp];   // mirror the rival's board for the preview
         // reveal: both defense submitted → attack phase, see the opponent's shields
         if (G.online.sub === 'waitDef' && g.def && g.def[my] && g.def[opp]) {
             G.aiShields = (g.def[opp] || []).slice();
@@ -972,7 +998,9 @@
         // Only skip repaint while genuinely idle (waiting for opponent / AI thinking /
         // over / ready). During active play and animations we always repaint, so the
         // board can never visually "freeze" mid-cascade.
-        const idle = onlineWaiting() || G.phase === 'ai' || G.phase === 'over' || G.phase === 'idle';
+        // Online always repaints (network-driven state must never visually stall);
+        // vs-AI still skips repaint while genuinely idle to save resources.
+        const idle = !G.online && (G.phase === 'ai' || G.phase === 'over' || G.phase === 'idle');
         if (idle && !needsRender && !animating()) return;
         needsRender = false;
         ctx.fillStyle = '#0d0b16';
@@ -983,6 +1011,7 @@
         drawYouBar();
         drawBoard();
         if (G.held) { const o = board[G.held.cell]; drawStone(o.el, o.x, o.y, CONFIG.orbRadius * 1.06, o.shape, true, o.enhanced); }
+        drawOppBoard();
         drawFloats();
         ctx.restore();
         drawHand();
@@ -994,6 +1023,30 @@
         if (DEBUG) drawDebug();
     }
 
+    // Rival board preview — shown over the (non-interactive) board during the online
+    // defense phase, so you can pick shields based on what the opponent is holding.
+    function drawOppBoard() {
+        if (!(G.online && (G.phase === 'defense') && G.online.oppBoard)) return;
+        const ob = G.online.oppBoard, f = getFont();
+        const cell = 46, pad = 12, titleH = 26;
+        const gw = COLS * cell, gh = ROWS * cell;
+        const ox = (W - gw) / 2, oy = BOARD_TOP + 56;
+        ctx.save();
+        ctx.fillStyle = 'rgba(8,6,16,0.86)';
+        roundRect(ox - pad, oy - pad - titleH, gw + pad * 2, gh + pad * 2 + titleH, 14); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.18)';
+        roundRect(ox - pad, oy - pad - titleH, gw + pad * 2, gh + pad * 2 + titleH, 14); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.font = `800 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText(t('rdOppBoard'), W / 2, oy - pad - 8);
+        for (let i = 0; i < COLS * ROWS; i++) {
+            const c = ob[i]; if (!c) continue;
+            const x = ox + cellCol(i) * cell, y = oy + cellRow(i) * cell;
+            ctx.fillStyle = ELEMENT_COLORS[c.e] || '#666';
+            roundRect(x + 3, y + 3, cell - 6, cell - 6, 8); ctx.fill();
+            if (c.h) { ctx.lineWidth = 2.5; ctx.strokeStyle = '#fff'; roundRect(x + 3, y + 3, cell - 6, cell - 6, 8); ctx.stroke(); }
+        }
+        ctx.restore();
+    }
     function defShape() { if (!defaultShape) defaultShape = makeShape(AC.rng.make(7)); return defaultShape; }
     function buildRoundedPoly(pts, rad) {
         const n = pts.length, prev = pts[n - 1];
@@ -1229,7 +1282,12 @@
     }
     function cardPopupLayout() {
         const cw = 400, ch = 230, cx = (W - cw) / 2, cy = BOARD_TOP + 60;
-        return { card: { x: cx, y: cy, w: cw, h: ch }, cast: { x: cx + cw / 2 - 85, y: cy + ch - 58, w: 170, h: 44 } };
+        const by = cy + ch - 58, bw = 170, bh = 44, gap = 14;
+        return {
+            card: { x: cx, y: cy, w: cw, h: ch },
+            cast: { x: cx + cw / 2 - bw - gap / 2, y: by, w: bw, h: bh },
+            discard: { x: cx + cw / 2 + gap / 2, y: by, w: bw, h: bh },
+        };
     }
     function drawCardPopup() {
         const id = G.hand[G.cardPopup.i];
@@ -1257,8 +1315,15 @@
         ctx.fillStyle = ok ? ac : 'rgba(255,255,255,0.1)';
         roundRect(bt.x, bt.y, bt.w, bt.h, 10); ctx.fill();
         ctx.fillStyle = ok ? '#1a1526' : 'rgba(255,255,255,0.4)';
-        ctx.font = `800 16px ${f}`; ctx.textBaseline = 'middle';
+        ctx.font = `800 16px ${f}`; ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
         ctx.fillText(t('rdPlay'), bt.x + bt.w / 2, bt.y + bt.h / 2);
+        const db = L.discard;
+        ctx.fillStyle = 'rgba(255,255,255,0.08)';
+        roundRect(db.x, db.y, db.w, db.h, 10); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.25)';
+        roundRect(db.x, db.y, db.w, db.h, 10); ctx.stroke();
+        ctx.fillStyle = 'rgba(255,255,255,0.85)';
+        ctx.fillText(t('rdDiscard'), db.x + db.w / 2, db.y + db.h / 2);
         ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = 'rgba(255,255,255,0.4)'; ctx.font = `500 12px ${f}`;
         ctx.fillText(t('rtPopupHint'), cx, card.y + card.h - 12);
@@ -1373,6 +1438,7 @@
     let netUser = undefined;    // undefined = unknown, null = signed out, else {uid,name,...}
     let room = null;            // { code, data, unsub }
     let lobbyEl = null, lobbyRefs = null;
+    let lobbyResult = '';       // "You win/lose" banner shown in the lobby after an online match
 
     function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
     function lbtn(label, cls) { const b = el('button', cls || 'btn', label); b.type = 'button'; return b; }
@@ -1406,6 +1472,7 @@
     function detachRoom() { if (room && room.unsub) { try { room.unsub(); } catch (e) { /* ignore */ } } room = null; }
     function attachRoom(code) {
         detachRoom();
+        lobbyResult = '';
         room = { code, data: null, unsub: null };
         room.unsub = net.watchRoom(code, (data, err) => {
             if (err) { showLobbyError(err); return; }
@@ -1433,11 +1500,11 @@
         if (!code) return;
         try { const c = await net.joinRoom(code); attachRoom(c); } catch (e) { showLobbyError(e); }
     }
-    async function doLeave() { if (room) { const c = room.code; detachRoom(); try { await net.leaveRoom(c); } catch (e) { /* ignore */ } } renderLobby(); }
+    async function doLeave() { lobbyResult = ''; if (room) { const c = room.code; detachRoom(); try { await net.leaveRoom(c); } catch (e) { /* ignore */ } } renderLobby(); }
 
     function renderLobby() {
         if (!lobbyEl) return;
-        lobbyRefs.title.textContent = t('rdOnline');
+        lobbyRefs.title.textContent = lobbyResult || t('rdOnline');
         lobbyRefs.close.textContent = t('rdClose');
         const u = netUser;
         // auth

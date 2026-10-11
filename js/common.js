@@ -1100,6 +1100,7 @@
         shell.togglePause = togglePause;
         shell.gameOver = gameOver;
         shell.refreshBest = refreshBest;
+        shell.syncButtons = syncButtons;   // let games refresh pause/restart enablement (e.g. online start/end)
 
         return shell;
     }
