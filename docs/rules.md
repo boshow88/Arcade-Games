@@ -287,8 +287,13 @@ out it auto-advances to attack; if the attack clock runs out before you start
 spinning you **forfeit that strike** and the rival takes its turn.
 
 Drop the rival's HP to **0** to win; at the round cap the higher HP wins. `best`
-= damage dealt. The rival also plays simple cards (mend / empower). *(Next:
-online PvP.)*
+= damage dealt. The rival also plays simple cards (mend / empower).
+
+**Online PvP** (the **Online** button): sign in with Google or as a guest, then
+**create a room** (share the 4-letter code) or **join** one. Both players play the
+same two-phase rounds against each other — you each raise shields, reveal them,
+then both spin (damage gated by the opponent's shields). Turn state syncs through
+Firestore; the host tallies HP each round. Honor-system MVP (see `firestore.rules`).
 
 ### Tuning
 
