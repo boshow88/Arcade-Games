@@ -51,6 +51,7 @@
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
+        rdHastenTag: (n) => `Hastened \u2212${n}s`, rdOppUsed: (s) => `Rival last: ${s}`,
         rdOnline: 'Online duel', rdOnlineBtn: 'Online', rdClose: 'Close',
         rdSignInGoogle: 'Sign in with Google', rdSignInGuest: 'Play as guest', rdSignOut: 'Sign out', rdGuest: 'Guest',
         rdSignedIn: (name) => `Signed in: ${name}`, rdSignInFirst: 'Sign in to create or join a room.',
@@ -95,6 +96,7 @@
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
+        rdHastenTag: (n) => `被催促 \u2212${n}秒`, rdOppUsed: (s) => `對手上回合：${s}`,
         rdOnline: '線上對戰', rdOnlineBtn: '線上', rdClose: '關閉',
         rdSignInGoogle: '用 Google 登入', rdSignInGuest: '以訪客身分遊玩', rdSignOut: '登出', rdGuest: '訪客',
         rdSignedIn: (name) => `已登入：${name}`, rdSignInFirst: '登入後即可建立或加入房間。',
@@ -124,7 +126,7 @@
     const CELL = 100;
     const BOARD_TOP = H - ROWS * CELL; // = 260
     // layout anchors for the top HUD (above the board) — tweak here to re-space
-    const LAY = { handY: 58, handH: 94, energyY: 162, actY: 172, actH: 32, youShieldY: 214, youHpY: 238, youHpH: 12 };
+    const LAY = { handY: 68, handH: 86, energyY: 162, actY: 172, actH: 32, youShieldY: 214, youHpY: 238, youHpH: 12 };
 
     const ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark', 'heart'];
     const ATTACK_ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark'];
@@ -213,6 +215,7 @@
         spinPenalty: 0,         // your spin-time reduction this round (rival hasten)
         aiSpinPenalty: 0,       // the rival's combo reduction this round (your hasten)
         cardSel: null,          // index of the currently selected hand card (tap again to play)
+        playedThisRound: [],    // enhance cards you've played this attack phase (revealed to rival at resolve)
         transmute: null,        // { fromEl }
         empowerNext: 1,
         bonusTimeNext: 0,
@@ -513,6 +516,7 @@
         else if (id === 'transmute') { G.transmute = { fromEl: null }; }
         G.energy -= c.cost;
         G.hand.splice(i, 1);
+        if (G.online && c.type === 'enhance') G.playedThisRound.push(id);   // revealed to the rival at resolve
         if (id !== 'transmute') { AC.audio.play('gem'); addFloat(W / 2, 150, t('rdCard_' + id), accent(), 18); }
         updateHud();
     }
@@ -745,6 +749,7 @@
         G.energy = DUEL.energy;
         G.cardSel = null;
         G.phaseTimer = DUEL.phaseTime;
+        G.playedThisRound = [];
         if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; }
         updateHud();
     }
@@ -826,7 +831,7 @@
             myUid, oppUid,
             host: data.hostUid === myUid,
             oppName: (data.players[oppUid] && data.players[oppUid].name) || t('rdGuest'),
-            sub: null, lastResolvedRound: 0, waitSince: 0, bothAtkSince: 0, phaseDeadline: 0,
+            sub: null, lastResolvedRound: 0, waitSince: 0, bothAtkSince: 0, phaseDeadline: 0, oppLastCards: [],
         };
         lobbyResult = '';
         closeLobby();
@@ -847,7 +852,7 @@
     function submitAttack(dmg, heal) {
         if (!G.online) return;
         G.online.waitSince = Date.now();
-        net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0 } }).catch((e) => console.warn('[duel]', e));
+        net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0, cards: G.playedThisRound.slice() } }).catch((e) => console.warn('[duel]', e));
     }
     // Heartbeat: keep our own room's lastActionAt fresh (so it's never GC'd while we're
     // present), and periodically purge rooms others abandoned. Firestore has no
@@ -934,6 +939,7 @@
         if (g.atk && g.atk[my] && g.atk[opp] && G.online.lastResolvedRound < (g.round || 1)) {
             G.online.lastResolvedRound = g.round || 1;
             G.online.bothAtkSince = Date.now();
+            G.online.oppLastCards = (g.atk[opp] && g.atk[opp].cards) || [];   // reveal what the rival played
             const oppDmg = (g.atk[opp] && g.atk[opp].dmg) || 0;
             if (oppDmg > 0) { G.shake = 0.4; addFloat(W / 2, BOARD_TOP - 70, '-' + oppDmg, '#ff6b6b', 24); AC.audio.play('rock'); }
             if (G.online.host) hostResolve(g);
@@ -1220,14 +1226,23 @@
             ctx.fillText(label, px + pw / 2, 47);
             px -= 5;
         }
+        // what the rival played last attack (persists so you can study their style)
+        if (G.online && G.online.oppLastCards && G.online.oppLastCards.length) {
+            const counts = {};
+            for (const id of G.online.oppLastCards) counts[id] = (counts[id] || 0) + 1;
+            const parts = Object.keys(counts).map((id) => t('rdCard_' + id) + (counts[id] > 1 ? '\u00d7' + counts[id] : ''));
+            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `600 11px ${f}`;
+            ctx.fillText(t('rdOppUsed', parts.join(' \u00b7 ')), 22, 60);
+        }
         ctx.textBaseline = 'alphabetic';
     }
     function drawYouBar() {
         const f = getFont();
         // your defence state (shields + spin penalty), on your side just above your HP
         const defs = G.youShields.map((s) => shieldLabel(s));
-        if (G.spinPenalty > 0) defs.push('-' + G.spinPenalty + 's');
         if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(defs.join(' · '), 22, LAY.youShieldY); }
+        if (G.spinPenalty > 0) { ctx.fillStyle = '#ff9f43'; ctx.font = `800 12px ${f}`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(t('rdHastenTag', G.spinPenalty), W - 22, LAY.youShieldY); }
         // HP bar hugging the board (right above the timer bar)
         ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(t('rdHp'), 22, LAY.youHpY + 10);
