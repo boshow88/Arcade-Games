@@ -72,6 +72,7 @@ function fail(err) {
                         round: 0,
                         createdAt: serverTimestamp(),
                         lastActionAt: serverTimestamp(),
+                        expireAt: new Date(Date.now() + 6 * 3600 * 1000),   // TTL: auto-purge the room ~6h after creation
                     });
                     return true;
                 });

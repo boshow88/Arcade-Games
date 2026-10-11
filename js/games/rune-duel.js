@@ -1317,7 +1317,7 @@
     // =================================================================
 
     function resetRun() {
-        G.rng = AC.rng.make(seedCounter++);
+        G.rng = AC.rng.make((((Math.random() * 0x7fffffff) | 0) ^ (Date.now() & 0xffffff)) >>> 0);   // random board each run
         G.youHp = G.youMaxHp = DUEL.hp;
         G.aiHp = G.aiMaxHp = DUEL.hp;
         G.round = 1;
