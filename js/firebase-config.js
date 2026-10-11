@@ -5,24 +5,20 @@
  * enforced by Firestore Security Rules + anonymous auth, NOT by hiding this key.
  * It is safe to commit this file.
  *
- * TO FILL IN (one-time, ~5 min — see the chat for step-by-step):
- *   1. https://console.firebase.google.com  → Add project (free "Spark" plan).
- *   2. Build → Firestore Database → Create database → Production mode.
- *   3. Build → Authentication → Sign-in method → enable "Anonymous".
- *   4. Project settings (gear) → Your apps → Web app (</>) → register →
- *      copy the `firebaseConfig` values into the object below.
- *   5. Paste the rules from `firestore.rules` into Firestore → Rules → Publish.
+ * Sign-in: Google (primary) + Anonymous guest fallback. Firestore rules live in
+ * `firestore.rules`; authorized domains must include localhost + boshow88.github.io.
  *
- * Until real values are in, PvP stays disabled and the vs-AI duel is unaffected.
+ * If Firebase ever fails to load (offline), PvP simply stays disabled and the
+ * vs-AI duel keeps working — online play is strictly additive.
  */
 window.FIREBASE_CONFIG = {
-    apiKey: 'REPLACE_ME',
-    authDomain: 'REPLACE_ME.firebaseapp.com',
-    projectId: 'REPLACE_ME',
-    storageBucket: 'REPLACE_ME.appspot.com',
-    messagingSenderId: 'REPLACE_ME',
-    appId: 'REPLACE_ME',
+    apiKey: 'AIzaSyDGlukYB9toWL1H_K4yHjsLLb3vJgyr-lM',
+    authDomain: 'games-7e19b.firebaseapp.com',
+    projectId: 'games-7e19b',
+    storageBucket: 'games-7e19b.firebasestorage.app',
+    messagingSenderId: '702001155215',
+    appId: '1:702001155215:web:98988e28348c4bed8474fa',
 };
 
 // Convenience flag the game checks before offering online play.
-window.FIREBASE_READY = window.FIREBASE_CONFIG.apiKey !== 'REPLACE_ME';
+window.FIREBASE_READY = !!(window.FIREBASE_CONFIG.apiKey && window.FIREBASE_CONFIG.apiKey.indexOf('REPLACE') === -1);
