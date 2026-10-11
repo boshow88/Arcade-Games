@@ -701,7 +701,7 @@
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
         G.phaseTimer = DUEL.phaseTime;
-        if (G.online) { G.online.sub = 'def'; G.aiShields = []; drawHandCards('defense'); updateHud(); return; }
+        if (G.online) { G.online.sub = 'def'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; drawHandCards('defense'); updateHud(); return; }
         const plan = aiDefend(G.round);
         G.aiShields = plan.shields;
         G.spinPenalty = plan.hastenYou ? 2 : 0;   // rival's hasten shortens your spin this round
@@ -713,7 +713,7 @@
         G.energy = DUEL.energy;
         G.cardPopup = null;
         G.phaseTimer = DUEL.phaseTime;
-        if (G.online) G.online.sub = 'atk';
+        if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; }
         drawHandCards('enhance');
         updateHud();
     }
@@ -757,6 +757,7 @@
     // =================================================================
 
     function onlineWaiting() { return !!(G.online && (G.online.sub === 'waitDef' || G.online.sub === 'waitAtk')); }
+    function onlineRemain() { return G.online ? Math.max(0, (G.online.phaseDeadline - Date.now()) / 1000) : 0; }
 
     function serializeShields(list) {
         return (list || []).map((s) => {
@@ -776,7 +777,7 @@
             myUid, oppUid,
             host: data.hostUid === myUid,
             oppName: (data.players[oppUid] && data.players[oppUid].name) || t('rdGuest'),
-            sub: null, lastResolvedRound: 0, waitSince: 0, bothAtkSince: 0,
+            sub: null, lastResolvedRound: 0, waitSince: 0, bothAtkSince: 0, phaseDeadline: 0,
         };
         closeLobby();
         resetRun();
@@ -804,6 +805,13 @@
         const g = room.data.game;
         if (g.status === 'over') return;
         const now = Date.now(), my = G.online.myUid, opp = G.online.oppUid;
+        // (0) phase auto-advance on REAL time — fires even when this tab is backgrounded
+        // (rAF/update freezes in background, but setInterval keeps ticking), so switching
+        // tabs can no longer pause/stall the match: your move auto-submits at the deadline.
+        if (!onlineWaiting() && now > (G.online.phaseDeadline || Infinity)) {
+            if (G.phase === 'defense' && G.online.sub === 'def') { onPhaseTimeout(); return; }
+            if (G.phase === 'attack' && G.online.sub === 'atk' && !G.held) { onPhaseTimeout(); return; }
+        }
         // (1) opponent idle too long → they forfeit, you win
         if (onlineWaiting()) {
             const oppIn = G.online.sub === 'waitDef' ? !!(g.def && g.def[opp]) : !!(g.atk && g.atk[opp]);
@@ -905,10 +913,14 @@
             if (fl.t >= fl.life) G.floats.splice(i, 1);
         }
         if (G.phase === 'defense') {
-            if (!onlineWaiting()) { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
+            if (G.online) { if (!onlineWaiting()) G.phaseTimer = onlineRemain(); }
+            else { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
         } else if (G.phase === 'attack') {
             if (G.held && G.held.moved) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
-            else if (!G.resolving && !onlineWaiting()) { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
+            else if (!G.resolving) {
+                if (G.online) { if (!onlineWaiting()) G.phaseTimer = onlineRemain(); }
+                else { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
+            }
             if (G.resolving) stepResolve(dt);
         } else if (G.phase === 'ai') {
             G.aiTimer -= dt;
