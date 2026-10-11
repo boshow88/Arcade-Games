@@ -136,11 +136,14 @@ function fail(err) {
             try {
                 const cutoff = new Date(Date.now() - (maxAgeMs || 5 * 60 * 1000));
                 const snap = await getDocs(query(collection(db, ROOMS), where('lastActionAt', '<', cutoff)));
-                const dels = [];
-                snap.forEach((d) => dels.push(deleteDoc(d.ref)));
-                await Promise.allSettled(dels);
-                return snap.size;
-            } catch (e) { console.warn('[ArcadeNet] cleanup', e && (e.message || e)); return 0; }
+                if (snap.size === 0) return 0;
+                const results = await Promise.allSettled(snap.docs.map((d) => deleteDoc(d.ref)));
+                const failed = results.filter((r) => r.status === 'rejected');
+                const ok = results.length - failed.length;
+                if (failed.length) console.warn('[ArcadeNet] cleanup: deleted ' + ok + ', FAILED ' + failed.length + ' — check Firestore Rules (allow delete). Reason:', failed[0].reason && (failed[0].reason.message || failed[0].reason));
+                else console.info('[ArcadeNet] cleanup: deleted ' + ok + ' stale room(s)');
+                return ok;
+            } catch (e) { console.warn('[ArcadeNet] cleanup query failed:', e && (e.message || e)); return 0; }
         }
 
         window.ArcadeNet = {
