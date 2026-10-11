@@ -403,13 +403,14 @@
         if (!e.target.closest('.stage-pad')) return;
         const p = boardPos(e);
         if (G.transmute) {
-            if (p.y >= BOARD_TOP) {
-                const o = board[cellAtPixel(p.x, p.y)];
-                if (o) {
-                    if (G.transmute.fromEl == null) { G.transmute.fromEl = o.el; AC.audio.play('grab'); }
-                    else if (o.el !== G.transmute.fromEl) applyTransmute(G.transmute.fromEl, o.el);
-                }
-            } else { G.transmute = null; }
+            for (const r of paletteRects()) {
+                if (!inRect(p, r)) continue;
+                if (G.transmute.fromEl == null) { G.transmute.fromEl = r.el; AC.audio.play('grab'); }
+                else if (r.el !== G.transmute.fromEl) { applyTransmute(G.transmute.fromEl, r.el); }
+                if (e.cancelable) e.preventDefault();
+                return;
+            }
+            if (!inRect(p, palettePanelRect())) G.transmute = null;   // tap outside the palette cancels
             if (e.cancelable) e.preventDefault();
             return;
         }
@@ -1187,45 +1188,45 @@
     }
     function drawRivalPanel() {
         const f = getFont();
+        const rightEdge = G.online ? MINI.ox - 12 : W - 22;
         ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = `700 15px ${f}`; ctx.textAlign = 'left';
-        ctx.fillText(G.online ? G.online.oppName : t('rdRival'), 22, 24);
-        drawBar(22, 34, G.online ? MINI.ox - 34 : W - 44, 18, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
+        ctx.font = `700 12px ${f}`; ctx.textAlign = 'left';
+        ctx.fillText(G.online ? G.online.oppName : t('rdRival'), 22, 15);
+        drawBar(22, 20, (G.online ? MINI.ox - 34 : W - 44), 12, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
         ctx.textBaseline = 'middle';
-        ctx.font = `600 13px ${f}`; ctx.textAlign = 'left';
+        ctx.font = `600 12px ${f}`; ctx.textAlign = 'left';
         const status = onlineWaiting() ? t('rdWaitingOpp') : (G.phase === 'ai' ? t('rdThinking') : G.phase === 'defense' ? t('rdDefense') : t('rdAttack'));
         ctx.fillStyle = G.phase === 'ai' ? '#ffcf5a' : accent();
-        ctx.fillText(status, 22, 74);
+        ctx.fillText(status, 22, 46);
 
         // shield pills (right-aligned, may be several)
-        let px = G.online ? MINI.ox - 12 : W - 22;
+        let px = rightEdge;
         for (let i = G.aiShields.length - 1; i >= 0; i--) {
             const label = shieldLabel(G.aiShields[i]);
-            ctx.font = `700 12px ${f}`; ctx.textAlign = 'center';
-            const pw = ctx.measureText(label).width + 18;
+            ctx.font = `700 11px ${f}`; ctx.textAlign = 'center';
+            const pw = ctx.measureText(label).width + 14;
             px -= pw;
             ctx.fillStyle = 'rgba(127,212,255,0.16)';
-            roundRect(px, 64, pw, 22, 11); ctx.fill();
+            roundRect(px, 37, pw, 19, 9); ctx.fill();
             ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(127,212,255,0.6)';
-            roundRect(px, 64, pw, 22, 11); ctx.stroke();
+            roundRect(px, 37, pw, 19, 9); ctx.stroke();
             ctx.fillStyle = '#a9e3ff';
-            ctx.fillText(label, px + pw / 2, 75);
-            px -= 6;
+            ctx.fillText(label, px + pw / 2, 47);
+            px -= 5;
         }
         ctx.textBaseline = 'alphabetic';
-        ctx.strokeStyle = 'rgba(255,255,255,0.08)'; ctx.lineWidth = 1;
-        ctx.beginPath(); ctx.moveTo(16, 94); ctx.lineTo(W - 16, 94); ctx.stroke();
     }
     function drawYouBar() {
         const f = getFont();
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
-        ctx.font = `600 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(t('rdHp'), 22, 124);
+        ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+        ctx.fillText(t('rdHp'), 22, 74);
         const ratio = G.youHp / G.youMaxHp;
         const col = ratio <= 0.3 ? '#ff6b6b' : '#6bd98a';
-        drawBar(70, 110, W - 92, 16, ratio, col, Math.max(0, Math.ceil(G.youHp)) + ' / ' + G.youMaxHp);
+        const barX = 54, barW = (G.online ? MINI.ox - 12 : W - 22) - barX;
+        drawBar(barX, 65, barW, 12, ratio, col, Math.max(0, Math.ceil(G.youHp)) + ' / ' + G.youMaxHp);
     }
 
     // card hand — tiles show name + effect + cost inline; tap to select (pops up),
@@ -1233,15 +1234,15 @@
     function handTileRects() {
         const n = G.hand.length;
         if (n === 0) return [];
-        const gap = 7, h = 60, y = 150;
+        const gap = 7, h = 84, y = 110;
         const w = Math.min(120, (W - 24 - gap * (n - 1)) / Math.max(n, 1));
         const x0 = (W - (w * n + gap * (n - 1))) / 2;
         return G.hand.map((id, i) => ({ i, id, x: x0 + i * (w + gap), y, w, h }));
     }
     function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 3, y: b.y - 9, w: b.w + 6, h: b.h + 11 } : b; }
     function cardCloseRect(r) { return { x: r.x + r.w - 19, y: r.y + 3, w: 16, h: 16 }; }
-    function doneButtonRect() { return { x: W / 2 - 90, y: 216, w: 180, h: 34 }; }
-    function drawMoreRect() { return { x: 16, y: 216, w: 104, h: 34 }; }
+    function doneButtonRect() { return { x: W / 2 - 90, y: 202, w: 180, h: 34 }; }
+    function drawMoreRect() { return { x: 16, y: 202, w: 104, h: 34 }; }
     function drawDrawButton() {
         if (!shell || !shell.isPlaying()) return;
         if (G.phase !== 'defense' && G.phase !== 'attack') return;
@@ -1274,10 +1275,10 @@
         // energy (left) + your active defenses (right)
         ctx.fillStyle = accent();
         ctx.font = `800 14px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(t('rdEnergy') + ' ' + G.energy + ' / ' + DUEL.energy, 22, 140);
+        ctx.fillText(t('rdEnergy') + ' ' + G.energy + ' / ' + DUEL.energy, 22, 96);
         const defs = G.youShields.map((s) => shieldLabel(s));
         if (G.spinPenalty > 0) defs.push('-' + G.spinPenalty + 's');
-        if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'right'; ctx.fillText(defs.join(' · '), W - 22, 140); }
+        if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'right'; ctx.fillText(defs.join(' · '), W - 22, 96); }
         let selected = null;
         for (const base of handTileRects()) {
             if (base.i === G.cardSel) { selected = base; continue; }   // draw selected last (on top)
@@ -1296,20 +1297,20 @@
         // cost (top-left)
         ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.35)';
         ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(String(c.cost), b.x + 8, b.y + 17);
+        ctx.fillText(String(c.cost), b.x + 8, b.y + 20);
         // name
         ctx.fillStyle = ok || sel ? '#fff' : 'rgba(255,255,255,0.5)';
-        ctx.font = `700 13px ${f}`; ctx.textAlign = 'center';
-        ctx.fillText(t('rdCard_' + b.id), b.x + b.w / 2, b.y + 17);
-        // short effect (wrapped, up to 2 lines)
-        ctx.fillStyle = 'rgba(230,236,255,0.7)'; ctx.font = `500 10px ${f}`;
-        let ey = b.y + 34;
+        ctx.font = `700 14px ${f}`; ctx.textAlign = 'center';
+        ctx.fillText(t('rdCard_' + b.id), b.x + b.w / 2, b.y + 20);
+        // short effect (wrapped, up to 3 lines)
+        ctx.fillStyle = 'rgba(230,236,255,0.72)'; ctx.font = `500 11px ${f}`;
+        let ey = b.y + 42;
         const lines = wrapLines(t('rdCardShort_' + b.id), b.w - 12);
-        for (let k = 0; k < Math.min(lines.length, 2); k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 12; }
+        for (let k = 0; k < Math.min(lines.length, 3); k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 14; }
         // bottom: "tap to play" when selected
         if (sel) {
             ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.4)';
-            ctx.font = `700 10px ${f}`; ctx.fillText(t('rdTapPlay'), b.x + b.w / 2, b.y + b.h - 7);
+            ctx.font = `700 11px ${f}`; ctx.fillText(t('rdTapPlay'), b.x + b.w / 2, b.y + b.h - 8);
         }
         // × discard badge (top-right)
         const xr = cardCloseRect(b);
@@ -1318,14 +1319,37 @@
         ctx.fillText('\u00d7', xr.x + xr.w / 2, xr.y + xr.h / 2 + 1);
         ctx.restore();
     }
+    // Transmute colour picker — choose source then target colour directly (no board tapping).
+    function paletteRects() {
+        const sw = 74, gap = 12, n = ELEMENTS.length;
+        const totalW = n * sw + (n - 1) * gap;
+        const x0 = (W - totalW) / 2, y = BOARD_TOP + 150;
+        return ELEMENTS.map((el, i) => ({ el, x: x0 + i * (sw + gap), y, w: sw, h: sw }));
+    }
+    function palettePanelRect() {
+        const r = paletteRects();
+        const first = r[0], last = r[r.length - 1], pad = 18;
+        return { x: first.x - pad, y: first.y - pad - 30, w: (last.x + last.w) - first.x + pad * 2, h: first.h + pad * 2 + 30 };
+    }
     function drawTransmuteHint() {
-        const f = getFont();
+        const f = getFont(), pick = G.transmute.fromEl == null;
+        const rects = paletteRects(), panel = palettePanelRect();
         ctx.save();
-        ctx.fillStyle = 'rgba(0,0,0,0.55)';
-        ctx.fillRect(0, BOARD_TOP - 30, W, 26);
-        ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.font = `700 15px ${f}`;
-        ctx.fillText(G.transmute.fromEl == null ? t('rtTransmuteFrom') : t('rtTransmuteTo'), W / 2, BOARD_TOP - 17);
+        ctx.fillStyle = 'rgba(8,6,16,0.82)';
+        ctx.fillRect(0, BOARD_TOP - 4, W, H - (BOARD_TOP - 4));
+        ctx.fillStyle = 'rgba(22,19,32,0.98)';
+        roundRect(panel.x, panel.y, panel.w, panel.h, 16); ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = accent();
+        roundRect(panel.x, panel.y, panel.w, panel.h, 16); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.font = `800 17px ${f}`;
+        ctx.fillText(pick ? t('rtTransmuteFrom') : t('rtTransmuteTo'), W / 2, panel.y + 26);
+        for (const r of rects) {
+            const dim = !pick && r.el === G.transmute.fromEl;   // can't pick the same colour as target
+            ctx.save();
+            if (dim) ctx.globalAlpha = 0.25;
+            drawStone(r.el, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.44, defShape(), false, false);
+            ctx.restore();
+        }
         ctx.restore();
     }
     function drawPhaseTimer() {
