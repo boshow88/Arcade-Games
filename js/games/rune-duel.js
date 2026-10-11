@@ -846,6 +846,7 @@
     }
     function onlineWatchdog() {
         if (!G.online || !room || !room.data || !room.data.game) return;
+        markDirty();   // safety net: online repaints at least once per second
         const g = room.data.game;
         if (g.status === 'over') return;
         const now = Date.now(), my = G.online.myUid, opp = G.online.oppUid;
@@ -998,12 +999,11 @@
         return false;
     }
     function render() {
-        // Only skip repaint while genuinely idle (waiting for opponent / AI thinking /
-        // over / ready). During active play and animations we always repaint, so the
-        // board can never visually "freeze" mid-cascade.
-        // Online always repaints (network-driven state must never visually stall);
-        // vs-AI still skips repaint while genuinely idle to save resources.
-        const idle = !G.online && (G.phase === 'ai' || G.phase === 'over' || G.phase === 'idle');
+        // Repaint only when something changed or is animating (saves CPU/GPU). During
+        // active play & animations we always repaint; while idle (waiting for opponent /
+        // AI thinking / over / ready) we skip. The online watchdog marks the frame dirty
+        // once per second as a safety net, so online can never stay stale for > ~1s.
+        const idle = onlineWaiting() || G.phase === 'ai' || G.phase === 'over' || G.phase === 'idle';
         if (idle && !needsRender && !animating()) return;
         needsRender = false;
         ctx.fillStyle = '#0d0b16';
