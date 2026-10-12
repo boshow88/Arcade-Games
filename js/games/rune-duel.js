@@ -1142,6 +1142,7 @@
         G.phase = 'over';
         const wasOnline = !!G.online;
         G.online = null;
+        setOnlineBtnEnabled(true);   // match ended → the Online button works again
         if (shell.syncButtons) shell.syncButtons();   // re-enable pause/restart after an online match
         const reason = reasonText(win, draw, reasonKey);
         if (wasOnline) {
@@ -1205,6 +1206,7 @@
         };
         lobbyResult = ''; lobbyReason = '';
         closeLobby();
+        setOnlineBtnEnabled(false);   // can't reopen the lobby mid-match (prevents ready/start conflicts)
         resetRun();
         if (!shell.isPlaying()) shell.start();
         if (shell.syncButtons) shell.syncButtons();   // disable pause/restart now that we're online
@@ -2254,7 +2256,8 @@
         if (lobbyReason) s = s ? (lobbyReason + ' \u00b7 ' + s) : lobbyReason;
         lobbyRefs.status.textContent = s;
     }
-    function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); markDirty(); if (net.cleanupStaleRooms) net.cleanupStaleRooms().catch(() => {}); }
+    function openLobby() { if (!net || !net.ok || G.online) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); markDirty(); if (net.cleanupStaleRooms) net.cleanupStaleRooms().catch(() => {}); }
+    function setOnlineBtnEnabled(on) { const b = document.getElementById('online-btn'); if (b) b.disabled = !on; }
     function closeLobby() { if (lobbyEl) lobbyEl.hidden = true; markDirty(); }
 
     function setupOnline() {
