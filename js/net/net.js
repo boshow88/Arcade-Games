@@ -107,25 +107,33 @@ function fail(err) {
             });
         }
 
+        // Leave a room. If anyone remains, KEEP the room (so it can be rejoined by code) —
+        // free the leaver's seat, reset the match, and if the host left, promote a remaining
+        // player to host. Only an empty room is deleted. This lets a player leave and come
+        // back to the same code for a rematch, with the other side seeing them return.
         async function leaveRoom(code) {
             if (!user) return;
             const ref = roomRef(code);
             try {
-                const snap = await getDoc(ref);
-                if (!snap.exists()) return;
-                if (snap.data().hostUid === user.uid) {
-                    await deleteDoc(ref);                             // host closes → remove the room entirely
-                    return;
-                }
-                await runTransaction(db, async (tx) => {              // guest leaves → free the seat, reopen the room
+                await runTransaction(db, async (tx) => {
                     const s = await tx.get(ref);
                     if (!s.exists()) return;
                     const d = s.data();
-                    const slots = Array.isArray(d.slots) ? d.slots.slice() : [d.hostUid || null, null];
-                    if (slots[1] === user.uid) slots[1] = null;
-                    // guest leaves → free the seat and reset the match so the room cleanly
-                    // reopens to the lobby (no stale game.status to auto-start/auto-end a rejoin)
-                    tx.update(ref, { [`players.${user.uid}`]: deleteField(), slots, status: d.status !== 'finished' ? 'waiting' : d.status, game: {}, ready: {}, lastActionAt: serverTimestamp() });
+                    const players = Object.assign({}, d.players || {});
+                    delete players[user.uid];
+                    const remaining = Object.keys(players);
+                    if (remaining.length === 0) { tx.delete(ref); return; }   // nobody left → remove the room
+                    let hostUid = d.hostUid;
+                    if (hostUid === user.uid) hostUid = remaining[0];          // host left → promote whoever stays
+                    const guest = remaining.find((u) => u !== hostUid) || null;
+                    tx.update(ref, {
+                        players,
+                        hostUid,
+                        slots: [hostUid, guest],
+                        status: 'waiting',
+                        game: {}, ready: {},
+                        lastActionAt: serverTimestamp(),
+                    });
                 });
             } catch (e) { /* ignore */ }
         }
