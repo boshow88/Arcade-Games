@@ -60,6 +60,7 @@
         rdRoomCreated: (code) => `Room ${code} — waiting for opponent\u2026`, rdWaitingOpp: 'Waiting for opponent\u2026',
         rdMatched: (name) => `Matched with ${name}!`, rdStartDuel: 'Start duel', rdWaitHost: 'Waiting for host to start\u2026',
         rdReadyUp: 'I\u2019m ready to start', rdReadyWait: 'Ready \u2014 waiting for opponent\u2026', rdOppReady: 'opponent ready',
+        rdDifficulty: 'Difficulty', rdLvEasy: 'Easy', rdLvNormal: 'Normal', rdLvHard: 'Hard',
         rdReasonForfeit: 'Opponent left or timed out \u2014 you win.',
         rdReasonKoWin: 'Rival HP hit 0 \u2014 you win.', rdReasonKoLose: 'Your HP hit 0 \u2014 you lose.', rdReasonDoubleKo: 'Both HP hit 0 \u2014 draw.',
         rdReasonHpWin: 'Round limit reached \u2014 more HP, you win.', rdReasonHpLose: 'Round limit reached \u2014 less HP, you lose.', rdReasonTimeDraw: 'Round limit reached, equal HP \u2014 draw.',
@@ -107,6 +108,7 @@
         rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
         rdReadyUp: '準備好了', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備',
+        rdDifficulty: '難度', rdLvEasy: '簡單', rdLvNormal: '普通', rdLvHard: '困難',
         rdReasonForfeit: '對手離開或逾時未行動，你獲勝。',
         rdReasonKoWin: '對手血量歸零，你獲勝。', rdReasonKoLose: '你的血量歸零，你落敗。', rdReasonDoubleKo: '雙方同時血量歸零，平手。',
         rdReasonHpWin: '回合數耗盡，你的血量較高，你獲勝。', rdReasonHpLose: '回合數耗盡，你的血量較低，你落敗。', rdReasonTimeDraw: '回合數耗盡且血量相同，平手。',
@@ -271,6 +273,10 @@
         youHp: 0, youMaxHp: 0,
         aiHp: 0, aiMaxHp: 0,
         aiShields: [],          // rival shields you must satisfy (all)
+        aiBoard: null,          // vs-AI: the rival's own board (cells {el,enhanced})
+        aiPlayed: [],           // vs-AI: cards the rival played this round (revealed in its panel)
+        aiStatus: '',           // vs-AI: '' | 'spin' | 'done'
+        aiLevel: 'normal',      // vs-AI difficulty (easy | normal | hard)
         round: 1,
         phase: 'defense',       // 'defense' | 'attack' | 'ai' | 'over'
         phaseTimer: 0,          // seconds left to decide in defense / attack
@@ -820,14 +826,117 @@
         for (let i = 0; i < count; i++) out.push(oneShield(round));
         return out;
     }
-    // The rival's whole defense decision for the round: which shields to raise, and
-    // whether to hasten your spin. Keeping it in one place (instead of a stray roll)
-    // makes AI difficulty a single knob.
+    // =================================================================
+    // AI opponent (vs-AI): the rival has its own board + cards and really spins.
+    // Difficulty scales the solver's search (how good its spins are), how skilfully it
+    // reacts to your shields, and how often it mends / stacks shields.
+    // =================================================================
+    const AI_LEVELS = {
+        easy: { tries: 14, pathLen: 6, skill: 0.45, defCount: 1, mend: 0.12, slowChance: 0.12 },
+        normal: { tries: 46, pathLen: 9, skill: 0.72, defCount: 1, mend: 0.22, slowChance: 0.25 },
+        hard: { tries: 120, pathLen: 13, skill: 0.92, defCount: 2, mend: 0.32, slowChance: 0.4 },
+    };
+    function aiCfg() { return AI_LEVELS[G.aiLevel] || AI_LEVELS.normal; }
+    // lightweight board = array of { el, enhanced } | null (no gfx/shape — sim only)
+    function simClone(a) { return a.map((o) => (o ? { el: o.el, enhanced: o.enhanced } : null)); }
+    function simFromBoard(bd) { return bd.map((o) => (o ? { el: o.el, enhanced: !!o.enhanced } : null)); }
+    function simMatchesOn(a) {
+        const n = COLS * ROWS, matched = new Array(n).fill(false);
+        const el = (r, c) => { const o = a[r * COLS + c]; return o ? o.el : null; };
+        for (let r = 0; r < ROWS; r++) { let c = 0; while (c < COLS) { const e = el(r, c); let c2 = c; while (c2 < COLS && el(r, c2) === e && e != null) c2++; if (e != null && c2 - c >= 3) for (let k = c; k < c2; k++) matched[r * COLS + k] = true; c = Math.max(c2, c + 1); } }
+        for (let c = 0; c < COLS; c++) { let r = 0; while (r < ROWS) { const e = el(r, c); let r2 = r; while (r2 < ROWS && el(r2, c) === e && e != null) r2++; if (e != null && r2 - r >= 3) for (let k = r; k < r2; k++) matched[k * COLS + c] = true; r = Math.max(r2, r + 1); } }
+        const groups = [], seen = new Array(n).fill(false);
+        for (let idx = 0; idx < n; idx++) {
+            if (!matched[idx] || seen[idx] || !a[idx]) continue;
+            const e = a[idx].el, stack = [idx], cells = []; seen[idx] = true;
+            while (stack.length) { const cur = stack.pop(); cells.push(cur); const r = cellRow(cur), c = cellCol(cur);
+                for (const nb of [[r - 1, c], [r + 1, c], [r, c - 1], [r, c + 1]]) { if (nb[0] < 0 || nb[0] >= ROWS || nb[1] < 0 || nb[1] >= COLS) continue; const ni = nb[0] * COLS + nb[1]; if (matched[ni] && !seen[ni] && a[ni] && a[ni].el === e) { seen[ni] = true; stack.push(ni); } } }
+            groups.push({ el: e, cells });
+        }
+        return groups;
+    }
+    function simGravityOn(a) {
+        for (let c = 0; c < COLS; c++) {
+            let write = ROWS - 1;
+            for (let r = ROWS - 1; r >= 0; r--) { const idx = r * COLS + c; if (a[idx] != null) { const w = write * COLS + c; if (w !== idx) { a[w] = a[idx]; a[idx] = null; } write--; } }
+            for (let r = write; r >= 0; r--) a[r * COLS + c] = { el: randomEl(), enhanced: false };
+        }
+    }
+    // Resolve a spin on a sim board (mutates it); returns stats + damage/heal like computeSpinResult.
+    function simResolve(a) {
+        let n = 0, firstWave = 0, enhanced = 0, dmg = 0, heal = 0, wave = 0;
+        const elements = new Set(), enhancedEls = new Set();
+        for (let guard = 0; guard < 40; guard++) {
+            const groups = simMatchesOn(a); if (!groups.length) break;
+            for (const g of groups) {
+                let e = 0; for (const i of g.cells) if (a[i] && a[i].enhanced) e++;
+                n++; if (wave === 0) firstWave++; enhanced += e; elements.add(g.el); if (e > 0) enhancedEls.add(g.el);
+                const count = g.cells.length + e * (BALANCE.enhancedMult - 1);
+                if (g.el === 'heart') heal += count * BALANCE.heartHeal; else dmg += count * BALANCE.baseDamage;
+                for (const i of g.cells) a[i] = null;
+            }
+            simGravityOn(a); wave++;
+        }
+        const comboMult = n > 0 ? 1 + BALANCE.comboStep * (n - 1) : 0;
+        return { stats: { combos: n, firstWave, enhancedCleared: enhanced, elements, enhancedEls }, dmg: Math.round(dmg * comboMult), heal: Math.round(heal * comboMult) };
+    }
+    function aiFillBoard() {
+        const a = new Array(COLS * ROWS);
+        for (let i = 0; i < a.length; i++) a[i] = { el: randomEl(), enhanced: false };
+        let guard = 0, g = simMatchesOn(a);
+        while (g.length && guard++ < 200) { for (const grp of g) for (const i of grp.cells) a[i].el = randomEl(); g = simMatchesOn(a); }
+        return a;
+    }
+    function neighborsOf(idx) { const r = cellRow(idx), c = cellCol(idx), out = []; if (r > 0) out.push(idx - COLS); if (r < ROWS - 1) out.push(idx + COLS); if (c > 0) out.push(idx - 1); if (c < COLS - 1) out.push(idx + 1); return out; }
+    function applyPath(a, start, path) { let cur = start; for (const nx of path) { const tmp = a[cur]; a[cur] = a[nx]; a[nx] = tmp; cur = nx; } }
+    function simEnchant(a, n) { const c = []; for (let i = 0; i < a.length; i++) if (a[i] && !a[i].enhanced) c.push(i); for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); a[c[j]].enhanced = true; c.splice(j, 1); } }
+    function simTransmuteTo(a, to, n) { const c = []; for (let i = 0; i < a.length; i++) if (a[i] && a[i].el !== to) c.push(i); for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); a[c[j]].el = to; c.splice(j, 1); } }
+    function scoreSpin(res, youShields) {
+        const blocked = shieldsBlock(youShields, res.stats);
+        let s = res.dmg + res.heal * 0.3 + res.stats.combos * 2;
+        if (blocked) s -= 1e6;   // never settle for a blocked attack if avoidable
+        return s;
+    }
+    // Heuristic solver: try many random drag paths, keep the one whose spin scores best,
+    // then actually apply it to `a` (so the mini-board shows the settled result).
+    function aiSolve(a, youShields) {
+        const cfg = aiCfg();
+        const slow = Math.pow(0.6, G.aiSlow || 0);   // your Shorten cramps its "thinking"
+        const tries = Math.max(4, Math.round(cfg.tries * slow));
+        const maxLen = Math.max(3, Math.round(cfg.pathLen * (0.6 + 0.4 * slow)));
+        let bestStart = 0, bestPath = [], bestScore = -Infinity;
+        for (let ti = 0; ti < tries; ti++) {
+            const start = AC.rng.int(G.rng, 0, COLS * ROWS);
+            const len = 2 + AC.rng.int(G.rng, 0, maxLen);
+            const path = []; let cur = start, prev = -1;
+            for (let s = 0; s < len; s++) { const nb = neighborsOf(cur).filter((x) => x !== prev); if (!nb.length) break; const nx = nb[AC.rng.int(G.rng, 0, nb.length)]; path.push(nx); prev = cur; cur = nx; }
+            const copy = simClone(a); applyPath(copy, start, path);
+            const sc = scoreSpin(simResolve(copy), youShields);
+            if (sc > bestScore) { bestScore = sc; bestStart = start; bestPath = path.slice(); }
+        }
+        applyPath(a, bestStart, bestPath);
+        return simResolve(a);   // authoritative result on the real sim board
+    }
+
+    // Reactive defense: raise the shields that hurt YOU most, read off your board.
+    // e.g. if you're short on a colour, demand you clear it; if you're flooded with one,
+    // forbid it. Harder levels stack a 2nd shield and shorten your spin more often.
     function aiDefend(round) {
-        return {
-            shields: rollRivalShields(round),
-            hastenYou: round >= 3 && AC.rng.float(G.rng, 0, 1) < DUEL.aiHasten,
-        };
+        const cfg = aiCfg();
+        const cnt = {}; for (const e of ELEMENTS) cnt[e] = 0;
+        for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o) cnt[o.el]++; }
+        const atk = ATTACK_ELEMENTS.slice().sort((x, y) => cnt[x] - cnt[y]);
+        const scarce = atk[0], abundant = atk[atk.length - 1];
+        const shields = [];
+        if (AC.rng.float(G.rng, 0, 1) < 0.6) shields.push({ type: 'element', mode: 'contains', elements: [scarce] });
+        else shields.push({ type: 'element', mode: 'ban', elements: [abundant] });
+        if (cfg.defCount >= 2 || round >= 6) {
+            const r = AC.rng.int(G.rng, 0, 3);
+            if (r === 0) shields.push({ type: 'combo', mode: 'min', n: 5 + Math.min(3, (round / 3) | 0) });
+            else if (r === 1) shields.push({ type: 'enhanced' });
+            else shields.push({ type: 'firstWave', mode: 'max', n: 2 });
+        }
+        return { shields: shields.slice(0, cfg.defCount), hastenYou: round >= 3 && AC.rng.float(G.rng, 0, 1) < cfg.slowChance };
     }
 
     // --- Damage / duel flow ---
@@ -881,52 +990,44 @@
         G.resolving = false; G.resolve = null;
         if (G.aiHp <= 0) { G.aiHp = 0; updateHud(); duelOver(true); return; }
         G.phase = 'ai';
+        G.aiStatus = 'spin';   // the rival is now thinking / spinning
         G.aiTimer = DUEL.aiThink;
         updateHud();
     }
     function aiAttack() {
-        // the rival "plays cards": it may mend itself and/or empower its strike
-        let mult = 1;
-        if (AC.rng.float(G.rng, 0, 1) < 0.35 && G.aiHp < G.aiMaxHp) {
-            const h = Math.round(G.aiMaxHp * 0.06);
+        const cfg = aiCfg();
+        G.aiPlayed = [];
+        if (!G.aiBoard) G.aiBoard = aiFillBoard();
+        // mend a little when hurt
+        if (AC.rng.float(G.rng, 0, 1) < cfg.mend && G.aiHp < G.aiMaxHp) {
+            const h = Math.round(G.aiMaxHp * 0.05);
             G.aiHp = Math.min(G.aiMaxHp, G.aiHp + h);
             addFloat(W / 2, 48, t('rdRivalMend') + ' +' + h, '#8fd1a0', 18);
         }
-        if (AC.rng.float(G.rng, 0, 1) < 0.35) { mult = 1.5; addFloat(W / 2, 72, t('rdRivalEmpower'), '#ffcf5a', 18); }
-
-        // the rival "spins": a simulated profile that tries to meet YOUR shields
-        let combos = AC.rng.int(G.rng, DUEL.aiComboMin, DUEL.aiComboMax + 1) + ((G.round / 6) | 0);
-        combos = Math.max(1, combos - (G.aiSlow || 0));   // your Slow cramps it
-        let firstWave = 1 + AC.rng.int(G.rng, 0, 3);
-        let enhancedCleared = AC.rng.float(G.rng, 0, 1) < 0.3 ? 1 : 0;
-        const els = new Set(), enhEls = new Set();
-        const k = 2 + AC.rng.int(G.rng, 0, 2);
-        for (let i = 0; i < k; i++) els.add(randEl());
-        for (const s of G.youShields) {                          // it meets each shield with skill chance
-            if (AC.rng.float(G.rng, 0, 1) > DUEL.aiSkill) continue;
-            if (s.type === 'enhanced') enhancedCleared = Math.max(enhancedCleared, 1);
-            else if (s.type === 'enhancedEl') { enhancedCleared = Math.max(enhancedCleared, 1); s.elements.forEach((e) => { enhEls.add(e); els.add(e); }); }
-            else if (s.type === 'combo' && s.mode === 'min') combos = Math.max(combos, s.n);
-            else if (s.type === 'combo' && s.mode === 'max') combos = Math.min(combos, s.n);
-            else if (s.type === 'firstWave' && s.mode === 'min') firstWave = Math.max(firstWave, s.n);
-            else if (s.type === 'firstWave' && s.mode === 'max') firstWave = Math.min(firstWave, s.n);
-            else if (s.type === 'element' && s.mode === 'ban') els.delete(s.elements[0]);
-            else if (s.type === 'element' && s.mode === 'contains') s.elements.forEach((e) => els.add(e));
+        // "play cards" reactively to YOUR shields, reshaping its board (revealed in the panel)
+        const a = simFromBoard(G.aiBoard);
+        for (const s of G.youShields) {
+            if (AC.rng.float(G.rng, 0, 1) > cfg.skill) continue;   // skill: it may miss the right card
+            if (s.type === 'enhanced') { simEnchant(a, 3); G.aiPlayed.push('ench_rand'); }
+            else if (s.type === 'enhancedEl' && s.elements) { simTransmuteTo(a, s.elements[0], 3); simEnchant(a, 3); G.aiPlayed.push('ench_' + s.elements[0]); }
+            else if (s.type === 'element' && s.mode === 'contains') { simTransmuteTo(a, s.elements[0], 4); G.aiPlayed.push('trFr_' + s.elements[0]); }
         }
-        firstWave = Math.min(firstWave, combos);
-        const stats = { combos, firstWave, enhancedCleared, elements: els, enhancedEls: enhEls };
-        const blocked = shieldsBlock(G.youShields, stats);
-
+        // solve + spin for real; the chosen move is applied to `a` so the mini-board shows it
+        const res = aiSolve(a, G.youShields);
+        G.aiBoard = a;
+        G.aiStatus = 'done';
+        const blocked = shieldsBlock(G.youShields, res.stats);
+        if (res.heal > 0) { G.aiHp = Math.min(G.aiMaxHp, G.aiHp + res.heal); addFloat(W / 2, 48, '+' + res.heal, ELEMENT_COLORS.heart, 18); }
         if (blocked) {
             addFloat(W / 2, BOARD_TOP - 70, t('rtBlocked'), '#9fe0ff', 22);
             AC.audio.play('empty');
-        } else {
-            const dmg = Math.max(1, Math.round((DUEL.aiBase + combos * DUEL.aiPerCombo) * mult));
-            G.youHp -= dmg;
-            G.shake = 0.4;
-            addFloat(W / 2, BOARD_TOP - 70, '-' + dmg, '#ff6b6b', 24);
+        } else if (res.dmg > 0) {
+            G.youHp -= res.dmg; G.shake = 0.4;
+            addFloat(W / 2, BOARD_TOP - 70, '-' + res.dmg, '#ff6b6b', 24);
+            if (res.stats.combos) addFloat(W / 2, BOARD_TOP - 44, t('rtCombo', res.stats.combos), accent(), 16);
             AC.audio.play('rock');
         }
+        updateHud();
         if (G.youHp <= 0) { G.youHp = 0; updateHud(); duelOver(false); return; }
         G.phase = 'resolved'; G.resolveHold = DUEL.resolvePause;   // hold so the exchange is readable
     }
@@ -945,9 +1046,11 @@
         G.lastDrawn = null;
         G.spinOpen = false;
         if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeDef * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
+        if (!G.aiBoard) G.aiBoard = aiFillBoard();
+        G.aiStatus = '';
         const plan = aiDefend(G.round);
         G.aiShields = plan.shields;
-        G.spinMultOpp = plan.hastenYou ? 0.7 : 1;   // vs-AI: rival may slow your spin this round
+        G.spinMultOpp = plan.hastenYou ? 0.7 : 1;   // vs-AI: rival may shorten your spin this round
         updateHud();
     }
     function startAttackPhase() {
@@ -1326,9 +1429,13 @@
     // Persistent compact preview of the rival's board (top-right), shown every phase
     // online so you can read what they're holding whenever you plan.
     const MINI = { cell: 14, get gw() { return COLS * this.cell; }, get gh() { return ROWS * this.cell; }, get ox() { return W - 16 - this.gw; }, oy: 10 };
+    function oppBoardCells() {
+        if (G.online) return G.online.oppBoard || null;
+        return G.aiBoard ? G.aiBoard.map((c) => (c ? { e: c.el, h: c.enhanced ? 1 : 0 } : null)) : null;
+    }
     function drawOppBoard() {
-        if (!(G.online && G.online.oppBoard)) return;
-        const ob = G.online.oppBoard, cell = MINI.cell, ox = MINI.ox, oy = MINI.oy;
+        const ob = oppBoardCells(); if (!ob) return;
+        const cell = MINI.cell, ox = MINI.ox, oy = MINI.oy;
         ctx.save();
         ctx.fillStyle = 'rgba(255,255,255,0.05)';
         roundRect(ox - 4, oy - 4, MINI.gw + 8, MINI.gh + 8, 6); ctx.fill();
@@ -1486,21 +1593,25 @@
     }
     function drawRivalPanel() {
         const f = getFont();
-        const rightEdge = G.online ? MINI.ox - 12 : W - 22;
+        const name = G.online ? G.online.oppName : t('rdRival');
+        const oppStatus = G.online ? G.online.oppStatus : G.aiStatus;
+        const oppCards = G.online ? G.online.oppLastCards : G.aiPlayed;
+        const hasMini = !!oppBoardCells();
+        const rightEdge = hasMini ? MINI.ox - 12 : W - 22;
         ctx.textBaseline = 'alphabetic';
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.font = `700 12px ${f}`; ctx.textAlign = 'left';
-        ctx.fillText(G.online ? G.online.oppName : t('rdRival'), 22, 15);
-        if (G.online && G.online.oppStatus) {
-            const nw = ctx.measureText(G.online.oppName).width;
-            ctx.fillStyle = G.online.oppStatus === 'spin' ? '#ffcf5a' : '#8fe36b';
+        ctx.fillText(name, 22, 15);
+        if (oppStatus) {
+            const nw = ctx.measureText(name).width;
+            ctx.fillStyle = oppStatus === 'spin' ? '#ffcf5a' : '#8fe36b';
             ctx.font = `700 11px ${f}`;
-            ctx.fillText(t(G.online.oppStatus === 'spin' ? 'rdOppSpin' : 'rdOppDone'), 22 + nw + 10, 15);
+            ctx.fillText(t(oppStatus === 'spin' ? 'rdOppSpin' : 'rdOppDone'), 22 + nw + 10, 15);
         }
-        drawBar(22, 20, (G.online ? MINI.ox - 34 : W - 44), 12, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
+        drawBar(22, 20, (hasMini ? MINI.ox - 34 : W - 44), 12, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
         ctx.textBaseline = 'middle';
-        // the rival's defences against YOUR attack: shields + your Slow on them (time↓), as pills
+        // the rival's defences against YOUR attack: shields + your Shorten on them (time↓), as pills
         const specs = G.aiShields.map((s) => ({ text: shieldLabel(s), kind: 'def' }));
         if ((G.spinMultOpp || 1) < 1) specs.push({ text: t('rdTime'), icon: 'down', kind: 'time' });
         let px = rightEdge;
@@ -1511,9 +1622,9 @@
             px -= PILL.gap;
         }
         // what the rival played last attack (persists so you can study their style)
-        if (G.online && G.online.oppLastCards && G.online.oppLastCards.length) {
+        if (oppCards && oppCards.length) {
             const counts = {};
-            for (const id of G.online.oppLastCards) counts[id] = (counts[id] || 0) + 1;
+            for (const id of oppCards) counts[id] = (counts[id] || 0) + 1;
             const parts = Object.keys(counts).map((id) => cardName(id) + (counts[id] > 1 ? '\u00d7' + counts[id] : ''));
             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
             ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `600 11px ${f}`;
@@ -1881,6 +1992,9 @@
         G.playedThisRound = [];
         G.lastDrawn = null;
         G.spinOpen = false;
+        G.aiBoard = aiFillBoard();
+        G.aiPlayed = [];
+        G.aiStatus = '';
         G.empowerNext = 1;
         G.held = null;
         G.spinTimer = 0;
@@ -2055,8 +2169,23 @@
         else window.addEventListener('arcade-net-ready', onReady, { once: true });
     }
 
+    function setupAiLevel() {
+        const sel = document.getElementById('ai-level'); if (!sel) return;
+        const lbl = document.getElementById('ai-level-label');
+        const fill = () => {
+            if (sel.options.length >= 3) { sel.options[0].textContent = t('rdLvEasy'); sel.options[1].textContent = t('rdLvNormal'); sel.options[2].textContent = t('rdLvHard'); }
+            if (lbl) lbl.textContent = t('rdDifficulty');
+        };
+        let saved = null; try { saved = localStorage.getItem('rd-ai-level'); } catch (e) { /* ignore */ }
+        if (saved && AI_LEVELS[saved]) sel.value = saved;
+        G.aiLevel = AI_LEVELS[sel.value] ? sel.value : 'normal';
+        fill();
+        sel.addEventListener('change', () => { G.aiLevel = AI_LEVELS[sel.value] ? sel.value : 'normal'; try { localStorage.setItem('rd-ai-level', G.aiLevel); } catch (e) { /* ignore */ } });
+        AC.i18n.subscribe(fill);
+    }
     function init() {
         fitCanvas();
+        setupAiLevel();
         window.addEventListener('resize', () => { fitCanvas(); markDirty(); render(); });
         shell = AC.shell.create({
             gameId: 'rune-duel',
