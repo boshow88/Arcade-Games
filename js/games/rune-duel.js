@@ -154,34 +154,27 @@
         });
     }
     // Lucide-style glyphs (24×24 viewBox) for HUD pills and card tiles. An op is either
-    // a path string or { c:[cx,cy,r] } for a stroked circle.
+    // a path string or { c:[cx,cy,r] } for a stroked circle. Element glyphs reuse the
+    // board rune icons (ICON_PATHS), so cards match the orbs.
     const UI_ICON_OPS = {
-        up: ['M12 19V5', 'M5 12l7-7 7 7'],
-        down: ['M12 5v14', 'M19 12l-7 7-7-7'],
+        up: ['M12 19V5', 'M5 12l7-7 7 7'],                                  // time pill ↑
+        down: ['M12 5v14', 'M19 12l-7 7-7-7'],                              // time pill ↓
+        clockUp: [{ c: [9, 9, 7] }, 'M9 5.5V9l2.3 1.3', 'M18 20.5v-7', 'm15 16.5 3-3 3 3'],   // extend own time
+        clockDown: [{ c: [9, 9, 7] }, 'M9 5.5V9l2.3 1.3', 'M18 13.5v7', 'm15 17.5 3 3 3-3'],  // shorten rival time
         ban: [{ c: [12, 12, 9] }, 'm5.6 5.6 12.8 12.8'],                    // forbid a colour
-        need: [{ c: [12, 12, 9] }, 'm8.3 12 2.5 2.5 4.8-4.8'],             // must clear a colour
-        enh: ['M12.983 21.186a1 1 0 0 1-1.966 0 10 10 0 0 0-8.203-8.203 1 1 0 0 1 0-1.966 10 10 0 0 0 8.203-8.203 1 1 0 0 1 1.966 0 10 10 0 0 0 8.203 8.203 1 1 0 0 1 0 1.966 10 10 0 0 0-8.203 8.203'],  // enhanced / enchant (sparkle)
-        combo: ['M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'],   // combo count (zap)
-        first: ['m7 6 5 5 5-5', 'm7 13 5 5 5-5'],                           // keep first wave low (chevrons-down)
-        trans: ['M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C8 11.1 7 13 7 15a7 7 0 0 0 7 7z'],   // recolour (droplet)
-        brk: ['M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z', 'm5.5 5.5 13 13'],   // break a shield (shield + slash)
+        check: [{ c: [12, 12, 9] }, 'm8.3 12 2.5 2.5 4.8-4.8'],            // require a colour (circle-check)
+        qmark: [{ c: [12, 12, 9] }, 'M9.3 9a2.7 2.7 0 0 1 5.2 1c0 1.8-2.7 2.5-2.7 2.7', 'M12 16.1v.01'],   // random (circle-question)
+        crosshair: [{ c: [12, 12, 7] }, 'M12 2v3', 'M12 19v3', 'M2 12h3', 'M19 12h3'],   // chosen / any (crosshair)
+        diamond: ['M2.7 10.3a2.41 2.41 0 0 0 0 3.41l7.59 7.59a2.41 2.41 0 0 0 3.41 0l7.59-7.59a2.41 2.41 0 0 0 0-3.41L13.7 2.71a2.41 2.41 0 0 0-3.41 0z'],   // enhanced rune
+        ellipsis: [{ c: [12, 12, 9] }, 'M7 12h.01', 'M12 12h.01', 'M17 12h.01'],   // combo count (circle-ellipsis)
+        arrowRight: ['M5 12h14', 'm12 5 7 7-7 7'],                          // transmute connector
+        shieldBan: ['M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z', 'm5.5 5.5 13 13'],   // break a shield
     };
     const UI_PATHS = {};
     for (const _k in UI_ICON_OPS) UI_PATHS[_k] = UI_ICON_OPS[_k].map((op) => {
         if (typeof op === 'string') return new Path2D(op);
         const p = new Path2D(); p.arc(op.c[0], op.c[1], op.c[2], 0, PI2); return p;
     });
-    // card category → glyph key
-    const CAT_ICON = {
-        ban: 'ban', banRand: 'ban', banPick: 'ban',
-        need: 'need', needRand: 'need', needPick: 'need',
-        needEnhEl: 'enh', needEnhAny: 'enh', needEnhRand: 'enh', needEnhPick: 'enh',
-        comboMin: 'combo', comboMax: 'combo', firstMin: 'first', firstMax: 'first',
-        slow: 'down', fast: 'up',
-        transmute: 'trans', transToPick: 'trans', transFromPick: 'trans', transBoth: 'trans',
-        enchEl: 'enh', enchRand: 'enh', enchPick: 'enh',
-        breakRand: 'brk', breakPick: 'brk',
-    };
 
     const WEIGHTS = { fire: 1, water: 1, wood: 1, light: 1, dark: 1, heart: 0.75 };
     const WEIGHT_TOTAL = ELEMENTS.reduce((s, e) => s + WEIGHTS[e], 0);
@@ -347,14 +340,44 @@
             : { base: '#d16a4e', bg: 'rgba(195,85,64,0.16)', bgSel: 'rgba(195,85,64,0.36)', bgNew: 'rgba(240,140,90,0.17)', hi: '#ff9a63' };
     }
     function cardColors(id) { return typeColors(CARDS[id] && CARDS[id].type === 'defense'); }
-    // Which glyph + colour a card tile shows. Time cards are amber; element-targeting
-    // cards tint by that element; everything else uses its type's bright accent.
-    function cardIcon(c) {
-        const key = CAT_ICON[c.cat] || (c.type === 'defense' ? 'need' : 'trans');
-        if (c.cat === 'slow' || c.cat === 'fast') return { key, color: '#ffcf8f' };
-        const el = c.el || c.from || c.to;
-        if (el && ELEMENT_COLORS[el]) return { key, color: shade(ELEMENT_COLORS[el], 0.32) };
-        return { key, color: typeColors(c.type === 'defense').hi };
+    // The 1–3 glyphs a card shows, left to right. Each item is { g, c } (a glyph key +
+    // colour) or { t, c } (a short text token + colour). Element glyphs use the element
+    // colour; structural glyphs use the card's type accent; time cards are amber.
+    const AMBER = '#ffcf8f';
+    function elColor(el) { return shade(ELEMENT_COLORS[el], 0.32); }
+    function cardGlyphs(c) {
+        const a = typeColors(c.type === 'defense').hi;   // accent: blue (def) / red (atk)
+        const g = (key, col) => ({ g: key, c: col || a });
+        const el = (e) => ({ g: e, c: elColor(e) });
+        const tx = (text) => ({ t: text, c: a });
+        switch (c.cat) {
+            case 'slow': return [g('clockDown', AMBER)];
+            case 'fast': return [g('clockUp', AMBER)];
+            case 'ban': return [g('ban'), el(c.el)];
+            case 'banRand': return [g('ban'), g('qmark')];
+            case 'banPick': return [g('ban'), g('crosshair')];
+            case 'need': return [g('check'), el(c.el)];
+            case 'needRand': return [g('check'), g('qmark')];
+            case 'needPick': return [g('check'), g('crosshair')];
+            case 'needEnhAny': return [g('check'), g('diamond')];
+            case 'needEnhEl': return [g('check'), el(c.el), g('diamond')];
+            case 'needEnhRand': return [g('check'), g('qmark'), g('diamond')];
+            case 'needEnhPick': return [g('check'), g('crosshair'), g('diamond')];
+            case 'comboMin': return [g('ellipsis'), tx('\u2265' + c.n)];
+            case 'comboMax': return [g('ellipsis'), tx('\u2264' + c.n)];
+            case 'firstMin': return [tx('\u2460\u2265' + c.n)];
+            case 'firstMax': return [tx('\u2460\u2264' + c.n)];
+            case 'transmute': return [el(c.from), g('arrowRight'), el(c.to)];
+            case 'transToPick': return [el(c.from), g('arrowRight'), g('crosshair')];
+            case 'transFromPick': return [g('crosshair'), g('arrowRight'), el(c.to)];
+            case 'transBoth': return [g('crosshair'), g('arrowRight'), g('crosshair')];
+            case 'enchEl': return [el(c.el), g('arrowRight'), g('diamond')];
+            case 'enchPick': return [g('crosshair'), g('arrowRight'), g('diamond')];
+            case 'enchRand': return [g('qmark'), g('arrowRight'), g('diamond')];
+            case 'breakRand': return [g('qmark'), g('shieldBan')];
+            case 'breakPick': return [g('crosshair'), g('shieldBan')];
+            default: return [g('check')];
+        }
     }
     function roundRect(x, y, w, h, r) {
         ctx.beginPath();
@@ -543,7 +566,12 @@
                 if (G.phase === 'defense' && inRect(p, doneButtonRect())) { AC.audio.unlock(); if (G.online) submitDefense(); else startAttackPhase(); if (e.cancelable) e.preventDefault(); return; }
                 if (canDrawMore() && inRect(p, drawMoreRect())) { AC.audio.unlock(); drawOneCard(); if (e.cancelable) e.preventDefault(); return; }
             }
-            for (const base of handTileRects()) {
+            // hit-test front-to-back: selected (on top) → top row → bottom row
+            const tiles = handTileRects();
+            const hitOrder = tiles.filter((b) => b.i === G.cardSel)
+                .concat(tiles.filter((b) => b.i !== G.cardSel && b.row === 0))
+                .concat(tiles.filter((b) => b.i !== G.cardSel && b.row === 1));
+            for (const base of hitOrder) {
                 if (inRect(p, tileRect(base))) { AC.audio.unlock(); G.cardSel = (G.cardSel === base.i ? null : base.i); if (e.cancelable) e.preventDefault(); return; }
             }
             G.cardSel = null;   // tapped empty area → deselect
@@ -1400,7 +1428,7 @@
     }
     // A HUD glyph from UI_PATHS (stroked, 24×24 viewBox), centred at (cx,cy).
     function drawUiIcon(key, cx, cy, size, color, lw) {
-        const paths = UI_PATHS[key]; if (!paths) return;
+        const paths = UI_PATHS[key] || ICON_PATHS[key]; if (!paths) return;   // UI glyph or element rune
         const s = size / 24;
         ctx.save();
         ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-12, -12);
@@ -1515,10 +1543,11 @@
                 const cap = 6;
                 for (let k = 0; k < played.length && k < cap; k++) {
                     const c = CARDS[played[k]]; if (!c) continue;
-                    const ic = cardIcon(c);
+                    const g0 = cardGlyphs(c)[0];
                     ctx.fillStyle = 'rgba(255,183,94,0.12)'; roundRect(x, py, PILL.h, PILL.h, 6); ctx.fill();
                     ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,183,94,0.5)'; roundRect(x, py, PILL.h, PILL.h, 6); ctx.stroke();
-                    drawUiIcon(ic.key, x + PILL.h / 2, py + PILL.h / 2, 13, ic.color, 2);
+                    if (g0 && g0.g) drawUiIcon(g0.g, x + PILL.h / 2, py + PILL.h / 2, 13, g0.c, 2);
+                    else if (g0) { ctx.fillStyle = g0.c; ctx.font = `800 10px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(g0.t, x + PILL.h / 2, py + PILL.h / 2); }
                     x += PILL.h + 4;
                 }
                 if (played.length > cap) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `700 11px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('+' + (played.length - cap), x, py + PILL.h / 2); }
@@ -1531,11 +1560,13 @@
         drawBar(54, LAY.youHpY, W - 76, LAY.youHpH, ratio, col, Math.max(0, Math.ceil(G.youHp)) + ' / ' + G.youMaxHp);
     }
 
-    // card hand — tiles show name + effect + cost inline; tap to select (pops up),
-    // tap again to play; the × badge discards. No modal popup.
+    // card hand — short, wide tiles in two staggered rows (ABAB by x). Odd slots sit a
+    // little lower; the small overlap keeps the footprint compact while leaving every
+    // tile's lower-left corner visible for its 1–3 glyphs. Tap to select (pops up to
+    // reveal the full name), tap again to play.
+    const HAND = { w: 104, h: 40, step: 52, rowOff: 30, topY: 86 };
     function handTileRects() {
-        // group by major type (defense left, attack right); within each group keep draw
-        // order so the newest card sits on the right of its group.
+        // group by major type (defense left, attack right); within each group keep draw order
         const order = G.hand.map((id, i) => ({ id, i })).sort((a, b) => {
             const ta = CARDS[a.id].type === 'defense' ? 0 : 1;
             const tb = CARDS[b.id].type === 'defense' ? 0 : 1;
@@ -1543,12 +1574,15 @@
         });
         const n = order.length;
         if (n === 0) return [];
-        const gap = 7, h = LAY.handH, y = LAY.handY;
-        const w = Math.min(120, (W - 24 - gap * (n - 1)) / Math.max(n, 1));
-        const x0 = (W - (w * n + gap * (n - 1))) / 2;
-        return order.map((o, k) => ({ i: o.i, id: o.id, x: x0 + k * (w + gap), y, w, h }));
+        const { w, h, step, rowOff, topY } = HAND;
+        const totalW = (n - 1) * step + w;
+        const x0 = Math.max(12, (W - totalW) / 2);
+        return order.map((o, k) => ({ i: o.i, id: o.id, row: k % 2, x: x0 + k * step, y: topY + (k % 2) * rowOff, w, h }));
     }
-    function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 10, y: b.y - 18, w: b.w + 20, h: b.h + 24 } : b; }
+    function tileRect(b) {
+        if (b.i !== G.cardSel) return b;
+        return { i: b.i, id: b.id, row: b.row, x: Math.max(8, Math.min(W - 8 - (b.w + 10), b.x - 5)), y: 72, w: b.w + 10, h: 94 };
+    }
     function drawMoreRect() { return { x: 16, y: LAY.actY, w: 92, h: LAY.actH }; }
     function doneButtonRect() { return { x: W - 16 - 128, y: LAY.actY, w: 128, h: LAY.actH }; }   // 進入攻擊 hugs the right edge
     function playBtnRect() { return { x: W / 2 - 150, y: LAY.actY, w: 146, h: LAY.actH }; }
@@ -1583,43 +1617,61 @@
     function drawHand() {
         if (!shell || !shell.isPlaying()) return;
         const f = getFont();
-        let selected = null;
-        for (const base of handTileRects()) {
-            if (base.i === G.cardSel) { selected = base; continue; }   // draw selected last (on top)
-            drawCardTile(base, f);
+        const tiles = handTileRects();
+        // draw back-to-front so the raised (top) row sits over the lowered (bottom) row,
+        // and the selected card pops over everything.
+        for (const b of tiles) if (b.row === 1 && b.i !== G.cardSel) drawCardTile(b, f);
+        for (const b of tiles) if (b.row === 0 && b.i !== G.cardSel) drawCardTile(b, f);
+        const sel = tiles.find((b) => b.i === G.cardSel);
+        if (sel) drawCardTile(sel, f);
+    }
+    // Draw 1–3 glyphs (and short text tokens) left-to-right, vertically centred on `cy`,
+    // auto-sized to fit `maxW`. Returns nothing.
+    function drawGlyphCluster(items, x, cy, maxW, sizeCap, f) {
+        const n = items.length;
+        let size = Math.floor((maxW - 4 * (n - 1)) / n);
+        size = Math.max(14, Math.min(sizeCap, size));
+        let gx = x;
+        for (const it of items) {
+            if (it.g) { drawUiIcon(it.g, gx + size / 2, cy, size, it.c, 2.2); gx += size + 4; }
+            else {
+                ctx.fillStyle = it.c; ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+                ctx.fillText(it.t, gx, cy); gx += ctx.measureText(it.t).width + 4;
+            }
         }
-        if (selected) drawCardTile(selected, f);
     }
     function drawCardTile(base, f) {
         const b = tileRect(base), c = CARDS[b.id], sel = base.i === G.cardSel;
         const active = cardPhaseOk(b.id);   // this phase's type is bright; the other dimmed
         const ok = active && G.energy >= c.cost && playable(b.id);
-        const isNew = base.i === G.lastDrawn && ok;   // newest-drawn, but only while it's actually playable (enough energy)
+        const isNew = base.i === G.lastDrawn && ok;   // newest-drawn, but only while it's actually playable
         const col = cardColors(b.id);           // defense = blue, attack = red
+        const glyphs = cardGlyphs(c);
+        const dim = (items) => ok ? items : items.map((it) => ({ g: it.g, t: it.t, c: 'rgba(255,255,255,0.4)' }));
         ctx.save();
         ctx.globalAlpha = active ? 1 : 0.5;
         ctx.fillStyle = sel ? col.bgSel : (isNew ? col.bgNew : (ok ? col.bg : 'rgba(255,255,255,0.06)'));
-        roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
-        // "just drawn" is signalled by the softer background tint only; the border stays
-        // the normal type colour so it doesn't stand out too much.
+        roundRect(b.x, b.y, b.w, b.h, 8); ctx.fill();
         ctx.lineWidth = sel ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : ((ok || isNew) ? col.base : 'rgba(255,255,255,0.18)');
-        roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
-        // cost (top-left)
-        ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.45)';
-        ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(String(c.cost), b.x + 7, b.y + 17);
-        const ic = cardIcon(c);
-        const iconCol = ok ? ic.color : 'rgba(255,255,255,0.42)';
+        roundRect(b.x, b.y, b.w, b.h, 8); ctx.stroke();
         if (sel) {
-            // expanded: glyph on top, full name/effect below
-            drawUiIcon(ic.key, b.x + b.w / 2, b.y + 24, 23, iconCol, 2.4);
-            ctx.fillStyle = '#fff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-            const lines = wrapLines(cardName(b.id), b.w - 8);
-            const show = Math.min(lines.length, 3);
-            let ey = b.y + 46; for (let k = 0; k < show; k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 13; }
+            // expanded: cost top-left, glyphs row, full name below
+            ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.55)';
+            ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
+            ctx.fillText(String(c.cost), b.x + 8, b.y + 18);
+            drawGlyphCluster(dim(glyphs), b.x + 12, b.y + 30, b.w - 24, 26, f);
+            ctx.fillStyle = '#fff'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+            const lines = wrapLines(cardName(b.id), b.w - 12);
+            let ey = b.y + 58; for (let k = 0; k < Math.min(lines.length, 3); k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 15; }
         } else {
-            // compact: just the category glyph, centred
-            drawUiIcon(ic.key, b.x + b.w / 2, b.y + b.h / 2 + 4, 30, iconCol, 2.6);
+            // compact: cost + glyph cluster in the always-visible lower-left band
+            const cy = b.y + b.h - 15;
+            ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.45)';
+            ctx.font = `800 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText(String(c.cost), b.x + 7, cy);
+            const costW = ctx.measureText(String(c.cost)).width;
+            const gx = b.x + 7 + costW + 6;
+            drawGlyphCluster(dim(glyphs), gx, cy, b.x + b.w - 6 - gx, 24, f);
         }
         ctx.restore();
     }
