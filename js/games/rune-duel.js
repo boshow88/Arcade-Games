@@ -210,10 +210,8 @@
         D('nEnh_any', { type: 'defense', cost: 4, weight: 6, cat: 'needEnhAny' });
         D('nEnh_rand', { type: 'defense', cost: 6, weight: 2, cat: 'needEnhRand' });
         D('nEnh_pick', { type: 'defense', cost: 8, weight: 2, cat: 'needEnhPick' });
-        [[8, 7, 3], [7, 5, 6], [6, 3, 6], [5, 2, 4]].forEach(([n, cost, weight]) => D('cmin' + n, { type: 'defense', cost, weight, cat: 'comboMin', n }));
-        [[4, 3, 6], [3, 5, 6], [2, 7, 3]].forEach(([n, cost, weight]) => D('cmax' + n, { type: 'defense', cost, weight, cat: 'comboMax', n }));
-        [[7, 8, 3], [6, 5, 6], [5, 3, 6], [4, 2, 4]].forEach(([n, cost, weight]) => D('fmin' + n, { type: 'defense', cost, weight, cat: 'firstMin', n }));
-        [[3, 4, 6], [2, 5, 6], [1, 8, 3]].forEach(([n, cost, weight]) => D('fmax' + n, { type: 'defense', cost, weight, cat: 'firstMax', n }));
+        [[8, 7, 4], [7, 5, 8], [6, 3, 8], [5, 2, 6]].forEach(([n, cost, weight]) => D('cmin' + n, { type: 'defense', cost, weight, cat: 'comboMin', n }));
+        [[4, 2, 6], [3, 4, 8], [2, 6, 8], [1, 8, 4]].forEach(([n, cost, weight]) => D('fmax' + n, { type: 'defense', cost, weight, cat: 'firstMax', n }));
         D('slow', { type: 'defense', cost: 3, weight: 15, cat: 'slow' });
         // ---- ATTACK POOL (reshape your board / break shields / more time) ----
         for (const from of ELEMENTS) for (const to of ELEMENTS) if (from !== to) D('tr_' + from + '_' + to, { type: 'enhance', cost: 3, weight: 1, cat: 'transmute', from, to });
@@ -271,6 +269,7 @@
         aiSlow: 0,              // vs-AI: Slow cards you played (cramps the AI's combos)
         cardSel: null,          // index of the currently selected hand card (tap again to play)
         playedThisRound: [],    // enhance cards you've played this attack phase (revealed to rival at resolve)
+        preSpinBoard: null,     // board snapshot (post-cards, pre-spin) sent to the rival's preview
         palette: null,          // active colour picker: { title, els, exclude, onPick }
         shieldPick: null,       // active "break which shield" picker: { i, id }
         empowerNext: 1,
@@ -644,6 +643,7 @@
 
     function startResolve() {
         G.held = null;
+        if (G.online) G.preSpinBoard = serializeBoard();   // snapshot the reshaped board to show the rival
         G.resolving = true;
         G.resolve = { stage: 'pop', t: 0, combos: [], pending: [], popIndex: 0, wave: -1 };
         beginCascade();
@@ -873,6 +873,7 @@
         G.spinMultSelf = 1;
         G.phaseTimer = DUEL.phaseTime;
         G.playedThisRound = [];
+        G.preSpinBoard = null;
         drawFromPool('enhance');     // draw an enhance card at the start of the attack phase
         if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; }
         updateHud();
@@ -976,7 +977,7 @@
     function submitAttack(dmg, heal) {
         if (!G.online) return;
         G.online.waitSince = Date.now();
-        net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0, cards: G.playedThisRound.slice() } }).catch((e) => console.warn('[duel]', e));
+        net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0, cards: G.playedThisRound.slice(), board: G.preSpinBoard || serializeBoard() } }).catch((e) => console.warn('[duel]', e));
     }
     // Heartbeat: keep our own room's lastActionAt fresh (so it's never GC'd while we're
     // present), and periodically purge rooms others abandoned. Firestore has no
@@ -1049,7 +1050,8 @@
         if (g.status === 'playing' && !G.online) { enterOnline(data); return; }
         if (!G.online) return;
         const my = G.online.myUid, opp = G.online.oppUid;
-        if (g.board && g.board[opp]) G.online.oppBoard = g.board[opp];   // mirror the rival's board for the preview
+        // mirror the rival's board: prefer their reshaped attack board (shows transmute/enchant) this round
+        G.online.oppBoard = (g.atk && g.atk[opp] && g.atk[opp].board) || (g.board && g.board[opp]) || G.online.oppBoard;
         // reveal: both defense submitted → attack phase, see the opponent's shields
         if (G.online.sub === 'waitDef' && g.def && g.def[my] && g.def[opp]) {
             G.aiShields = (g.def[opp] || []).slice();
@@ -1361,8 +1363,8 @@
         const f = getFont();
         // your defence state (shields + spin penalty), on your side just above your HP
         const defs = G.youShields.map((s) => shieldLabel(s));
+        if ((G.spinMultOpp || 1) < 1) defs.push(t('rdHastenTag'));   // "Hastened!" sits with your shields
         if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(defs.join(' · '), 22, LAY.youShieldY); }
-        if ((G.spinMultOpp || 1) < 1) { ctx.fillStyle = '#ff9f43'; ctx.font = `800 12px ${f}`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(t('rdHastenTag'), W - 22, LAY.youShieldY); }
         // HP bar hugging the board (right above the timer bar)
         ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(t('rdHp'), 22, LAY.youHpY + 10);
