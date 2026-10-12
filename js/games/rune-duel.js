@@ -130,7 +130,7 @@
     const CELL = 100;
     const BOARD_TOP = H - ROWS * CELL; // = 260
     // layout anchors for the top HUD (above the board) — tweak here to re-space
-    const LAY = { handY: 90, handH: 70, energyY: 168, actY: 178, actH: 32, youShieldY: 220, youHpY: 238, youHpH: 12 };
+    const LAY = { handY: 90, handH: 70, energyY: 168, actY: 178, actH: 32, youHpY: 238, youHpH: 12 };
 
     const ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark', 'heart'];
     const ATTACK_ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark'];
@@ -665,7 +665,7 @@
         G.energy -= CARDS[id].cost;
         if (i >= 0 && i < G.hand.length && G.hand[i] === id) { G.hand.splice(i, 1); adjustLastDrawn(i); }
         else { const k = G.hand.indexOf(id); if (k >= 0) { G.hand.splice(k, 1); adjustLastDrawn(k); } }
-        if (G.online && CARDS[id].type === 'enhance') G.playedThisRound.push(id);   // revealed to the rival at resolve
+        if (CARDS[id].type === 'enhance') G.playedThisRound.push(id);   // your attack skills this round (also revealed to the rival online)
         AC.audio.play('gem');
         addFloat(W / 2, 150, cardName(id), accent(), 18);
         updateHud();
@@ -1498,12 +1498,32 @@
     }
     function drawYouBar() {
         const f = getFont();
-        // defence group (your shields, blue) and — kept visually separate — your attack
-        // measure (time↑, amber) just above your HP bar.
-        let x = 22; const py = LAY.youShieldY - 14;
-        const hasDef = G.youShields.length > 0;
-        for (const s of G.youShields) x += drawPill(x, py, shieldLabel(s), null, 'def', f) + PILL.gap;
-        if ((G.spinMultSelf || 1) > 1) { if (hasDef) x += PILL.groupGap - PILL.gap; drawPill(x, py, t('rdTime'), 'up', 'time', f); }
+        // Status pills ride the action row, to the right of the Draw / To-attack buttons:
+        //   defence group = your shields (blue), then — kept separate — your attack group
+        //   = time↑ (amber) + the attack cards you've played this round (compact glyphs).
+        // Hidden while a card is selected (Play / Discard own the row then).
+        if (G.cardSel == null && (G.phase === 'defense' || G.phase === 'attack')) {
+            const py = LAY.actY + (LAY.actH - PILL.h) / 2;
+            const done = doneButtonRect(), draw = drawMoreRect();
+            let x = (G.phase === 'defense' && !onlineWaiting()) ? done.x + done.w + 12 : draw.x + draw.w + 12;
+            const hasDef = G.youShields.length > 0;
+            for (const s of G.youShields) x += drawPill(x, py, shieldLabel(s), null, 'def', f) + PILL.gap;
+            const hasTime = (G.spinMultSelf || 1) > 1, played = G.playedThisRound || [];
+            if (hasTime || played.length) {
+                if (hasDef) x += PILL.groupGap - PILL.gap;
+                if (hasTime) x += drawPill(x, py, t('rdTime'), 'up', 'time', f) + PILL.gap;
+                const cap = 6;
+                for (let k = 0; k < played.length && k < cap; k++) {
+                    const c = CARDS[played[k]]; if (!c) continue;
+                    const ic = cardIcon(c);
+                    ctx.fillStyle = 'rgba(255,183,94,0.12)'; roundRect(x, py, PILL.h, PILL.h, 6); ctx.fill();
+                    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,183,94,0.5)'; roundRect(x, py, PILL.h, PILL.h, 6); ctx.stroke();
+                    drawUiIcon(ic.key, x + PILL.h / 2, py + PILL.h / 2, 13, ic.color, 2);
+                    x += PILL.h + 4;
+                }
+                if (played.length > cap) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `700 11px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('+' + (played.length - cap), x, py + PILL.h / 2); }
+            }
+        }
         // HP bar hugging the board (right above the timer bar)
         ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(t('rdHp'), 22, LAY.youHpY + 10);
@@ -1529,8 +1549,8 @@
         return order.map((o, k) => ({ i: o.i, id: o.id, x: x0 + k * (w + gap), y, w, h }));
     }
     function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 10, y: b.y - 18, w: b.w + 20, h: b.h + 24 } : b; }
-    function doneButtonRect() { return { x: W / 2 - 90, y: LAY.actY, w: 180, h: LAY.actH }; }
-    function drawMoreRect() { return { x: 16, y: LAY.actY, w: 100, h: LAY.actH }; }
+    function drawMoreRect() { return { x: 16, y: LAY.actY, w: 92, h: LAY.actH }; }
+    function doneButtonRect() { return { x: 112, y: LAY.actY, w: 120, h: LAY.actH }; }
     function playBtnRect() { return { x: W / 2 - 150, y: LAY.actY, w: 146, h: LAY.actH }; }
     function discardBtnRect() { return { x: W / 2 + 4, y: LAY.actY, w: 146, h: LAY.actH }; }
     function drawDrawButton() {
