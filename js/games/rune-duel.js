@@ -49,7 +49,7 @@
         rdCard_shCombo: 'Combo Shield', rdCardd_shCombo: 'Shield: the rival needs 5+ combos to hit you.',
         rdCard_shBan: 'Taboo Shield', rdCardd_shBan: 'Shield: if the rival clears the named colour, its attack is blocked.',
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
-        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!',
+        rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!', rdSpinNow: 'Time\u2019s up — spin now!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
         rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdSlowPill: 'Time \u2193', rdFastPill: 'Time \u2191', rdOppUsed: (s) => `Rival last: ${s}`,
         rdOppSpin: 'spinning\u2026', rdOppDone: 'attacked', rdCopyCode: 'Copy', rdCopied: 'Copied!',
@@ -103,7 +103,7 @@
         rdCard_shCombo: '連擊盾', rdCardd_shCombo: '盾：對手要 5+ 連擊才打得到你。',
         rdCard_shBan: '禁消盾', rdCardd_shBan: '盾：對手若消到指定顏色，攻擊被擋。',
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
-        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！',
+        rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！', rdSpinNow: '時間到——快轉珠！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
         rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdSlowPill: '時間\u2193', rdFastPill: '時間\u2191', rdOppUsed: (s) => `對手上回合：${s}`,
         rdOppSpin: '轉珠中\u2026', rdOppDone: '已出手', rdCopyCode: '複製', rdCopied: '已複製！',
@@ -176,7 +176,7 @@
 
     const CONFIG = {
         orbRadius: 40, iconScale: 0.8, iconStroke: 0.12, iconTint: -0.15,
-        popTime: 0.17, popGap: 0.13, fallAnim: 0.2, fallGap: 0.12,   // short anims + deliberate gaps between steps
+        popTime: 0.12, popGap: 0.12, fallAnim: 0.2, fallGap: 0.06,   // short anims + deliberate gaps between steps
         bigThreshold: 5, scoreCap: 999999,
     };
     const BALANCE = {
@@ -185,7 +185,8 @@
     const DUEL = {
         hp: 3000, maxRounds: 30,
         energy: 10, maxHand: 10, drawCost: 1,   // one mixed hand; draw pulls from the current phase's pool
-        phaseTime: 30,                  // seconds to decide in the defense / attack phase
+        phaseTimeDef: 30,               // seconds to decide in the defense phase
+        phaseTimeAtk: 40,               // seconds to decide in the attack phase
         resolvePause: 1.6,              // hold at round end so the mutual attack is readable
         aiThink: 1.5,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
@@ -200,7 +201,8 @@
     // pool can grow freely. Display names come from cardName() (parameterised i18n).
     const CARDS = {};
     (function buildCards() {
-        const D = (id, o) => { CARDS[id] = o; };
+        let ord = 0;
+        const D = (id, o) => { o.order = ord++; CARDS[id] = o; };
         // ---- DEFENSE POOL (shields the rival's spin must satisfy, + slow) ----
         for (const el of ELEMENTS) {
             D('ban_' + el, { type: 'defense', cost: 2, weight: 2, cat: 'ban', el });
@@ -263,6 +265,7 @@
         round: 1,
         phase: 'defense',       // 'defense' | 'attack' | 'ai' | 'over'
         phaseTimer: 0,          // seconds left to decide in defense / attack
+        phaseMax: 0,            // this phase's total decide time (for the timer bar)
         aiTimer: 0,
         resolveHold: 0,         // seconds left in the round-end 'resolved' display pause
         score: 0,
@@ -274,6 +277,8 @@
         aiSlow: 0,              // vs-AI: Slow cards you played (cramps the AI's combos)
         cardSel: null,          // index of the currently selected hand card (tap again to play)
         playedThisRound: [],    // enhance cards you've played this attack phase (revealed to rival at resolve)
+        lastDrawn: null,        // hand index of the most-recently drawn card this phase (highlight)
+        spinOpen: false,        // attack clock ran out → spin window is open (spin timer is counting)
         preSpinBoard: null,     // board snapshot (post-cards, pre-spin) sent to the rival's preview
         palette: null,          // active colour picker: { title, els, exclude, onPick }
         shieldPick: null,       // active "break which shield" picker: { i, id }
@@ -316,6 +321,13 @@
     function accent() {
         if (!accentCache) accentCache = (getComputedStyle(document.body).getPropertyValue('--game-color') || '').trim() || '#d9544e';
         return accentCache;
+    }
+    // Card palette: defense = blue family, attack = red family. `hi` is the brighter
+    // "just drawn" accent; `bgNew` tints the newest card so it reads at a glance.
+    function cardColors(id) {
+        return CARDS[id] && CARDS[id].type === 'defense'
+            ? { base: '#5b8fc4', bg: 'rgba(79,123,164,0.16)', bgSel: 'rgba(79,123,164,0.36)', bgNew: 'rgba(120,180,240,0.24)', hi: '#9cccf5' }
+            : { base: '#d16a4e', bg: 'rgba(195,85,64,0.16)', bgSel: 'rgba(195,85,64,0.36)', bgNew: 'rgba(240,140,90,0.24)', hi: '#ff9a63' };
     }
     function roundRect(x, y, w, h, r) {
         ctx.beginPath();
@@ -457,7 +469,7 @@
             const next = stepToward(G.held.cell, target);
             swapCells(G.held.cell, next);
             G.held.cell = next;
-            if (!G.held.moved) { G.held.moved = true; G.spinTimer = effectiveSpinTime(); }
+            if (!G.held.moved) { G.held.moved = true; if (!G.spinOpen) G.spinTimer = effectiveSpinTime(); }
         }
         const o = board[G.held.cell];
         if (o) { o.x = px; o.y = py; o.scale = 1; }
@@ -514,7 +526,7 @@
         AC.audio.unlock();
         const cell = cellAtPixel(p.x, p.y);
         G.held = { cell, px: p.x, py: p.y, moved: false };
-        G.spinTimer = effectiveSpinTime();
+        if (!G.spinOpen) G.spinTimer = effectiveSpinTime();   // spin window already counting → keep its clock
         const o = board[cell]; if (o) { o.x = p.x; o.y = p.y; }
         AC.audio.play('grab');
         if (e.cancelable) e.preventDefault();
@@ -547,17 +559,25 @@
     }
     function drawFromPool(type) {
         if (G.hand.length >= DUEL.maxHand) return false;
-        G.hand.push(pickWeighted(type === 'defense' ? DEF_IDS : ENH_IDS));
+        const id = pickWeighted(type === 'defense' ? DEF_IDS : ENH_IDS);
+        G.hand.push(id);
         return true;
     }
-    function dealStartingHand() { G.hand = []; drawFromPool('defense'); drawFromPool('defense'); drawFromPool('enhance'); drawFromPool('enhance'); }
+    // Keep the "newest drawn" highlight pointing at the right card after the hand shifts.
+    function adjustLastDrawn(removedIdx) {
+        if (G.lastDrawn == null) return;
+        if (removedIdx === G.lastDrawn) G.lastDrawn = null;
+        else if (removedIdx < G.lastDrawn) G.lastDrawn--;
+    }
+    function dealStartingHand() { G.hand = []; drawFromPool('defense'); drawFromPool('defense'); drawFromPool('enhance'); drawFromPool('enhance'); G.lastDrawn = null; }
     function canDrawMore() {
-        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.palette && !G.shieldPick && !onlineWaiting()
+        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.palette && !G.shieldPick && !onlineWaiting() && !G.spinOpen
             && G.hand.length < DUEL.maxHand && G.energy >= DUEL.drawCost;
     }
     function drawOneCard() {
         if (!canDrawMore()) return;
-        drawFromPool(curType());
+        if (!drawFromPool(curType())) return;
+        G.lastDrawn = G.hand.length - 1;   // only the single newest card is highlighted
         G.energy -= DUEL.drawCost;
         AC.audio.play('click');
         updateHud();
@@ -565,6 +585,7 @@
     function discardCard(i) {
         if (i == null || i < 0 || i >= G.hand.length) return;
         G.hand.splice(i, 1);
+        adjustLastDrawn(i);
         AC.audio.play('click');
         updateHud();
     }
@@ -615,8 +636,8 @@
     }
     function consumeCard(i, id) {
         G.energy -= CARDS[id].cost;
-        if (i >= 0 && i < G.hand.length && G.hand[i] === id) G.hand.splice(i, 1);
-        else { const k = G.hand.indexOf(id); if (k >= 0) G.hand.splice(k, 1); }
+        if (i >= 0 && i < G.hand.length && G.hand[i] === id) { G.hand.splice(i, 1); adjustLastDrawn(i); }
+        else { const k = G.hand.indexOf(id); if (k >= 0) { G.hand.splice(k, 1); adjustLastDrawn(k); } }
         if (G.online && CARDS[id].type === 'enhance') G.playedThisRound.push(id);   // revealed to the rival at resolve
         AC.audio.play('gem');
         addFloat(W / 2, 150, cardName(id), accent(), 18);
@@ -648,6 +669,7 @@
 
     function startResolve() {
         G.held = null;
+        G.spinOpen = false;
         if (G.online) { G.preSpinBoard = serializeBoard(); net.updateRoom(room.code, { ['game.spin.' + G.online.myUid]: G.round }).catch(() => {}); }   // snapshot + "I'm spinning"
         G.resolving = true;
         G.resolve = { stage: 'pop', t: 0, combos: [], pending: [], popIndex: 0, wave: -1 };
@@ -867,9 +889,10 @@
         G.spinMultSelf = 1;
         G.spinMultOpp = 1;
         G.empowerNext = 1;
-        G.phaseTimer = DUEL.phaseTime;
-        drawFromPool('defense');     // draw a defense card at the start of each round
-        if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
+        G.phaseTimer = G.phaseMax = DUEL.phaseTimeDef;
+        G.lastDrawn = null;
+        G.spinOpen = false;
+        if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeDef * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
         const plan = aiDefend(G.round);
         G.aiShields = plan.shields;
         G.spinMultOpp = plan.hastenYou ? 0.7 : 1;   // vs-AI: rival may slow your spin this round
@@ -880,35 +903,36 @@
         G.energy = DUEL.energy;
         G.cardSel = null;
         G.spinMultSelf = 1;
-        G.phaseTimer = DUEL.phaseTime;
+        G.phaseTimer = G.phaseMax = DUEL.phaseTimeAtk;
         G.playedThisRound = [];
         G.preSpinBoard = null;
-        drawFromPool('enhance');     // draw an enhance card at the start of the attack phase
-        if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; }
+        G.lastDrawn = null;
+        G.spinOpen = false;
+        if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeAtk * 1000; }
         updateHud();
     }
-    // Phase clock ran out: defense → go attack; attack (not yet spinning) → forfeit
-    // this strike and hand over to the rival.
+    // Phase clock ran out: defense → go attack; attack (not yet spinning) → open the
+    // spin window (the player can still spin within the spin time; doing nothing = 0 dmg).
     function onPhaseTimeout() {
         if (G.online) {
             if (G.phase === 'defense') { submitDefense(); return; }
-            if (G.phase === 'attack') {
-                addFloat(W / 2, 150, t('rdTimeUp'), '#ff6b6b', 20); AC.audio.play('empty');
-                G.empowerNext = 1; G.cardSel = null; G.palette = null;
-                G.online.sub = 'waitAtk';
-                submitAttack(0, 0);
-                updateHud();
-            }
+            if (G.phase === 'attack') openSpinWindow();
             return;
         }
         if (G.phase === 'defense') { startAttackPhase(); return; }
-        if (G.phase === 'attack') {
-            addFloat(W / 2, 150, t('rdTimeUp'), '#ff6b6b', 20);
-            AC.audio.play('empty');
-            G.empowerNext = 1; G.cardSel = null; G.palette = null;
-            G.phase = 'ai'; G.aiTimer = DUEL.aiThink;
-            updateHud();
-        }
+        if (G.phase === 'attack') openSpinWindow();
+    }
+    // Attack clock ran out without a spin: don't forfeit — start the spin clock so the
+    // player can still spin within the spin window. Doing nothing resolves to 0 damage.
+    function openSpinWindow() {
+        if (G.spinOpen || G.held || G.resolving) return;
+        G.cardSel = null; G.palette = null; G.shieldPick = null;
+        G.spinOpen = true;
+        G.spinTimer = effectiveSpinTime();
+        if (G.online) G.online.spinOpenAt = Date.now();   // wall clock, for the backgrounded-tab safety net
+        addFloat(W / 2, 150, t('rdSpinNow'), '#ffcf5a', 20);
+        AC.audio.play('grab');
+        updateHud();
     }
     function duelOver(win, draw) {
         if (G.phase === 'over') return;
@@ -1018,7 +1042,18 @@
             // never cut in while a spin is dragging OR its cascade is resolving — once a
             // spin starts it finishes on its own timer and submits via finishResolve,
             // even past the deadline. (This was the mid-cascade "freeze" cause.)
-            if (G.phase === 'attack' && G.online.sub === 'atk' && !G.held && !G.resolving) { onPhaseTimeout(); return; }
+            if (G.phase === 'attack' && G.online.sub === 'atk' && !G.held && !G.resolving && !G.spinOpen) { onPhaseTimeout(); return; }
+        }
+        // (0b) spin window opened but this tab was backgrounded (update()/rAF frozen → the
+        // spin clock can't tick): submit an empty strike once its wall-clock time elapses, so
+        // the match never stalls. In the foreground update() resolves well before this margin.
+        if (G.spinOpen && G.online.sub === 'atk' && !G.held && !G.resolving
+            && G.online.spinOpenAt && now - G.online.spinOpenAt > (effectiveSpinTime() + 2) * 1000) {
+            G.spinOpen = false; G.cardSel = null; G.palette = null;
+            G.online.sub = 'waitAtk';
+            submitAttack(0, 0);
+            updateHud();
+            return;
         }
         // (1) opponent idle too long → they forfeit, you win
         if (onlineWaiting()) {
@@ -1134,7 +1169,7 @@
             if (G.online) { if (!onlineWaiting()) G.phaseTimer = onlineRemain(); }
             else { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
         } else if (G.phase === 'attack') {
-            if (G.held && G.held.moved) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
+            if (G.spinOpen || (G.held && G.held.moved)) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
             else if (!G.resolving) {
                 if (G.online) { if (!onlineWaiting()) G.phaseTimer = onlineRemain(); }
                 else { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
@@ -1155,7 +1190,7 @@
             }
         }
         // repaint once per second while a phase clock is visibly counting down
-        if ((G.phase === 'defense' || G.phase === 'attack') && !onlineWaiting() && !(G.held && G.held.moved) && !G.resolving) {
+        if ((G.phase === 'defense' || G.phase === 'attack') && !onlineWaiting() && !(G.held && G.held.moved) && !G.resolving && !G.spinOpen) {
             const sec = Math.ceil(G.phaseTimer);
             if (sec !== lastSecShown) {
                 lastSecShown = sec; markDirty();
@@ -1170,7 +1205,7 @@
     // =================================================================
 
     function animating() {
-        if (G.held || G.resolving || G.shake > 0 || G.floats.length) return true;
+        if (G.held || G.resolving || G.spinOpen || G.shake > 0 || G.floats.length) return true;
         for (let i = 0; i < COLS * ROWS; i++) {
             const o = board[i];
             if (!o) continue;
@@ -1405,7 +1440,7 @@
     // card hand — tiles show name + effect + cost inline; tap to select (pops up),
     // tap again to play; the × badge discards. No modal popup.
     function handTileRects() {
-        const order = G.hand.map((id, i) => ({ id, i })).sort((a, b) => (cardPhaseOk(b.id) ? 1 : 0) - (cardPhaseOk(a.id) ? 1 : 0));
+        const order = G.hand.map((id, i) => ({ id, i })).sort((a, b) => (CARDS[a.id].order - CARDS[b.id].order) || (a.i - b.i));   // stable, phase-independent
         const n = order.length;
         if (n === 0) return [];
         const gap = 7, h = LAY.handH, y = LAY.handY;
@@ -1458,14 +1493,16 @@
         const b = tileRect(base), c = CARDS[b.id], sel = base.i === G.cardSel;
         const active = cardPhaseOk(b.id);   // this phase's type is bright; the other dimmed
         const ok = active && G.energy >= c.cost && playable(b.id);
+        const isNew = base.i === G.lastDrawn;   // only the single newest-drawn card (this phase)
+        const col = cardColors(b.id);           // defense = blue, attack = red
         ctx.save();
         ctx.globalAlpha = active ? 1 : 0.5;
-        ctx.fillStyle = sel ? 'rgba(217,84,78,0.34)' : (ok ? 'rgba(217,84,78,0.14)' : 'rgba(255,255,255,0.06)');
+        ctx.fillStyle = sel ? col.bgSel : (isNew ? col.bgNew : (ok ? col.bg : 'rgba(255,255,255,0.06)'));
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
-        ctx.lineWidth = sel ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : (ok ? accent() : 'rgba(255,255,255,0.18)');
+        ctx.lineWidth = sel || isNew ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : (isNew ? col.hi : (ok ? col.base : 'rgba(255,255,255,0.18)'));
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
         // cost (top-left)
-        ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.45)';
+        ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.45)';
         ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(String(c.cost), b.x + 8, b.y + 18);
         // name/effect (wrapped, up to 3 lines) — the name states the effect
@@ -1566,8 +1603,8 @@
     }
     function drawPhaseTimer() {
         if (G.phase !== 'defense' && G.phase !== 'attack') return;
-        if (onlineWaiting() || (G.held && G.held.moved) || G.resolving) return;   // spin timer / waiting own this slot
-        const ratio = AC.math.clamp(G.phaseTimer / DUEL.phaseTime, 0, 1);
+        if (onlineWaiting() || G.spinOpen || (G.held && G.held.moved) || G.resolving) return;   // spin timer / waiting own this slot
+        const ratio = AC.math.clamp(G.phaseTimer / (G.phaseMax || DUEL.phaseTimeDef), 0, 1);
         const urgent = G.phaseTimer <= 5;
         ctx.save();
         ctx.fillStyle = 'rgba(255,255,255,0.08)';
@@ -1583,7 +1620,7 @@
         ctx.restore();
     }
     function drawSpinTimer() {
-        if (!G.held || !G.held.moved) return;
+        if (!G.spinOpen && !(G.held && G.held.moved)) return;
         const ratio = AC.math.clamp(G.spinTimer / effectiveSpinTime(), 0, 1);
         ctx.save();
         ctx.fillStyle = 'rgba(255,255,255,0.08)';
@@ -1651,11 +1688,14 @@
         G.round = 1;
         G.aiTimer = 0;
         G.phaseTimer = 0;
+        G.phaseMax = 0;
         G.score = 0;
         G.cardSel = null;
         G.palette = null;
         G.shieldPick = null;
         G.playedThisRound = [];
+        G.lastDrawn = null;
+        G.spinOpen = false;
         G.empowerNext = 1;
         G.held = null;
         G.spinTimer = 0;
