@@ -16,7 +16,7 @@ retry.
 | Colour Ladder | Playable | Real-time ghost-leg: move colour-gated rungs to route colour balls into baskets |
 | Bullet Storm   | Playable | Omnidirectional bullet-dodge survival; relative-drag control, lasers & homing, score = survival time |
 | Rune Tower     | WIP      | Orb-matching combat climb: drag runes, chain combos, element matchups & enhanced runes vs shielded foes & bosses; best = highest floor |
-| Rune Duel      | WIP      | Orb-spinning versus duel vs an AI: clear colours to damage the rival, meet their shield each round, outlast them; best = damage dealt (online PvP planned) |
+| Rune Duel      | Playable | Two-phase orb-spinning duel — raise shields, play cards, then spin to meet the rival's shields. Vs a real-spinning AI (Easy/Normal/Hard) or online PvP by room code; best = damage dealt |
 
 Full rule reference: [`docs/rules.md`](docs/rules.md).
 Architecture & dev notes: [`docs/DEV.md`](docs/DEV.md).

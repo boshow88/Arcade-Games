@@ -255,50 +255,136 @@ through `damageEnemy()`.
 
 ---
 
-## Rune Duel (WIP — vs AI)
+## Rune Duel
 
-An orb-spinning **versus duel**: a bounded match (not an endless climb) against a
-rival. You and the rival each have an HP pool; it's a turn-based race to zero.
-*(Currently vs an AI; online PvP is a planned later mode. The full design adds a
-defense/enhance card + energy system for both sides.)*
+A two-phase orb-spinning **versus duel** — a bounded match, not an endless climb.
+You and the rival each hold an HP pool; it's a race to zero. Play **vs a
+real-spinning AI** (Easy / Normal / Hard) or **online** against another person by
+room code. `best` = total damage dealt.
 
-### A round (two phases)
+### Board & spinning
 
-1. **Defense** — draw **defense cards** and spend **energy** on **shields the
-   rival's attack must satisfy** to hit you: **Rune Shield** (it must clear an
-   enhanced rune), **Combo Shield** (needs 5+ combos), **Taboo Shield** (if it
-   clears the named colour its attack is blocked), or **Hasten** (cramp its spin →
-   fewer combos). Tap **To attack →** when done. (The rival likewise raises the
-   shields *your* spin must break.)
-2. **Attack** — draw **enhance cards** (fresh energy): **Break** (remove a rival
-   shield), **Focus** (+3s), **Empower** (×1.5), **Transmute**, **Enchant** — use
-   them to reshape your board to meet the rival's shields. Then **spin**: clear
-   **3+ of a colour** to damage the rival; meet **all** their shields or it's
-   **blocked**. Heart runes heal you; **5+** forges an **enhanced** rune.
-3. **Rival's strike** — the rival **spins too** (simulated): if its result fails
-   **any** shield you raised, its attack is **blocked**; otherwise it hits you.
+- A **6×5** board, 6 elements (**fire · water · wood · light · dark · heart**).
+  Drag one rune; it swaps along its path (diagonals allowed). The **spin timer
+  starts on the first swap** and resolves on release or timeout.
+- On resolve, every horizontal/vertical run of **3+** of a colour clears; groups
+  cascade as runes fall and new ones drop in. The pre-fall groups are the **first
+  wave**.
+- **Enhanced runes**: when a colour clears **5+** in a wave, the **next batch of
+  dropped runes** includes one **enhanced** rune of that colour (bright rim).
+  Cleared later it counts **×1.5** and satisfies "enhanced" shields.
+- **Heart** groups **heal** you instead of dealing damage.
 
-You keep **one hand** for the whole duel: it's dealt once at the start and you
-**draw one new card each round** — unplayed cards carry over. Defense cards are
-only playable in the defense phase, enhance cards in the attack phase. Need
-another card now? Tap **Draw +1** for **2 energy** (hand capped at 7). The rival
-may also **hasten** you from round 3, shortening your spin by 2s that round.
+### A round — two phases
 
-Each phase has a **20s clock** (shown by the status). If the defense clock runs
-out it auto-advances to attack; if the attack clock runs out before you start
-spinning you **forfeit that strike** and the rival takes its turn.
+1. **Defense** — play **shield cards** (they cost **energy**). Each shield is a
+   condition the **rival's spin must satisfy to damage you**; raise as many as you
+   can afford, then press **To attack →**. (Your shields stay hidden until the
+   rival reaches its own attack.)
+2. **Attack** — play **attack cards** (fresh energy) to reshape your board or
+   break the rival's shields, then **drag a rune to spin**. You must satisfy
+   **every** shield the rival raised, or your hit is **blocked** (0 damage).
+   Heart healing is never blocked.
 
-Drop the rival's HP to **0** to win; at the round cap the higher HP wins. `best`
-= damage dealt. The rival also plays simple cards (mend / empower).
+Both sides act each round; the exchange resolves together — **damage first, then
+healing**, capped at max HP.
 
-**Online PvP** (the **Online** button): sign in with Google or as a guest, then
-**create a room** (share the 4-letter code) or **join** one. Both players play the
-same two-phase rounds against each other — you each raise shields, reveal them,
-then both spin (damage gated by the opponent's shields). Turn state syncs through
-Firestore; the host tallies HP each round. Honor-system MVP (see `firestore.rules`).
+### Hand, energy & clocks
+
+- You hold a **mixed hand** (defense + attack cards), opening with four. **Energy**
+  refills at the start of each phase. A card is only playable in its own phase.
+- **Draw** pulls one more card from the current phase's pool for **1 energy** (hand
+  capped at 10). Unplayed cards carry over.
+- Each phase has a decision clock — **Defense 30s, Attack 40s**. If the attack
+  clock runs out before you spin, it **opens the spin window**: you can still spin
+  within the spin time (doing nothing scores 0 for that strike).
+
+### Shields (what a spin must satisfy)
+
+| Shield | Requirement |
+| --- | --- |
+| **Need colour** | Clear the named colour |
+| **Ban colour** | Do **not** clear it — clearing it blocks the hit |
+| **Need enhanced** | Clear an enhanced rune (optionally of a named colour) |
+| **Combo ≥ N** | Reach N+ combos |
+| **First wave ≤ N** | Keep the first wave to N combos or fewer |
+
+In the HUD, redundant shields **collapse** (e.g. **≥8** absorbs **≥6**; **need X
+enhanced** absorbs **need X** and **need enhanced**), and stacked **time-shorten**
+shows as **×N**. Tap any shield / played-card chip to read its full effect.
+
+### Time & break
+
+- **Shorten** (defense) trims the **rival's** spin time; **Extend** (attack)
+  lengthens **your own**. Both **stack** and cancel each other out.
+- **Break** (attack) removes one of the rival's **shields** — or one stack of its
+  **time-shorten** on you.
+
+### Cards
+
+Cards are drawn **weighted** within their phase's pool (higher weight = more
+common). Element families have one card per element.
+
+#### Defense pool (34 cards)
+
+| Card | Effect | Cost | Weight | Count |
+| --- | --- | ---: | ---: | ---: |
+| Need colour | Must clear that colour | 2 | 2 | 6 |
+| Ban colour | Clearing it blocks the attack | 2 | 2 | 6 |
+| Need colour enhanced | Must clear that colour's enhanced rune | 6 | 1 | 6 |
+| Need random / chosen | A random / chosen colour you must clear | 2 / 4 | 4 | 1 + 1 |
+| Ban random / chosen | A random / chosen colour you must not clear | 2 / 4 | 4 | 1 + 1 |
+| Need enhanced (any) | Clear any enhanced rune | 4 | 6 | 1 |
+| Need enhanced random / chosen | A random / chosen colour's enhanced | 6 / 8 | 2 | 1 + 1 |
+| Combo ≥ 5 / 6 / 7 / 8 | Reach that many combos | 2 / 3 / 5 / 7 | 6 / 8 / 8 / 4 | 1 each |
+| First wave ≤ 4 / 3 / 2 / 1 | Keep the first wave within N | 2 / 4 / 6 / 8 | 6 / 8 / 8 / 4 | 1 each |
+| Shorten | Cut the rival's spin time (stacks) | 3 | 15 | 1 |
+
+#### Attack pool (54 cards)
+
+| Card | Effect | Cost | Weight | Count |
+| --- | --- | ---: | ---: | ---: |
+| Transmute A → B | Turn every A rune into B (all ordered colour pairs) | 3 | 1 | 30 |
+| Transmute from colour | Turn every rune of this element into a picked colour | 5 | 2 | 6 |
+| Transmute to colour | Turn a picked colour into this element | 5 | 2 | 6 |
+| Transmute any → any | One chosen colour into another | 7 | 4 | 1 |
+| Enchant colour | Enhance 3 runes of that colour | 5 | 3 | 6 |
+| Enchant random | Enhance 3 random runes | 6 | 6 | 1 |
+| Enchant chosen | Enhance 3 runes of a chosen colour | 7 | 4 | 1 |
+| Extend | Lengthen your own spin time (stacks) | 4 | 15 | 1 |
+| Break random | Remove a random rival shield / time-shorten | 5 | 10 | 1 |
+| Break chosen | Remove a chosen rival shield / time-shorten | 8 | 5 | 1 |
+
+### Versus AI
+
+Pick **Easy / Normal / Hard** on the game page (kept per browser). The AI has **its
+own board and really spins** — a heuristic solver searches drag paths and keeps the
+best spin that still meets your shields. It also **reads your board** to raise
+shields (e.g. demands a colour you're short on) and **plays attack cards** to meet
+yours before spinning. Difficulty scales its search, skill and shield stacking;
+your **Shorten** cramps its spin.
+
+### Online PvP
+
+Press **Online**, sign in with **Google** or as a **guest**, then **create a room**
+(share the 4-letter code) or **join** one. Both players press **Ready**; the host
+starts once both are ready. Rounds play the same two phases: shields reveal at the
+attack phase, and each player's cards and board changes show **live** as they act.
+Leaving frees your seat — the room **persists** for the other player and can be
+rejoined by code. Honor-system MVP (anti-cheat would need server validation); state
+syncs through Firestore (see `firestore.rules`).
+
+### Win / lose
+
+Reduce the rival to **0 HP** to win. At the round cap, higher HP wins (equal = a
+draw). Online, an opponent who leaves or times out forfeits. The end screen states
+the reason.
 
 ### Tuning
 
-`DUEL` (HP, round cap, energy, hand size, rival think/damage), `BALANCE` (spin
-time, base damage, heart heal, combo/enhanced), the `CARDS` pool (type + cost)
-and `rollRivalShields` — at the top of `js/games/rune-duel.js`.
+All at the top of `js/games/rune-duel.js`: `DUEL` (HP, round cap, energy, hand size,
+`phaseTimeDef` / `phaseTimeAtk`, resolve pause), `BALANCE` (spin time, base damage,
+heart heal, combo step, enhanced ×), `AI_LEVELS` (per-difficulty solver `tries` /
+`pathLen` / `skill` / shield stacking), and the `CARDS` pool built in `buildCards()`
+(each card's `cost` / `weight` / `cat`). Damage/shield math lives in
+`computeSpinResult()` / `simResolve()` / `shieldUnmet()`.
