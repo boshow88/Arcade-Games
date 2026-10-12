@@ -68,6 +68,10 @@
         rdCreateRoom: 'Create room', rdJoinRoom: 'Join', rdRoomCode: 'Code', rdLeaveRoom: 'Leave room',
         rdRoomCreated: (code) => `Room ${code} — waiting for opponent\u2026`, rdWaitingOpp: 'Waiting for opponent\u2026',
         rdMatched: (name) => `Matched with ${name}!`, rdStartDuel: 'Start duel', rdWaitHost: 'Waiting for host to start\u2026',
+        rdReadyUp: 'I\u2019m ready to start', rdReadyWait: 'Ready \u2014 waiting for opponent\u2026', rdOppReady: 'opponent ready', rdGetReady: 'Get ready\u2026',
+        rdReasonForfeit: 'Opponent left or timed out \u2014 you win.',
+        rdReasonKoWin: 'Rival HP hit 0 \u2014 you win.', rdReasonKoLose: 'Your HP hit 0 \u2014 you lose.', rdReasonDoubleKo: 'Both HP hit 0 \u2014 draw.',
+        rdReasonHpWin: 'Round limit reached \u2014 more HP, you win.', rdReasonHpLose: 'Round limit reached \u2014 less HP, you lose.', rdReasonTimeDraw: 'Round limit reached, equal HP \u2014 draw.',
         rdRoomNotFound: 'Room not found', rdRoomFull: 'Room is full', rdNetErr: 'Network error',
         rdDiscard: 'Discard', rdOppBoard: 'Rival\u2019s board', rdYouWin: 'You win!', rdYouLose: 'You lose',
         rdTapPlay: 'tap to play',
@@ -122,6 +126,10 @@
         rdCreateRoom: '建立房間', rdJoinRoom: '加入', rdRoomCode: '房號', rdLeaveRoom: '離開房間',
         rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
+        rdReadyUp: '準備好了，我想要開始', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備', rdGetReady: '準備中\u2026',
+        rdReasonForfeit: '對手離開或逾時未行動，你獲勝。',
+        rdReasonKoWin: '對手血量歸零，你獲勝。', rdReasonKoLose: '你的血量歸零，你落敗。', rdReasonDoubleKo: '雙方同時血量歸零，平手。',
+        rdReasonHpWin: '回合數耗盡，你的血量較高，你獲勝。', rdReasonHpLose: '回合數耗盡，你的血量較低，你落敗。', rdReasonTimeDraw: '回合數耗盡且血量相同，平手。',
         rdRoomNotFound: '找不到房間', rdRoomFull: '房間已滿', rdNetErr: '連線錯誤',
         rdDiscard: '丟棄', rdOppBoard: '對手盤面', rdYouWin: '你贏了！', rdYouLose: '你輸了',
         rdTapPlay: '再點一下出牌',
@@ -266,6 +274,7 @@
         phase: 'defense',       // 'defense' | 'attack' | 'ai' | 'over'
         phaseTimer: 0,          // seconds left to decide in defense / attack
         phaseMax: 0,            // this phase's total decide time (for the timer bar)
+        countdown: 0,           // 3-2-1 pre-game preview: >0 freezes the clock & input
         aiTimer: 0,
         resolveHold: 0,         // seconds left in the round-end 'resolved' display pause
         score: 0,
@@ -326,8 +335,8 @@
     // "just drawn" accent; `bgNew` tints the newest card so it reads at a glance.
     function cardColors(id) {
         return CARDS[id] && CARDS[id].type === 'defense'
-            ? { base: '#5b8fc4', bg: 'rgba(79,123,164,0.16)', bgSel: 'rgba(79,123,164,0.36)', bgNew: 'rgba(120,180,240,0.24)', hi: '#9cccf5' }
-            : { base: '#d16a4e', bg: 'rgba(195,85,64,0.16)', bgSel: 'rgba(195,85,64,0.36)', bgNew: 'rgba(240,140,90,0.24)', hi: '#ff9a63' };
+            ? { base: '#5b8fc4', bg: 'rgba(79,123,164,0.16)', bgSel: 'rgba(79,123,164,0.36)', bgNew: 'rgba(120,180,240,0.17)', hi: '#9cccf5' }
+            : { base: '#d16a4e', bg: 'rgba(195,85,64,0.16)', bgSel: 'rgba(195,85,64,0.36)', bgNew: 'rgba(240,140,90,0.17)', hi: '#ff9a63' };
     }
     function roundRect(x, y, w, h, r) {
         ctx.beginPath();
@@ -505,7 +514,7 @@
             if (e.cancelable) e.preventDefault();
             return;
         }
-        if (G.resolving || G.held || (G.phase !== 'defense' && G.phase !== 'attack')) return;
+        if (G.resolving || G.held || G.countdown > 0 || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         if (onlineWaiting()) { if (e.cancelable) e.preventDefault(); return; }
         if (p.y < BOARD_TOP) {
             // action row: when a card is selected it shows big Play / Discard buttons
@@ -571,7 +580,7 @@
     }
     function dealStartingHand() { G.hand = []; drawFromPool('defense'); drawFromPool('defense'); drawFromPool('enhance'); drawFromPool('enhance'); G.lastDrawn = null; }
     function canDrawMore() {
-        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.palette && !G.shieldPick && !onlineWaiting() && !G.spinOpen
+        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.palette && !G.shieldPick && !onlineWaiting() && !G.spinOpen && !(G.countdown > 0)
             && G.hand.length < DUEL.maxHand && G.energy >= DUEL.drawCost;
     }
     function drawOneCard() {
@@ -934,20 +943,30 @@
         AC.audio.play('grab');
         updateHud();
     }
-    function duelOver(win, draw) {
+    // Spell out why the match ended (KO / HP at round limit / forfeit / draw).
+    function reasonText(win, draw, reasonKey) {
+        if (reasonKey === 'forfeit') return t('rdReasonForfeit');
+        const youKo = G.youHp <= 0, aiKo = G.aiHp <= 0;
+        if (draw) return (youKo && aiKo) ? t('rdReasonDoubleKo') : t('rdReasonTimeDraw');
+        if (youKo || aiKo) return win ? t('rdReasonKoWin') : t('rdReasonKoLose');
+        return win ? t('rdReasonHpWin') : t('rdReasonHpLose');   // nobody at 0 → decided by HP at the round cap
+    }
+    function duelOver(win, draw, reasonKey) {
         if (G.phase === 'over') return;
         G.phase = 'over';
         const wasOnline = !!G.online;
         G.online = null;
         if (shell.syncButtons) shell.syncButtons();   // re-enable pause/restart after an online match
+        const reason = reasonText(win, draw, reasonKey);
         if (wasOnline) {
             // Online: show the result and drop back to the in-room pairing screen so the
             // host can start a rematch in the same room (room stays; cleaned on leave/GC).
             lobbyResult = draw ? t('rdDrawGame') : (win ? t('rdYouWin') : t('rdYouLose'));
+            lobbyReason = reason;
             AC.audio.play(win && !draw ? 'levelup' : 'gameover');
             openLobby();
         } else {
-            shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win, draw: !!draw } });
+            shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win, draw: !!draw, reason } });
         }
     }
 
@@ -991,7 +1010,7 @@
             oppName: (data.players[oppUid] && data.players[oppUid].name) || t('rdGuest'),
             sub: null, lastResolvedRound: 0, waitSince: 0, bothAtkSince: 0, phaseDeadline: 0, oppLastCards: [],
         };
-        lobbyResult = '';
+        lobbyResult = ''; lobbyReason = '';
         closeLobby();
         resetRun();
         if (!shell.isPlaying()) shell.start();
@@ -1026,7 +1045,7 @@
     function forfeitOpponent() {
         if (!G.online) return;
         net.updateRoom(room.code, { 'game.status': 'over', 'game.winner': G.online.myUid }).catch(() => {});
-        duelOver(true);
+        duelOver(true, false, 'forfeit');
     }
     function onlineWatchdog() {
         if (!G.online || !room || !room.data || !room.data.game) return;
@@ -1088,7 +1107,7 @@
     }
     function onRoomGame(data) {
         markDirty();
-        if (G.online && !data && G.phase !== 'over') { duelOver(true); return; }   // room vanished → opponent left, you win
+        if (G.online && !data && G.phase !== 'over') { duelOver(true, false, 'forfeit'); return; }   // room vanished → opponent left, you win
         const g = data && data.game;
         if (!g) return;
         if (g.status === 'playing' && !G.online) { enterOnline(data); return; }
@@ -1139,7 +1158,7 @@
         const guest = Object.keys(room.data.players || {}).find((u) => u !== h);
         if (!guest) return;
         const hp = {}; hp[h] = DUEL.hp; hp[guest] = DUEL.hp;
-        net.updateRoom(room.code, { 'game.status': 'playing', 'game.round': 1, 'game.hp': hp, 'game.def': {}, 'game.atk': {}, 'game.winner': null }).catch((e) => showLobbyError(e));
+        net.updateRoom(room.code, { 'game.status': 'playing', 'game.round': 1, 'game.hp': hp, 'game.def': {}, 'game.atk': {}, 'game.winner': null, 'ready': {} }).catch((e) => showLobbyError(e));
     }
 
     // =================================================================
@@ -1159,6 +1178,21 @@
     }
     function update(dt) {
         if (G.phase === 'over') return;
+        // Pre-game 3-2-1: let players read the starting board & hand before the clock runs.
+        if (G.countdown > 0) {
+            const before = Math.ceil(G.countdown);
+            G.countdown = Math.max(0, G.countdown - dt);
+            if (G.countdown <= 0) {
+                G.phaseTimer = G.phaseMax;   // start the decide clock fresh now
+                if (G.online && !onlineWaiting()) G.online.phaseDeadline = Date.now() + (G.phase === 'attack' ? DUEL.phaseTimeAtk : DUEL.phaseTimeDef) * 1000;
+                AC.audio.tone(1040, 0.12, { type: 'square', volume: 0.12 });
+            } else if (Math.ceil(G.countdown) !== before) {
+                AC.audio.tone(700, 0.08, { type: 'square', volume: 0.12 });
+            }
+            markDirty();
+            settleOrbs(dt);   // keep the board visually settling, but freeze all phase logic
+            return;
+        }
         if (G.shake > 0) G.shake = Math.max(0, G.shake - dt);
         for (let i = G.floats.length - 1; i >= 0; i--) {
             const fl = G.floats[i];
@@ -1184,7 +1218,7 @@
                 if (G.online) { startDefensePhase(); }
                 else {
                     G.round++;
-                    if (G.round > DUEL.maxRounds) { duelOver(G.youHp >= G.aiHp); return; }
+                    if (G.round > DUEL.maxRounds) { duelOver(G.youHp > G.aiHp, G.youHp === G.aiHp); return; }
                     startDefensePhase();
                 }
             }
@@ -1236,9 +1270,10 @@
         drawHand();
         drawEnergyPips();
         if (G.cardSel != null) drawCardActions();
-        else { if (G.phase === 'defense') drawDoneButton(); drawDrawButton(); }
+        else if (!G.countdown) { if (G.phase === 'defense') drawDoneButton(); drawDrawButton(); }
         drawPhaseTimer();
         drawSpinTimer();
+        if (G.countdown > 0) drawCountdown();
         if (G.palette) drawPalette();
         if (G.shieldPick) drawShieldPick();
         if (DEBUG) drawDebug();
@@ -1440,7 +1475,13 @@
     // card hand — tiles show name + effect + cost inline; tap to select (pops up),
     // tap again to play; the × badge discards. No modal popup.
     function handTileRects() {
-        const order = G.hand.map((id, i) => ({ id, i })).sort((a, b) => (CARDS[a.id].order - CARDS[b.id].order) || (a.i - b.i));   // stable, phase-independent
+        // group by major type (defense left, attack right); within each group keep draw
+        // order so the newest card sits on the right of its group.
+        const order = G.hand.map((id, i) => ({ id, i })).sort((a, b) => {
+            const ta = CARDS[a.id].type === 'defense' ? 0 : 1;
+            const tb = CARDS[b.id].type === 'defense' ? 0 : 1;
+            return (ta - tb) || (a.i - b.i);
+        });
         const n = order.length;
         if (n === 0) return [];
         const gap = 7, h = LAY.handH, y = LAY.handY;
@@ -1499,7 +1540,9 @@
         ctx.globalAlpha = active ? 1 : 0.5;
         ctx.fillStyle = sel ? col.bgSel : (isNew ? col.bgNew : (ok ? col.bg : 'rgba(255,255,255,0.06)'));
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
-        ctx.lineWidth = sel || isNew ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : (isNew ? col.hi : (ok ? col.base : 'rgba(255,255,255,0.18)'));
+        // "just drawn" is signalled by the softer background tint only; the border stays
+        // the normal type colour so it doesn't stand out too much.
+        ctx.lineWidth = sel ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : ((ok || isNew) ? col.base : 'rgba(255,255,255,0.18)');
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
         // cost (top-left)
         ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.45)';
@@ -1603,7 +1646,7 @@
     }
     function drawPhaseTimer() {
         if (G.phase !== 'defense' && G.phase !== 'attack') return;
-        if (onlineWaiting() || G.spinOpen || (G.held && G.held.moved) || G.resolving) return;   // spin timer / waiting own this slot
+        if (onlineWaiting() || G.spinOpen || G.countdown > 0 || (G.held && G.held.moved) || G.resolving) return;   // spin timer / waiting / countdown own this slot
         const ratio = AC.math.clamp(G.phaseTimer / (G.phaseMax || DUEL.phaseTimeDef), 0, 1);
         const urgent = G.phaseTimer <= 5;
         ctx.save();
@@ -1617,6 +1660,27 @@
             ctx.lineWidth = 6;
             ctx.strokeRect(3, BOARD_TOP + 3, W - 6, ROWS * CELL - 6);
         }
+        ctx.restore();
+    }
+    // Pre-game 3-2-1. Caption sits in the empty strip above the board; the big digit is
+    // drawn as an outline (with only a faint fill) so the starting orbs stay readable.
+    function drawCountdown() {
+        const n = Math.ceil(G.countdown);
+        const frac = G.countdown - (n - 1);   // 1 → 0 within each second
+        const f = getFont();
+        ctx.save();
+        ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = 'rgba(230,236,255,0.85)';
+        ctx.font = `700 15px ${f}`;
+        ctx.fillText(t('rdGetReady'), W / 2, BOARD_TOP - 18);
+        const cx = W / 2, cy = BOARD_TOP + ROWS * CELL / 2;
+        const scale = 1 + (1 - frac) * 0.3;   // pops in large, settles
+        ctx.translate(cx, cy); ctx.scale(scale, scale);
+        ctx.font = `800 170px ${f}`;
+        ctx.fillStyle = `rgba(255,255,255,${0.05 + 0.06 * frac})`;
+        ctx.fillText(String(n), 0, 0);
+        ctx.lineWidth = 3; ctx.strokeStyle = `rgba(255,255,255,${0.3 + 0.35 * frac})`;
+        ctx.strokeText(String(n), 0, 0);
         ctx.restore();
     }
     function drawSpinTimer() {
@@ -1667,12 +1731,16 @@
             return { badge: 'swords', title: t('rdReady'), message: t('rdIntro'), button: t('play'), hint: t('rdStartHintHtml') };
         }
         if (state === 'over') {
-            const win = result && result.meta ? result.meta.win : false;
-            const round = result && result.meta ? result.meta.round : G.round;
+            const meta = (result && result.meta) || {};
+            const win = !!meta.win, draw = !!meta.draw;
+            const round = meta.round != null ? meta.round : G.round;
             const dmg = AC.format.score(result ? result.score : G.score);
-            let msg = win ? t('rdOverWinHtml', dmg, round) : t('rdOverLoseHtml', dmg, round);
+            const reason = meta.reason ? `<strong>${meta.reason}</strong><br>` : '';
+            let msg = reason + (win ? t('rdOverWinHtml', dmg, round) : t('rdOverLoseHtml', dmg, round));
             if (result && result.isNewBest) msg += ` <strong>${t('newBest')}</strong>`;
-            return { badge: win ? 'trophy' : 'skull', title: win ? t('rdWin') : t('rdLose'), message: msg, button: t('restart'), hint: t('rdOverHint') };
+            const title = draw ? t('rdDrawGame') : (win ? t('rdWin') : t('rdLose'));
+            const badge = draw ? 'swords' : (win ? 'trophy' : 'skull');
+            return { badge, title, message: msg, button: t('restart'), hint: t('rdOverHint') };
         }
         return {};
     }
@@ -1712,6 +1780,7 @@
         fillBoardNoMatches();
         dealStartingHand();
         startDefensePhase();
+        G.countdown = 3;   // 3-2-1 preview of the opening board & hand before the clock starts
         if (shell) shell.refreshBest();
     }
     // =================================================================
@@ -1724,6 +1793,7 @@
     let room = null;            // { code, data, unsub }
     let lobbyEl = null, lobbyRefs = null;
     let lobbyResult = '';       // "You win/lose" banner shown in the lobby after an online match
+    let lobbyReason = '';       // why the last online match ended (shown under the result)
 
     function el(tag, cls, text) { const e = document.createElement(tag); if (cls) e.className = cls; if (text != null) e.textContent = text; return e; }
     function lbtn(label, cls) { const b = el('button', cls || 'btn', label); b.type = 'button'; return b; }
@@ -1757,13 +1827,14 @@
     function detachRoom() { if (room && room.unsub) { try { room.unsub(); } catch (e) { /* ignore */ } } room = null; }
     function attachRoom(code) {
         detachRoom();
-        lobbyResult = '';
+        lobbyResult = ''; lobbyReason = '';
         room = { code, data: null, unsub: null };
         room.unsub = net.watchRoom(code, (data, err) => {
             if (err) { showLobbyError(err); return; }
             if (room) room.data = data;
             renderLobby();
             onRoomGame(data);
+            maybeStartIfReady(data);
         });
         renderLobby();
     }
@@ -1785,7 +1856,16 @@
         if (!code) return;
         try { const c = await net.joinRoom(code); attachRoom(c); } catch (e) { showLobbyError(e); }
     }
-    async function doLeave() { lobbyResult = ''; if (room) { const c = room.code; detachRoom(); try { await net.leaveRoom(c); } catch (e) { /* ignore */ } } renderLobby(); }
+    async function doLeave() { lobbyResult = ''; lobbyReason = ''; if (room) { const c = room.code; detachRoom(); try { await net.leaveRoom(c); } catch (e) { /* ignore */ } } renderLobby(); }
+    async function doReady() { if (!room || !netUser) return; try { await net.updateRoom(room.code, { ['ready.' + netUser.uid]: true }); } catch (e) { showLobbyError(e); } }
+    // Once both seats have pressed Ready, the host (and only the host) writes the start.
+    function maybeStartIfReady(data) {
+        if (!data || !netUser || data.hostUid !== netUser.uid) return;
+        if (data.game && data.game.status === 'playing') return;
+        const players = Object.keys(data.players || {});
+        const ready = data.ready || {};
+        if (players.length >= 2 && players.every((uid) => ready[uid])) hostStartGame();
+    }
     function copyCode(code) { try { const p = navigator.clipboard && navigator.clipboard.writeText(code); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } if (lobbyRefs) lobbyRefs.status.textContent = t('rdCopied'); }
 
     function renderLobby() {
@@ -1819,15 +1899,25 @@
             const leave = lbtn(t('rdLeaveRoom'), 'btn'); leave.onclick = doLeave;
             r.appendChild(lrow(copy, leave));
         } else if (u && room && room.data && opponentName(room.data)) {
-            if (room.data.hostUid === u.uid) { const start = lbtn(t('rdStartDuel'), 'btn btn-primary'); start.onclick = hostStartGame; r.appendChild(lrow(start)); }
-            else { r.appendChild(lrow(el('span', null, t('rdWaitHost')))); }
+            // both players must press Ready; the host starts the match once both are ready
+            const ready = room.data.ready || {};
+            if (ready[u.uid]) { r.appendChild(lrow(el('span', null, t('rdReadyWait')))); }
+            else { const rb = lbtn(t('rdReadyUp'), 'btn btn-primary'); rb.onclick = doReady; r.appendChild(lrow(rb)); }
             const leave = lbtn(t('rdLeaveRoom'), 'btn'); leave.onclick = doLeave;
             r.appendChild(lrow(leave));
         }
         // status
         let s = '';
         if (!u) s = t('rdSignInFirst');
-        else if (room && room.data) { const opp = opponentName(room.data); s = opp ? t('rdMatched', opp) : t('rdWaitingOpp'); }
+        else if (room && room.data) {
+            const opp = opponentName(room.data);
+            if (opp) {
+                const ready = room.data.ready || {};
+                const oppUid = Object.keys(room.data.players || {}).find((x) => x !== u.uid);
+                s = t('rdMatched', opp) + (oppUid && ready[oppUid] ? ' \u00b7 ' + t('rdOppReady') : '');
+            } else s = t('rdWaitingOpp');
+        }
+        if (lobbyReason) s = s ? (lobbyReason + ' \u00b7 ' + s) : lobbyReason;
         lobbyRefs.status.textContent = s;
     }
     function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); markDirty(); if (net.cleanupStaleRooms) net.cleanupStaleRooms().catch(() => {}); }
