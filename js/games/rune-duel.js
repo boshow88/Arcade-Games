@@ -42,7 +42,6 @@
         rdOverHint: 'Press R or the button to duel again.',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!', rdSpinNow: 'Time\u2019s up — spin now!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
-        rdTime: 'Time', rdOppUsed: (s) => `Rival last: ${s}`,
         rdOppSpin: 'spinning\u2026', rdOppDone: 'attacked', rdCopyCode: 'Copy', rdCopied: 'Copied!',
         rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid', rtPickShield: 'Pick a shield to break',
         cwBan: (e) => `Ban ${e}`, cwNeed: (e) => `Need ${e}`, cwNeedEnh: (e) => `Need ${e} enh.`,
@@ -90,7 +89,6 @@
         rdOverHint: '按 R 或按鈕再對決一次。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！', rdSpinNow: '時間到——快轉珠！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
-        rdTime: '時間', rdOppUsed: (s) => `對手上回合：${s}`,
         rdOppSpin: '轉珠中\u2026', rdOppDone: '已出手', rdCopyCode: '複製', rdCopied: '已複製！',
         rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色', rtPickShield: '點選要破除的盾',
         cwBan: (e) => `禁消${e}`, cwNeed: (e) => `需消${e}`, cwNeedEnh: (e) => `需消${e}強化`,
@@ -292,6 +290,7 @@
         spinMultSelf: 1,        // your spin-time multiplier this round (Fast cards, ×1/0.7 each)
         spinMultOpp: 1,         // the rival's spin-time multiplier on you (their Slow, ×0.7 each)
         aiSlow: 0,              // vs-AI: Slow cards you played (cramps the AI's combos)
+        mySlow: 0,              // Shorten (time↓) cards you played this round — shown in your defense area
         cardSel: null,          // index of the currently selected hand card (tap again to play)
         playedThisRound: [],    // enhance cards you've played this attack phase (revealed to rival at resolve)
         lastDrawn: null,        // hand index of the most-recently drawn card this phase (highlight)
@@ -660,7 +659,7 @@
     }
     function cardPhaseOk(id) { return (CARDS[id].type === 'defense') === (G.phase === 'defense'); }
     function addShield(s) { G.youShields.push(s); }
-    function applySlow() { if (G.online) G.online.slowOpp = (G.online.slowOpp || 0) + 1; else G.aiSlow = (G.aiSlow || 0) + 1; }
+    function applySlow() { G.mySlow = (G.mySlow || 0) + 1; if (G.online) G.online.slowOpp = (G.online.slowOpp || 0) + 1; else G.aiSlow = (G.aiSlow || 0) + 1; }
     function randEl() { return ELEMENTS[AC.rng.int(G.rng, 0, ELEMENTS.length)]; }
     function playCard(i) {
         const id = G.hand[i];
@@ -1054,6 +1053,7 @@
         G.youShields = [];
         G.cardSel = null;
         G.aiSlow = 0;
+        G.mySlow = 0;
         G.spinMultSelf = 1;
         G.spinMultOpp = 1;
         G.empowerNext = 1;
@@ -1556,23 +1556,9 @@
         for (const p of paths) ctx.stroke(p);
         ctx.restore();
     }
-    // Shared HUD pill (used for shields and the time up/down chips). kind: 'def' = blue
-    // shield, 'time' = amber time effect (with an up/down Lucide arrow). Returns its width.
-    const PILL = { h: 19, padX: 7, gap: 5, groupGap: 13, icon: 11, y: 37 };
-    function pillW(text, hasIcon, f) { ctx.font = `700 11px ${f}`; return PILL.padX * 2 + ctx.measureText(text).width + (hasIcon ? PILL.icon + 3 : 0); }
-    function drawPill(x, y, text, iconKey, kind, f) {
-        const w = pillW(text, !!iconKey, f), amber = kind === 'time';
-        ctx.fillStyle = amber ? 'rgba(255,183,94,0.16)' : 'rgba(127,212,255,0.16)';
-        roundRect(x, y, w, PILL.h, 9); ctx.fill();
-        ctx.lineWidth = 1.5; ctx.strokeStyle = amber ? 'rgba(255,183,94,0.6)' : 'rgba(127,212,255,0.6)';
-        roundRect(x, y, w, PILL.h, 9); ctx.stroke();
-        const col = amber ? '#ffcf8f' : '#a9e3ff';
-        ctx.fillStyle = col; ctx.font = `700 11px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-        const tx = x + PILL.padX;
-        ctx.fillText(text, tx, y + PILL.h / 2 + 0.5);
-        if (iconKey) drawUiIcon(iconKey, tx + ctx.measureText(text).width + 3 + PILL.icon / 2, y + PILL.h / 2, PILL.icon, col, 2.2);
-        return w;
-    }
+    // Layout anchors for the HUD status chips (rival shields at the top, your chips on
+    // the action row). Chip drawing lives in drawChip().
+    const PILL = { h: 19, gap: 5, groupGap: 13, y: 37 };
     function drawBoard() {
         ctx.save();
         for (let idx = 0; idx < COLS * ROWS; idx++) {
@@ -1645,19 +1631,34 @@
         if (item.count && item.count > 1) { ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; w += 3 + ctx.measureText('\u00d7' + item.count).width; }
         return w;
     }
-    function drawChip(x, y, h, item, size, f, used) {
+    function drawChip(x, y, h, item, size, f, tone) {
+        const atk = tone === 'atk';
+        const bg = atk ? 'rgba(217,106,78,0.14)' : 'rgba(127,212,255,0.14)';
+        const stroke = atk ? 'rgba(217,106,78,0.55)' : 'rgba(127,212,255,0.5)';
+        const cntCol = atk ? '#ffcdb5' : '#cfe8ff';
         const w = chipWidth(item, size, f), cy = y + h / 2;
-        ctx.fillStyle = used ? 'rgba(255,255,255,0.07)' : 'rgba(127,212,255,0.14)';
-        roundRect(x, y, w, h, 9); ctx.fill();
-        ctx.lineWidth = 1.5; ctx.strokeStyle = used ? 'rgba(255,255,255,0.22)' : 'rgba(127,212,255,0.5)';
-        roundRect(x, y, w, h, 9); ctx.stroke();
+        ctx.fillStyle = bg; roundRect(x, y, w, h, 9); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = stroke; roundRect(x, y, w, h, 9); ctx.stroke();
         drawGlyphCluster(item.glyphs, x + 6, cy, size, f);
         if (item.count && item.count > 1) {
             const gw = clusterWidth(item.glyphs, size, f);
-            ctx.fillStyle = used ? 'rgba(255,255,255,0.75)' : '#cfe8ff'; ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillStyle = cntCol; ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
             ctx.fillText('\u00d7' + item.count, x + 6 + gw + 3, cy);
         }
         return w;
+    }
+    // collapse played attack-card ids into chips: Extend-time (fast) stacks into one ×N
+    // chip; every other card groups by id with a ×count. (Symmetric for both players.)
+    function collapseAttackCards(ids) {
+        const items = []; let fast = 0; const counts = {}, order = [];
+        for (const id of (ids || [])) {
+            if (id === 'fast') { fast++; continue; }
+            if (counts[id] == null) order.push(id);
+            counts[id] = (counts[id] || 0) + 1;
+        }
+        if (fast > 0) items.push({ glyphs: [{ g: 'clockUp', c: AMBER }], label: t('cwFast'), count: fast });
+        for (const id of order) { const c = CARDS[id]; if (!c) continue; items.push({ glyphs: cardGlyphs(c), label: cardName(id), count: counts[id] }); }
+        return items;
     }
     function drawRivalPanel() {
         const f = getFont();
@@ -1687,23 +1688,20 @@
         for (let i = shieldItems.length - 1; i >= 0; i--) {
             const wItem = chipWidth(shieldItems[i], chipSize, f);
             px -= wItem;
-            drawChip(px, PILL.y, chipH, shieldItems[i], chipSize, f, false);
+            drawChip(px, PILL.y, chipH, shieldItems[i], chipSize, f, 'def');
             G._rivalChips.push({ x: px, y: PILL.y, w: wItem, h: chipH, label: shieldItems[i].label + (shieldItems[i].count > 1 ? ' \u00d7' + shieldItems[i].count : '') });
             px -= PILL.gap;
         }
-        // what the rival played last attack, as icon chips (tap to read the full effect)
+        // the attack cards the rival has played this round, as icon chips (tap to read)
         G._rivalUsed = [];
-        if (oppCards && oppCards.length) {
-            const counts = {}, orderIds = [];
-            for (const id of oppCards) { if (counts[id] == null) orderIds.push(id); counts[id] = (counts[id] || 0) + 1; }
+        const used = collapseAttackCards(oppCards);
+        if (used.length) {
             let cx = 22; const uy = 62, uh = 18, us = 14;
-            for (const id of orderIds) {
-                const c = CARDS[id]; if (!c) continue;
-                const item = { glyphs: cardGlyphs(c), count: counts[id] };
+            for (const item of used) {
                 const w = chipWidth(item, us, f);
                 if (cx + w > rightEdge) break;
-                drawChip(cx, uy, uh, item, us, f, true);
-                G._rivalUsed.push({ x: cx, y: uy, w, h: uh, label: cardName(id) + (counts[id] > 1 ? ' \u00d7' + counts[id] : '') });
+                drawChip(cx, uy, uh, item, us, f, 'atk');
+                G._rivalUsed.push({ x: cx, y: uy, w, h: uh, label: item.label + (item.count > 1 ? ' \u00d7' + item.count : '') });
                 cx += w + 5;
             }
         }
@@ -1717,27 +1715,16 @@
         //   attack group = time↑ (amber) + the attack cards you played this round.
         // Hidden while a card is selected (Play / Discard own the row then).
         if (G.cardSel == null && (G.phase === 'defense' || G.phase === 'attack')) {
-            const py = LAY.actY + (LAY.actH - PILL.h) / 2;
+            const py = LAY.actY + (LAY.actH - PILL.h) / 2, size = 15;
             const draw = drawMoreRect();
             let x = draw.x + draw.w + 12;   // chips fill the middle, between Draw (left) and To-attack (right)
-            const defItems = collapseShields(G.youShields, 0);
-            const hasDef = defItems.length > 0;
-            for (const it of defItems) { const w = chipWidth(it, 15, f); drawChip(x, py, PILL.h, it, 15, f, false); G._youChips.push({ x, y: py, w, h: PILL.h, label: it.label }); x += w + PILL.gap; }
-            const hasTime = (G.spinMultSelf || 1) > 1, played = G.playedThisRound || [];
-            if (hasTime || played.length) {
-                if (hasDef) x += PILL.groupGap - PILL.gap;
-                if (hasTime) x += drawPill(x, py, t('rdTime'), 'up', 'time', f) + PILL.gap;
-                const cap = 6;
-                for (let k = 0; k < played.length && k < cap; k++) {
-                    const c = CARDS[played[k]]; if (!c) continue;
-                    const g0 = cardGlyphs(c)[0];
-                    ctx.fillStyle = 'rgba(255,183,94,0.12)'; roundRect(x, py, PILL.h, PILL.h, 6); ctx.fill();
-                    ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,183,94,0.5)'; roundRect(x, py, PILL.h, PILL.h, 6); ctx.stroke();
-                    if (g0 && g0.g) drawUiIcon(g0.g, x + PILL.h / 2, py + PILL.h / 2, 13, g0.c, 2);
-                    else if (g0) { ctx.fillStyle = g0.c; ctx.font = `800 10px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'; ctx.fillText(g0.t, x + PILL.h / 2, py + PILL.h / 2); }
-                    x += PILL.h + 4;
-                }
-                if (played.length > cap) { ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `700 11px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText('+' + (played.length - cap), x, py + PILL.h / 2); }
+            // defense group (your shields + your Shorten), then — separated — your attack group
+            const defItems = collapseShields(G.youShields, G.mySlow || 0);
+            for (const it of defItems) { const w = chipWidth(it, size, f); drawChip(x, py, PILL.h, it, size, f, 'def'); G._youChips.push({ x, y: py, w, h: PILL.h, label: it.label + (it.count > 1 ? ' \u00d7' + it.count : '') }); x += w + PILL.gap; }
+            const atkItems = collapseAttackCards(G.playedThisRound);
+            if (atkItems.length) {
+                if (defItems.length) x += PILL.groupGap - PILL.gap;
+                for (const it of atkItems) { const w = chipWidth(it, size, f); drawChip(x, py, PILL.h, it, size, f, 'atk'); G._youChips.push({ x, y: py, w, h: PILL.h, label: it.label + (it.count > 1 ? ' \u00d7' + it.count : '') }); x += w + PILL.gap; }
             }
         }
         // HP bar hugging the board (right above the timer bar)
@@ -2087,6 +2074,7 @@
         G.spinMultSelf = 1;
         G.spinMultOpp = 1;
         G.aiSlow = 0;
+        G.mySlow = 0;
         board = G.board = new Array(COLS * ROWS).fill(null);
         fillBoardNoMatches();
         dealStartingHand();
