@@ -176,16 +176,16 @@
 
     const CONFIG = {
         orbRadius: 40, iconScale: 0.8, iconStroke: 0.12, iconTint: -0.15,
-        popTime: 0.13, fallAnim: 0.16, bigThreshold: 5, scoreCap: 999999,
+        popTime: 0.24, fallAnim: 0.26, bigThreshold: 5, scoreCap: 999999,   // slower pacing so clears read clearly
     };
     const BALANCE = {
-        spinTime: 6, baseDamage: 12, heartHeal: 24, comboStep: 0.25, enhancedMult: 1.5,
+        spinTime: 6, baseDamage: 12, heartHeal: 30, comboStep: 0.25, enhancedMult: 1.5,
     };
     const DUEL = {
         hp: 3000, maxRounds: 30,
         energy: 10, maxHand: 10, drawCost: 1,   // one mixed hand; draw pulls from the current phase's pool
         phaseTime: 30,                  // seconds to decide in the defense / attack phase
-        aiThink: 1.1,
+        aiThink: 1.5,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
         aiComboMin: 3, aiComboMax: 7,   // its simulated combos (before meeting your shields)
         aiSkill: 0.7,                   // chance it meets each of your shields
@@ -922,7 +922,7 @@
         }
     }
 
-    function addFloat(x, y, text, color, size) { G.floats.push({ x, y, text, color, size: size || 18, t: 0, life: 0.9 }); }
+    function addFloat(x, y, text, color, size) { G.floats.push({ x, y, text, color, size: size || 18, t: 0, life: 1.4 }); }
 
     // =================================================================
     // Online duel sync (stage 2)
@@ -1107,7 +1107,7 @@
     // =================================================================
 
     function settleOrbs(dt) {
-        const f = Math.min(1, dt * 18);
+        const f = Math.min(1, dt * 13);   // gentler fall/settle so drops are visible
         for (let idx = 0; idx < COLS * ROWS; idx++) {
             const o = board[idx];
             if (!o) continue;
