@@ -58,7 +58,7 @@
         cwBanRand: 'Ban random', cwBanPick: 'Ban chosen', cwNeedRand: 'Need random', cwNeedPick: 'Need chosen',
         cwNeedEnhAny: 'Need enhanced', cwNeedEnhRand: 'Need rand enh.', cwNeedEnhPick: 'Need chosen enh.',
         cwComboMin: (n) => `\u2265${n} combo`, cwComboMax: (n) => `\u2264${n} combo`, cwFirstMin: (n) => `1st \u2265${n}`, cwFirstMax: (n) => `1st \u2264${n}`,
-        cwSlow: 'Slow rival', cwFast: 'More time',
+        cwSlow: 'Shorten rival', cwFast: 'Extend own time',
         cwTrans: (a, b) => `${a}\u2192${b}`, cwTransToPick: (a) => `${a}\u2192?`, cwTransFromPick: (b) => `?\u2192${b}`, cwTransBoth: '?\u2192?',
         cwEnchEl: (e) => `3 ${e}\u2192enh.`, cwEnchRand: '3 rand\u2192enh.', cwEnchPick: '3 chosen\u2192enh.',
         cwBreakRand: 'Break shield', cwBreakPick: 'Break chosen',
@@ -116,7 +116,7 @@
         cwBanRand: '禁消隨機', cwBanPick: '禁消任選', cwNeedRand: '需消隨機', cwNeedPick: '需消任選',
         cwNeedEnhAny: '需消強化', cwNeedEnhRand: '需消隨機強化', cwNeedEnhPick: '需消任選強化',
         cwComboMin: (n) => `\u2265${n}連擊`, cwComboMax: (n) => `\u2264${n}連擊`, cwFirstMin: (n) => `首消\u2265${n}`, cwFirstMax: (n) => `首消\u2264${n}`,
-        cwSlow: '催促對手', cwFast: '延長轉珠',
+        cwSlow: '縮短對手時間', cwFast: '延長自己時間',
         cwTrans: (a, b) => `${a}轉${b}`, cwTransToPick: (a) => `${a}轉任選`, cwTransFromPick: (b) => `任選轉${b}`, cwTransBoth: '任選轉任選',
         cwEnchEl: (e) => `3顆${e}轉強化`, cwEnchRand: '隨機3顆轉強化', cwEnchPick: '任選色3顆轉強化',
         cwBreakRand: '隨機破盾', cwBreakPick: '指定破盾',
@@ -341,11 +341,12 @@
     }
     // Card palette: defense = blue family, attack = red family. `hi` is the brighter
     // "just drawn" accent; `bgNew` tints the newest card so it reads at a glance.
-    function cardColors(id) {
-        return CARDS[id] && CARDS[id].type === 'defense'
+    function typeColors(isDef) {
+        return isDef
             ? { base: '#5b8fc4', bg: 'rgba(79,123,164,0.16)', bgSel: 'rgba(79,123,164,0.36)', bgNew: 'rgba(120,180,240,0.17)', hi: '#9cccf5' }
             : { base: '#d16a4e', bg: 'rgba(195,85,64,0.16)', bgSel: 'rgba(195,85,64,0.36)', bgNew: 'rgba(240,140,90,0.17)', hi: '#ff9a63' };
     }
+    function cardColors(id) { return typeColors(CARDS[id] && CARDS[id].type === 'defense'); }
     function roundRect(x, y, w, h, r) {
         ctx.beginPath();
         ctx.moveTo(x + r, y);
@@ -1129,10 +1130,9 @@
         // reveal: both defense submitted → attack phase, see the opponent's shields
         if (G.online.sub === 'waitDef' && g.def && g.def[my] && g.def[opp]) {
             G.aiShields = (g.def[opp] || []).slice();
-            const slows = (g.hasten && g.hasten[opp]) || 0;   // opponent's Slow shrinks YOUR spin time (×0.7 each)
+            const slows = (g.hasten && g.hasten[opp]) || 0;   // opponent's Shorten shrinks YOUR spin time (×0.7 each)
             startAttackPhase();
-            G.spinMultOpp = Math.pow(0.7, slows);
-            if (slows > 0) addFloat(W / 2, 150, t('rdHastened'), '#ff9f43', 20);
+            G.spinMultOpp = Math.pow(0.7, slows);   // shown as the rival's 時間↓ pill, no extra toast needed
             return;
         }
         // resolve: both attacks in (animate the opponent's strike once per round)
@@ -1529,10 +1529,11 @@
         if (G.phase !== 'defense' && G.phase !== 'attack') return;
         if (G.palette || G.held || G.resolving) return;
         const b = drawMoreRect(), f = getFont(), ok = canDrawMore();
+        const col = typeColors(curType() === 'defense');   // defense phase = blue, attack phase = red (matches the card you'll draw)
         ctx.save();
-        ctx.fillStyle = ok ? 'rgba(217,84,78,0.16)' : 'rgba(255,255,255,0.05)';
+        ctx.fillStyle = ok ? col.bg : 'rgba(255,255,255,0.05)';
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.fill();
-        ctx.lineWidth = 1.5; ctx.strokeStyle = ok ? accent() : 'rgba(255,255,255,0.15)';
+        ctx.lineWidth = 1.5; ctx.strokeStyle = ok ? col.base : 'rgba(255,255,255,0.15)';
         roundRect(b.x, b.y, b.w, b.h, 9); ctx.stroke();
         ctx.fillStyle = ok ? '#fff' : 'rgba(255,255,255,0.4)';
         ctx.font = `700 13px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
@@ -1564,7 +1565,7 @@
         const b = tileRect(base), c = CARDS[b.id], sel = base.i === G.cardSel;
         const active = cardPhaseOk(b.id);   // this phase's type is bright; the other dimmed
         const ok = active && G.energy >= c.cost && playable(b.id);
-        const isNew = base.i === G.lastDrawn;   // only the single newest-drawn card (this phase)
+        const isNew = base.i === G.lastDrawn && ok;   // newest-drawn, but only while it's actually playable (enough energy)
         const col = cardColors(b.id);           // defense = blue, attack = red
         ctx.save();
         ctx.globalAlpha = active ? 1 : 0.5;
