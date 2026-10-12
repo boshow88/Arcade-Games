@@ -176,7 +176,8 @@
 
     const CONFIG = {
         orbRadius: 40, iconScale: 0.8, iconStroke: 0.12, iconTint: -0.15,
-        popTime: 0.24, fallAnim: 0.26, bigThreshold: 5, scoreCap: 999999,   // slower pacing so clears read clearly
+        popTime: 0.17, popGap: 0.13, fallAnim: 0.2, fallGap: 0.12,   // short anims + deliberate gaps between steps
+        bigThreshold: 5, scoreCap: 999999,
     };
     const BALANCE = {
         spinTime: 6, baseDamage: 12, heartHeal: 30, comboStep: 0.25, enhancedMult: 1.5,
@@ -185,6 +186,7 @@
         hp: 3000, maxRounds: 30,
         energy: 10, maxHand: 10, drawCost: 1,   // one mixed hand; draw pulls from the current phase's pool
         phaseTime: 30,                  // seconds to decide in the defense / attack phase
+        resolvePause: 1.6,              // hold at round end so the mutual attack is readable
         aiThink: 1.5,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
         aiComboMin: 3, aiComboMax: 7,   // its simulated combos (before meeting your shields)
@@ -262,6 +264,7 @@
         phase: 'defense',       // 'defense' | 'attack' | 'ai' | 'over'
         phaseTimer: 0,          // seconds left to decide in defense / attack
         aiTimer: 0,
+        resolveHold: 0,         // seconds left in the round-end 'resolved' display pause
         score: 0,
         energy: 0,
         hand: [],               // card ids (of the current phase's type)
@@ -680,9 +683,13 @@
         if (R.stage === 'pop') {
             const p = Math.min(1, R.t / CONFIG.popTime);
             for (const o of G.clearing) o.scale = 1 - p;
-            if (R.t >= CONFIG.popTime) popGroup();
+            if (R.t >= CONFIG.popTime) { R.stage = 'popGap'; R.t = 0; G.clearing.length = 0; }   // combo cleared; hold a beat
+        } else if (R.stage === 'popGap') {
+            if (R.t >= CONFIG.popGap) popGroup();   // next combo, or (when done) gravity → fall
         } else if (R.stage === 'fall') {
-            if (R.t >= CONFIG.fallAnim) beginCascade();
+            if (R.t >= CONFIG.fallAnim) { R.stage = 'fallGap'; R.t = 0; }
+        } else if (R.stage === 'fallGap') {
+            if (R.t >= CONFIG.fallGap) beginCascade();   // pause after the drop before the next wave
         }
     }
 
@@ -847,9 +854,7 @@
             AC.audio.play('rock');
         }
         if (G.youHp <= 0) { G.youHp = 0; updateHud(); duelOver(false); return; }
-        G.round++;
-        if (G.round > DUEL.maxRounds) { duelOver(G.youHp >= G.aiHp); return; }
-        startDefensePhase();
+        G.phase = 'resolved'; G.resolveHold = DUEL.resolvePause;   // hold so the exchange is readable
     }
     // Defense phase: play shields on yourself; the rival "plays its defense" (the
     // shields your spin must break). Then "To attack" → the attack phase.
@@ -1084,7 +1089,7 @@
             G.online.bothAtkSince = 0;
             if (g.hp) { G.youHp = g.hp[my]; G.aiHp = g.hp[opp]; }
             updateHud();
-            startDefensePhase();
+            G.phase = 'resolved'; G.resolveHold = DUEL.resolvePause;   // hold so the exchange is readable
             return;
         }
         // over
@@ -1138,6 +1143,16 @@
         } else if (G.phase === 'ai') {
             G.aiTimer -= dt;
             if (G.aiTimer <= 0) aiAttack();
+        } else if (G.phase === 'resolved') {
+            G.resolveHold -= dt;
+            if (G.resolveHold <= 0) {
+                if (G.online) { startDefensePhase(); }
+                else {
+                    G.round++;
+                    if (G.round > DUEL.maxRounds) { duelOver(G.youHp >= G.aiHp); return; }
+                    startDefensePhase();
+                }
+            }
         }
         // repaint once per second while a phase clock is visibly counting down
         if ((G.phase === 'defense' || G.phase === 'attack') && !onlineWaiting() && !(G.held && G.held.moved) && !G.resolving) {
