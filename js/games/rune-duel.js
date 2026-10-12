@@ -128,7 +128,7 @@
     const CELL = 100;
     const BOARD_TOP = H - ROWS * CELL; // = 260
     // layout anchors for the top HUD (above the board) — tweak here to re-space
-    const LAY = { handY: 68, handH: 86, energyY: 162, actY: 172, actH: 32, youShieldY: 214, youHpY: 238, youHpH: 12 };
+    const LAY = { handY: 90, handH: 70, energyY: 168, actY: 178, actH: 32, youShieldY: 220, youHpY: 238, youHpH: 12 };
 
     const ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark', 'heart'];
     const ATTACK_ELEMENTS = ['fire', 'water', 'wood', 'light', 'dark'];
@@ -187,7 +187,6 @@
         // enhance (attack phase → buff your spin / break rival shields)
         break:     { type: 'enhance', cost: 4 },   // remove one rival shield
         focus:     { type: 'enhance', cost: 2 },   // +3s this spin
-        empower:   { type: 'enhance', cost: 4 },   // ×1.5 damage this spin
         transmute: { type: 'enhance', cost: 3 },   // recolour one colour → another
         enchant:   { type: 'enhance', cost: 3 },   // 3 random runes → enhanced
     };
@@ -515,7 +514,6 @@
         else if (id === 'hasten') { G.aiSpinPenalty += 2; if (G.online) G.online.hastenOpp = (G.online.hastenOpp || 0) + 2; }
         else if (id === 'break') { G.aiShields.shift(); }
         else if (id === 'focus') { G.bonusTimeNext += 3; }
-        else if (id === 'empower') { G.empowerNext *= 1.5; }
         else if (id === 'enchant') { enchantRandom(3); }
         consumeCard(i, id);
     }
@@ -1079,7 +1077,7 @@
     // defense phase, so you can pick shields based on what the opponent is holding.
     // Persistent compact preview of the rival's board (top-right), shown every phase
     // online so you can read what they're holding whenever you plan.
-    const MINI = { cell: 15, get gw() { return COLS * this.cell; }, get gh() { return ROWS * this.cell; }, get ox() { return W - 16 - this.gw; }, oy: 12 };
+    const MINI = { cell: 14, get gw() { return COLS * this.cell; }, get gh() { return ROWS * this.cell; }, get ox() { return W - 16 - this.gw; }, oy: 10 };
     function drawOppBoard() {
         if (!(G.online && G.online.oppBoard)) return;
         const ob = G.online.oppBoard, cell = MINI.cell, ox = MINI.ox, oy = MINI.oy;
