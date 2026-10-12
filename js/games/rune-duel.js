@@ -52,6 +52,7 @@
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
         rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdSlowPill: 'Time \u2193', rdFastPill: 'Time \u2191', rdOppUsed: (s) => `Rival last: ${s}`,
+        rdOppSpin: 'spinning\u2026', rdOppDone: 'attacked', rdCopyCode: 'Copy', rdCopied: 'Copied!',
         rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid', rtPickShield: 'Pick a shield to break',
         cwBan: (e) => `Ban ${e}`, cwNeed: (e) => `Need ${e}`, cwNeedEnh: (e) => `Need ${e} enh.`,
         cwBanRand: 'Ban random', cwBanPick: 'Ban chosen', cwNeedRand: 'Need random', cwNeedPick: 'Need chosen',
@@ -105,6 +106,7 @@
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
         rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdSlowPill: '時間\u2193', rdFastPill: '時間\u2191', rdOppUsed: (s) => `對手上回合：${s}`,
+        rdOppSpin: '轉珠中\u2026', rdOppDone: '已出手', rdCopyCode: '複製', rdCopied: '已複製！',
         rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色', rtPickShield: '點選要破除的盾',
         cwBan: (e) => `禁消${e}`, cwNeed: (e) => `需消${e}`, cwNeedEnh: (e) => `需消${e}強化`,
         cwBanRand: '禁消隨機', cwBanPick: '禁消任選', cwNeedRand: '需消隨機', cwNeedPick: '需消任選',
@@ -177,10 +179,10 @@
         popTime: 0.13, fallAnim: 0.16, bigThreshold: 5, scoreCap: 999999,
     };
     const BALANCE = {
-        spinTime: 6, baseDamage: 12, heartHeal: 12, comboStep: 0.25, enhancedMult: 1.5,
+        spinTime: 6, baseDamage: 12, heartHeal: 60, comboStep: 0.25, enhancedMult: 1.5,
     };
     const DUEL = {
-        hp: 2500, maxRounds: 30,
+        hp: 3000, maxRounds: 30,
         energy: 10, maxHand: 10, drawCost: 1,   // one mixed hand; draw pulls from the current phase's pool
         phaseTime: 30,                  // seconds to decide in the defense / attack phase
         aiThink: 1.1,
@@ -643,7 +645,7 @@
 
     function startResolve() {
         G.held = null;
-        if (G.online) G.preSpinBoard = serializeBoard();   // snapshot the reshaped board to show the rival
+        if (G.online) { G.preSpinBoard = serializeBoard(); net.updateRoom(room.code, { ['game.spin.' + G.online.myUid]: G.round }).catch(() => {}); }   // snapshot + "I'm spinning"
         G.resolving = true;
         G.resolve = { stage: 'pop', t: 0, combos: [], pending: [], popIndex: 0, wave: -1 };
         beginCascade();
@@ -781,6 +783,8 @@
             G.cardSel = null; G.palette = null;
             G.resolving = false; G.resolve = null;
             G.online.sub = 'waitAtk';
+            if (!blocked && dmg > 0) G.aiHp = Math.max(0, G.aiHp - dmg);   // optimistic: you see your hit land now
+            if (heal > 0) G.youHp = Math.min(G.youMaxHp, G.youHp + heal);
             submitAttack(dmg, heal);
             updateHud();
             return;
@@ -1038,7 +1042,7 @@
             winner = hp[A] === hp[B] ? null : (hp[A] > hp[B] ? A : B);
         }
         net.updateRoom(room.code, {
-            'game.hp': hp, 'game.round': round + 1, 'game.def': {}, 'game.atk': {},
+            'game.hp': hp, 'game.round': round + 1, 'game.def': {}, 'game.atk': {}, 'game.spin': {},
             'game.status': status, 'game.winner': winner,
         }).catch((e) => console.warn('[duel]', e));
     }
@@ -1052,6 +1056,9 @@
         const my = G.online.myUid, opp = G.online.oppUid;
         // mirror the rival's board: prefer their reshaped attack board (shows transmute/enchant) this round
         G.online.oppBoard = (g.atk && g.atk[opp] && g.atk[opp].board) || (g.board && g.board[opp]) || G.online.oppBoard;
+        // reveal what the rival played / whether they're spinning — as soon as they act (never their damage)
+        if (g.atk && g.atk[opp] && g.atk[opp].cards) G.online.oppLastCards = g.atk[opp].cards;
+        G.online.oppStatus = (g.atk && g.atk[opp]) ? 'done' : ((g.spin && g.spin[opp] === (g.round || 1)) ? 'spin' : '');
         // reveal: both defense submitted → attack phase, see the opponent's shields
         if (G.online.sub === 'waitDef' && g.def && g.def[my] && g.def[opp]) {
             G.aiShields = (g.def[opp] || []).slice();
@@ -1330,6 +1337,12 @@
         ctx.fillStyle = 'rgba(255,255,255,0.6)';
         ctx.font = `700 12px ${f}`; ctx.textAlign = 'left';
         ctx.fillText(G.online ? G.online.oppName : t('rdRival'), 22, 15);
+        if (G.online && G.online.oppStatus) {
+            const nw = ctx.measureText(G.online.oppName).width;
+            ctx.fillStyle = G.online.oppStatus === 'spin' ? '#ffcf5a' : '#8fe36b';
+            ctx.font = `700 11px ${f}`;
+            ctx.fillText(t(G.online.oppStatus === 'spin' ? 'rdOppSpin' : 'rdOppDone'), 22 + nw + 10, 15);
+        }
         drawBar(22, 20, (G.online ? MINI.ox - 34 : W - 44), 12, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
         ctx.textBaseline = 'middle';
@@ -1718,6 +1731,7 @@
         try { const c = await net.joinRoom(code); attachRoom(c); } catch (e) { showLobbyError(e); }
     }
     async function doLeave() { lobbyResult = ''; if (room) { const c = room.code; detachRoom(); try { await net.leaveRoom(c); } catch (e) { /* ignore */ } } renderLobby(); }
+    function copyCode(code) { try { const p = navigator.clipboard && navigator.clipboard.writeText(code); if (p && p.catch) p.catch(() => {}); } catch (e) { /* ignore */ } if (lobbyRefs) lobbyRefs.status.textContent = t('rdCopied'); }
 
     function renderLobby() {
         if (!lobbyEl) return;
@@ -1745,8 +1759,9 @@
             r.appendChild(lrow(create));
             r.appendChild(lrow(input, join));
         } else if (u && room && room.data && !opponentName(room.data)) {
+            const copy = lbtn(t('rdCopyCode') + ' ' + room.code, 'btn btn-primary'); copy.onclick = () => copyCode(room.code);
             const leave = lbtn(t('rdLeaveRoom'), 'btn'); leave.onclick = doLeave;
-            r.appendChild(lrow(leave));
+            r.appendChild(lrow(copy, leave));
         } else if (u && room && room.data && opponentName(room.data)) {
             if (room.data.hostUid === u.uid) { const start = lbtn(t('rdStartDuel'), 'btn btn-primary'); start.onclick = hostStartGame; r.appendChild(lrow(start)); }
             else { r.appendChild(lrow(el('span', null, t('rdWaitHost')))); }
