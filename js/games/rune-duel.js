@@ -59,7 +59,7 @@
         rdCreateRoom: 'Create room', rdJoinRoom: 'Join', rdRoomCode: 'Code', rdLeaveRoom: 'Leave room',
         rdRoomCreated: (code) => `Room ${code} — waiting for opponent\u2026`, rdWaitingOpp: 'Waiting for opponent\u2026',
         rdMatched: (name) => `Matched with ${name}!`, rdStartDuel: 'Start duel', rdWaitHost: 'Waiting for host to start\u2026',
-        rdReadyUp: 'I\u2019m ready to start', rdReadyWait: 'Ready \u2014 waiting for opponent\u2026', rdOppReady: 'opponent ready', rdGetReady: 'Get ready\u2026',
+        rdReadyUp: 'I\u2019m ready to start', rdReadyWait: 'Ready \u2014 waiting for opponent\u2026', rdOppReady: 'opponent ready',
         rdReasonForfeit: 'Opponent left or timed out \u2014 you win.',
         rdReasonKoWin: 'Rival HP hit 0 \u2014 you win.', rdReasonKoLose: 'Your HP hit 0 \u2014 you lose.', rdReasonDoubleKo: 'Both HP hit 0 \u2014 draw.',
         rdReasonHpWin: 'Round limit reached \u2014 more HP, you win.', rdReasonHpLose: 'Round limit reached \u2014 less HP, you lose.', rdReasonTimeDraw: 'Round limit reached, equal HP \u2014 draw.',
@@ -106,7 +106,7 @@
         rdCreateRoom: '建立房間', rdJoinRoom: '加入', rdRoomCode: '房號', rdLeaveRoom: '離開房間',
         rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
-        rdReadyUp: '準備好了', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備', rdGetReady: '準備中\u2026',
+        rdReadyUp: '準備好了', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備',
         rdReasonForfeit: '對手離開或逾時未行動，你獲勝。',
         rdReasonKoWin: '對手血量歸零，你獲勝。', rdReasonKoLose: '你的血量歸零，你落敗。', rdReasonDoubleKo: '雙方同時血量歸零，平手。',
         rdReasonHpWin: '回合數耗盡，你的血量較高，你獲勝。', rdReasonHpLose: '回合數耗盡，你的血量較低，你落敗。', rdReasonTimeDraw: '回合數耗盡且血量相同，平手。',
@@ -558,6 +558,7 @@
         if (G.resolving || G.held || G.countdown > 0 || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         if (onlineWaiting()) { if (e.cancelable) e.preventDefault(); return; }
         if (p.y < BOARD_TOP) {
+            if (G.spinOpen) { if (e.cancelable) e.preventDefault(); return; }   // spin window is open → cards locked, only the board is interactive
             // action row: when a card is selected it shows big Play / Discard buttons
             if (G.cardSel != null) {
                 if (inRect(p, playBtnRect())) { const i = G.cardSel; G.cardSel = null; AC.audio.unlock(); playCard(i); if (e.cancelable) e.preventDefault(); return; }
@@ -574,6 +575,7 @@
         }
         if (G.phase !== 'attack') return;   // can only spin in the attack phase
         AC.audio.unlock();
+        G.cardSel = null;   // starting a spin deselects any card (cards lock during the spin)
         const cell = cellAtPixel(p.x, p.y);
         G.held = { cell, px: p.x, py: p.y, moved: false };
         if (!G.spinOpen) G.spinTimer = effectiveSpinTime();   // spin window already counting → keep its clock
@@ -651,7 +653,7 @@
     function playCard(i) {
         const id = G.hand[i];
         const c = id && CARDS[id];
-        if (!c || G.resolving || G.held || G.energy < c.cost || !playable(id) || !cardPhaseOk(id)) return;
+        if (!c || G.resolving || G.held || G.spinOpen || G.energy < c.cost || !playable(id) || !cardPhaseOk(id)) return;
         switch (c.cat) {
             // --- defense shields ---
             case 'ban': addShield({ type: 'element', mode: 'ban', elements: [c.el] }); break;
@@ -1639,7 +1641,9 @@
     }
     function drawCardTile(base, f) {
         const b = base, c = CARDS[b.id], sel = base.i === G.cardSel;
-        const active = cardPhaseOk(b.id);   // this phase's type is bright; the other dimmed
+        // cards are only usable while deciding — dim them all once a spin starts/resolves
+        const usable = !G.spinOpen && !(G.held && G.held.moved) && !G.resolving;
+        const active = cardPhaseOk(b.id) && usable;   // this phase's type is bright; other type / spinning = dimmed
         const ok = active && G.energy >= c.cost && playable(b.id);
         const isNew = base.i === G.lastDrawn && ok;   // newest-drawn, but only while it's actually playable
         const col = cardColors(b.id);           // defense = blue, attack = red
@@ -1786,9 +1790,6 @@
         const f = getFont();
         ctx.save();
         ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-        ctx.fillStyle = 'rgba(230,236,255,0.85)';
-        ctx.font = `700 15px ${f}`;
-        ctx.fillText(t('rdGetReady'), W / 2, BOARD_TOP - 18);
         const cx = W / 2, cy = BOARD_TOP + ROWS * CELL / 2;
         const scale = 1 + (1 - frac) * 0.3;   // pops in large, settles
         ctx.translate(cx, cy); ctx.scale(scale, scale);
