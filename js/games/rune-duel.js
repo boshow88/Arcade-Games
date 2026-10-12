@@ -704,6 +704,7 @@
         if (CARDS[id].type === 'enhance') G.playedThisRound.push(id);   // your attack skills this round (also revealed to the rival online)
         AC.audio.play('gem');
         addFloat(W / 2, 150, cardName(id), accent(), 18);
+        if (G.online) pushLive();   // reveal this card + the reshaped board to the opponent now
         updateHud();
     }
     function openPalette(opts) { G.palette = opts; markDirty(); }
@@ -1005,20 +1006,22 @@
         if (G.aiHp <= 0) { G.aiHp = 0; updateHud(); duelOver(true); return; }
         G.phase = 'ai';
         G.aiStatus = 'spin';   // the rival is now thinking / spinning
+        aiPlayCards();          // reveal its cards + reshaped board immediately; it spins after aiThink
         G.aiTimer = DUEL.aiThink;
         updateHud();
     }
-    function aiAttack() {
+    // Step 1 (runs the moment the rival's turn begins): it "plays its attack cards"
+    // reactively to YOUR shields, reshaping its board. Revealed immediately so you see
+    // the cards and the transmuted/enchanted board before it spins.
+    function aiPlayCards() {
         const cfg = aiCfg();
         G.aiPlayed = [];
         if (!G.aiBoard) G.aiBoard = aiFillBoard();
-        // mend a little when hurt
         if (AC.rng.float(G.rng, 0, 1) < cfg.mend && G.aiHp < G.aiMaxHp) {
             const h = Math.round(G.aiMaxHp * 0.05);
             G.aiHp = Math.min(G.aiMaxHp, G.aiHp + h);
             addFloat(W / 2, 48, t('rdRivalMend') + ' +' + h, '#8fd1a0', 18);
         }
-        // "play cards" reactively to YOUR shields, reshaping its board (revealed in the panel)
         const a = simFromBoard(G.aiBoard);
         for (const s of G.youShields) {
             if (AC.rng.float(G.rng, 0, 1) > cfg.skill) continue;   // skill: it may miss the right card
@@ -1026,9 +1029,13 @@
             else if (s.type === 'enhancedEl' && s.elements) { simTransmuteTo(a, s.elements[0], 3); simEnchant(a, 3); G.aiPlayed.push('ench_' + s.elements[0]); }
             else if (s.type === 'element' && s.mode === 'contains') { simTransmuteTo(a, s.elements[0], 4); G.aiPlayed.push('trFr_' + s.elements[0]); }
         }
-        // solve + spin for real; the chosen move is applied to `a` so the mini-board shows it
-        const res = aiSolve(a, G.youShields);
-        G.aiBoard = a;
+        G.aiBoard = a;   // reshaped board shown now (card effects visible before the spin)
+        updateHud(); markDirty();
+    }
+    // Step 2 (after a short think): it actually spins, settling its board, then strikes.
+    function aiSpin() {
+        if (!G.aiBoard) G.aiBoard = aiFillBoard();
+        const res = aiSolve(G.aiBoard, G.youShields);   // mutates G.aiBoard to the settled result
         G.aiStatus = 'done';
         const blocked = shieldsBlock(G.youShields, res.stats);
         if (res.heal > 0) { G.aiHp = Math.min(G.aiMaxHp, G.aiHp + res.heal); addFloat(W / 2, 48, '+' + res.heal, ELEMENT_COLORS.heart, 18); }
@@ -1078,7 +1085,7 @@
         G.preSpinBoard = null;
         G.lastDrawn = null;
         G.spinOpen = false;
-        if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeAtk * 1000; updateHud(); return; }
+        if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeAtk * 1000; pushLive(); updateHud(); return; }
         if (G.aiPlan) { G.aiShields = G.aiPlan.shields; G.spinMultOpp = G.aiPlan.hastenYou ? 0.7 : 1; G.aiPlan = null; }   // reveal the rival's defense now
         updateHud();
     }
@@ -1160,6 +1167,13 @@
     }
     function pushMyBoard() {
         if (G.online && room && room.code) net.updateRoom(room.code, { ['game.board.' + G.online.myUid]: serializeBoard() }).catch(() => {});
+    }
+    // live reveal: push your current board + played attack cards the instant you act, so the
+    // opponent sees your cards/transmutes right away (not only when you finish spinning).
+    function pushLive() {
+        if (!(G.online && room && room.code)) return;
+        const u = G.online.myUid;
+        net.updateRoom(room.code, { ['game.board.' + u]: serializeBoard(), ['game.played.' + u]: (G.playedThisRound || []).slice() }).catch(() => {});
     }
     function enterOnline(data) {
         if (!netUser) return;
@@ -1279,7 +1293,8 @@
         G.online.oppBoard = (g.atk && g.atk[opp] && g.atk[opp].board) || (g.board && g.board[opp]) || G.online.oppBoard;
         // reveal what the rival played / whether they're spinning — as soon as they act (never their damage)
         if (g.atk && g.atk[opp] && g.atk[opp].cards) G.online.oppLastCards = g.atk[opp].cards;
-        G.online.oppStatus = (g.atk && g.atk[opp]) ? 'done' : ((g.spin && g.spin[opp] === (g.round || 1)) ? 'spin' : '');
+        else if (g.played && g.played[opp]) G.online.oppLastCards = g.played[opp];   // live reveal as they play
+        G.online.oppStatus = (g.atk && g.atk[opp]) ? 'done' : ((g.spin && g.spin[opp] === (g.round || 1)) ? 'spin' : ((g.played && g.played[opp] && g.played[opp].length) ? 'spin' : ''));
         // reveal: both defense submitted → attack phase, see the opponent's shields
         if (G.online.sub === 'waitDef' && g.def && g.def[my] && g.def[opp]) {
             G.aiShields = (g.def[opp] || []).slice();
@@ -1372,7 +1387,7 @@
             if (G.resolving) stepResolve(dt);
         } else if (G.phase === 'ai') {
             G.aiTimer -= dt;
-            if (G.aiTimer <= 0) aiAttack();
+            if (G.aiTimer <= 0) aiSpin();
         } else if (G.phase === 'resolved') {
             G.resolveHold -= dt;
             if (G.resolveHold <= 0) {
