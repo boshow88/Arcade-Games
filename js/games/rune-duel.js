@@ -51,8 +51,16 @@
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
-        rdHastenTag: (n) => `Hastened \u2212${n}s`, rdOppUsed: (s) => `Rival last: ${s}`,
-        rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid',
+        rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdOppUsed: (s) => `Rival last: ${s}`,
+        rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid', rtPickShield: 'Pick a shield to break',
+        cwBan: (e) => `Ban ${e}`, cwNeed: (e) => `Need ${e}`, cwNeedEnh: (e) => `Need ${e} enh.`,
+        cwBanRand: 'Ban random', cwBanPick: 'Ban chosen', cwNeedRand: 'Need random', cwNeedPick: 'Need chosen',
+        cwNeedEnhAny: 'Need enhanced', cwNeedEnhRand: 'Need rand enh.', cwNeedEnhPick: 'Need chosen enh.',
+        cwComboMin: (n) => `\u2265${n} combo`, cwComboMax: (n) => `\u2264${n} combo`, cwFirstMin: (n) => `1st \u2265${n}`, cwFirstMax: (n) => `1st \u2264${n}`,
+        cwSlow: 'Slow rival', cwFast: 'More time',
+        cwTrans: (a, b) => `${a}\u2192${b}`, cwTransToPick: (a) => `${a}\u2192?`, cwTransFromPick: (b) => `?\u2192${b}`, cwTransBoth: '?\u2192?',
+        cwEnchEl: (e) => `3 ${e}\u2192enh.`, cwEnchRand: '3 rand\u2192enh.', cwEnchPick: '3 chosen\u2192enh.',
+        cwBreakRand: 'Break shield', cwBreakPick: 'Break chosen',
         rdOnline: 'Online duel', rdOnlineBtn: 'Online', rdClose: 'Close',
         rdSignInGoogle: 'Sign in with Google', rdSignInGuest: 'Play as guest', rdSignOut: 'Sign out', rdGuest: 'Guest',
         rdSignedIn: (name) => `Signed in: ${name}`, rdSignInFirst: 'Sign in to create or join a room.',
@@ -61,7 +69,6 @@
         rdMatched: (name) => `Matched with ${name}!`, rdStartDuel: 'Start duel', rdWaitHost: 'Waiting for host to start\u2026',
         rdRoomNotFound: 'Room not found', rdRoomFull: 'Room is full', rdNetErr: 'Network error',
         rdDiscard: 'Discard', rdOppBoard: 'Rival\u2019s board', rdYouWin: 'You win!', rdYouLose: 'You lose',
-        rdHastened: (n) => `Rival hastens you! Spin \u2212${n}s`,
         rdTapPlay: 'tap to play',
         rdCardShort_shEnhanced: 'rival needs enhanced', rdCardShort_shCombo: 'rival needs 5+ combo', rdCardShort_shBan: 'rival can\u2019t clear a colour', rdCardShort_hasten: 'rival spin \u22122s',
         rdCardShort_break: 'remove a rival shield', rdCardShort_focus: 'your spin +3s', rdCardShort_empower: 'your damage \u00d71.5', rdCardShort_transmute: 'recolour one colour', rdCardShort_enchant: '3 runes \u2192 enhanced',
@@ -97,8 +104,16 @@
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
-        rdHastenTag: (n) => `被催促 \u2212${n}秒`, rdOppUsed: (s) => `對手上回合：${s}`,
-        rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色',
+        rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdOppUsed: (s) => `對手上回合：${s}`,
+        rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色', rtPickShield: '點選要破除的盾',
+        cwBan: (e) => `禁消${e}`, cwNeed: (e) => `需消${e}`, cwNeedEnh: (e) => `需消${e}強化`,
+        cwBanRand: '禁消隨機', cwBanPick: '禁消任選', cwNeedRand: '需消隨機', cwNeedPick: '需消任選',
+        cwNeedEnhAny: '需消強化', cwNeedEnhRand: '需消隨機強化', cwNeedEnhPick: '需消任選強化',
+        cwComboMin: (n) => `\u2265${n}連擊`, cwComboMax: (n) => `\u2264${n}連擊`, cwFirstMin: (n) => `首消\u2265${n}`, cwFirstMax: (n) => `首消\u2264${n}`,
+        cwSlow: '催促對手', cwFast: '延長轉珠',
+        cwTrans: (a, b) => `${a}轉${b}`, cwTransToPick: (a) => `${a}轉任選`, cwTransFromPick: (b) => `任選轉${b}`, cwTransBoth: '任選轉任選',
+        cwEnchEl: (e) => `3顆${e}轉強化`, cwEnchRand: '隨機3顆轉強化', cwEnchPick: '任選色3顆轉強化',
+        cwBreakRand: '隨機破盾', cwBreakPick: '指定破盾',
         rdOnline: '線上對戰', rdOnlineBtn: '線上', rdClose: '關閉',
         rdSignInGoogle: '用 Google 登入', rdSignInGuest: '以訪客身分遊玩', rdSignOut: '登出', rdGuest: '訪客',
         rdSignedIn: (name) => `已登入：${name}`, rdSignInFirst: '登入後即可建立或加入房間。',
@@ -107,7 +122,6 @@
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
         rdRoomNotFound: '找不到房間', rdRoomFull: '房間已滿', rdNetErr: '連線錯誤',
         rdDiscard: '丟棄', rdOppBoard: '對手盤面', rdYouWin: '你贏了！', rdYouLose: '你輸了',
-        rdHastened: (n) => `對手催促！轉珠 \u2212${n}秒`,
         rdTapPlay: '再點一下出牌',
         rdCardShort_shEnhanced: '對手需消強化', rdCardShort_shCombo: '對手需5+連擊', rdCardShort_shBan: '對手禁消一色', rdCardShort_hasten: '對手轉珠−2秒',
         rdCardShort_break: '破除對手一盾', rdCardShort_focus: '轉珠+3秒', rdCardShort_empower: '傷害×1.5', rdCardShort_transmute: '整片轉色', rdCardShort_enchant: '3顆轉強化',
@@ -167,7 +181,7 @@
     };
     const DUEL = {
         hp: 2500, maxRounds: 30,
-        energy: 10, startPerType: 2, maxPerType: 3, drawCost: 2,   // balanced draw: each type capped separately
+        energy: 10, maxHand: 10, drawCost: 1,   // one mixed hand; draw pulls from the current phase's pool
         phaseTime: 30,                  // seconds to decide in the defense / attack phase
         aiThink: 1.1,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
@@ -177,22 +191,61 @@
         stallSec: 45,                   // online: opponent idle this long → they forfeit
         takeoverSec: 6,                 // online: both attacked but host didn't tally → take over
     };
-    // Card pool. type = which phase it's played in. cost = energy.
-    const CARDS = {
-        // defense (defense phase → shields the rival's attack must satisfy, or a debuff)
-        shEnhanced: { type: 'defense', cost: 4 },   // rival must clear an enhanced rune
-        shCombo:    { type: 'defense', cost: 4 },   // rival needs 5+ combos
-        shBan:      { type: 'defense', cost: 3 },   // rival mustn't clear a named colour
-        hasten:     { type: 'defense', cost: 3 },   // cramp the rival's spin (fewer combos)
-        // enhance (attack phase → buff your spin / break rival shields)
-        break:     { type: 'enhance', cost: 4 },   // remove one rival shield
-        focus:     { type: 'enhance', cost: 2 },   // +3s this spin
-        transmute: { type: 'enhance', cost: 3 },   // recolour one colour → another
-        enchant:   { type: 'enhance', cost: 3 },   // 3 random runes → enhanced
-    };
+    // Card pools (data-driven). type = phase it's played in; cat = behaviour;
+    // cost = energy; weight = draw weight within its pool. Cards are generated so the
+    // pool can grow freely. Display names come from cardName() (parameterised i18n).
+    const CARDS = {};
+    (function buildCards() {
+        const D = (id, o) => { CARDS[id] = o; };
+        // ---- DEFENSE POOL (shields the rival's spin must satisfy, + slow) ----
+        for (const el of ELEMENTS) {
+            D('ban_' + el, { type: 'defense', cost: 2, weight: 2, cat: 'ban', el });
+            D('need_' + el, { type: 'defense', cost: 2, weight: 2, cat: 'need', el });
+            D('nEnh_' + el, { type: 'defense', cost: 6, weight: 1, cat: 'needEnhEl', el });
+        }
+        D('ban_rand', { type: 'defense', cost: 2, weight: 4, cat: 'banRand' });
+        D('ban_pick', { type: 'defense', cost: 4, weight: 4, cat: 'banPick' });
+        D('need_rand', { type: 'defense', cost: 2, weight: 4, cat: 'needRand' });
+        D('need_pick', { type: 'defense', cost: 4, weight: 4, cat: 'needPick' });
+        D('nEnh_any', { type: 'defense', cost: 4, weight: 6, cat: 'needEnhAny' });
+        D('nEnh_rand', { type: 'defense', cost: 6, weight: 2, cat: 'needEnhRand' });
+        D('nEnh_pick', { type: 'defense', cost: 8, weight: 2, cat: 'needEnhPick' });
+        [[8, 7, 3], [7, 5, 6], [6, 3, 6], [5, 2, 4]].forEach(([n, cost, weight]) => D('cmin' + n, { type: 'defense', cost, weight, cat: 'comboMin', n }));
+        [[4, 3, 6], [3, 5, 6], [2, 7, 3]].forEach(([n, cost, weight]) => D('cmax' + n, { type: 'defense', cost, weight, cat: 'comboMax', n }));
+        [[7, 8, 3], [6, 5, 6], [5, 3, 6], [4, 2, 4]].forEach(([n, cost, weight]) => D('fmin' + n, { type: 'defense', cost, weight, cat: 'firstMin', n }));
+        [[3, 4, 6], [2, 5, 6], [1, 8, 3]].forEach(([n, cost, weight]) => D('fmax' + n, { type: 'defense', cost, weight, cat: 'firstMax', n }));
+        D('slow', { type: 'defense', cost: 3, weight: 15, cat: 'slow' });
+        // ---- ATTACK POOL (reshape your board / break shields / more time) ----
+        for (const from of ELEMENTS) for (const to of ELEMENTS) if (from !== to) D('tr_' + from + '_' + to, { type: 'enhance', cost: 3, weight: 1, cat: 'transmute', from, to });
+        for (const el of ELEMENTS) {
+            D('trTo_' + el, { type: 'enhance', cost: 5, weight: 2, cat: 'transToPick', from: el });
+            D('trFr_' + el, { type: 'enhance', cost: 5, weight: 2, cat: 'transFromPick', to: el });
+            D('ench_' + el, { type: 'enhance', cost: 5, weight: 3, cat: 'enchEl', el });
+        }
+        D('tr_both', { type: 'enhance', cost: 7, weight: 4, cat: 'transBoth' });
+        D('ench_rand', { type: 'enhance', cost: 6, weight: 6, cat: 'enchRand' });
+        D('ench_pick', { type: 'enhance', cost: 7, weight: 4, cat: 'enchPick' });
+        D('fast', { type: 'enhance', cost: 4, weight: 15, cat: 'fast' });
+        D('brk_rand', { type: 'enhance', cost: 5, weight: 10, cat: 'breakRand' });
+        D('brk_pick', { type: 'enhance', cost: 8, weight: 5, cat: 'breakPick' });
+    })();
     const DEF_IDS = Object.keys(CARDS).filter((id) => CARDS[id].type === 'defense');
     const ENH_IDS = Object.keys(CARDS).filter((id) => CARDS[id].type === 'enhance');
-    const ALL_IDS = Object.keys(CARDS);   // one persistent hand draws from the whole pool
+    function elName(el) { return t('el_' + el); }
+    function cardName(id) {
+        const c = CARDS[id]; if (!c) return id;
+        switch (c.cat) {
+            case 'ban': return t('cwBan', elName(c.el)); case 'need': return t('cwNeed', elName(c.el)); case 'needEnhEl': return t('cwNeedEnh', elName(c.el));
+            case 'banRand': return t('cwBanRand'); case 'banPick': return t('cwBanPick'); case 'needRand': return t('cwNeedRand'); case 'needPick': return t('cwNeedPick');
+            case 'needEnhAny': return t('cwNeedEnhAny'); case 'needEnhRand': return t('cwNeedEnhRand'); case 'needEnhPick': return t('cwNeedEnhPick');
+            case 'comboMin': return t('cwComboMin', c.n); case 'comboMax': return t('cwComboMax', c.n); case 'firstMin': return t('cwFirstMin', c.n); case 'firstMax': return t('cwFirstMax', c.n);
+            case 'slow': return t('cwSlow'); case 'fast': return t('cwFast');
+            case 'transmute': return t('cwTrans', elName(c.from), elName(c.to)); case 'transToPick': return t('cwTransToPick', elName(c.from)); case 'transFromPick': return t('cwTransFromPick', elName(c.to)); case 'transBoth': return t('cwTransBoth');
+            case 'enchEl': return t('cwEnchEl', elName(c.el)); case 'enchRand': return t('cwEnchRand'); case 'enchPick': return t('cwEnchPick');
+            case 'breakRand': return t('cwBreakRand'); case 'breakPick': return t('cwBreakPick');
+            default: return id;
+        }
+    }
 
     // =================================================================
     // State
@@ -213,13 +266,14 @@
         energy: 0,
         hand: [],               // card ids (of the current phase's type)
         youShields: [],         // shields you played (the rival must satisfy to hit you)
-        spinPenalty: 0,         // your spin-time reduction this round (rival hasten)
-        aiSpinPenalty: 0,       // the rival's combo reduction this round (your hasten)
+        spinMultSelf: 1,        // your spin-time multiplier this round (Fast cards, ×1/0.7 each)
+        spinMultOpp: 1,         // the rival's spin-time multiplier on you (their Slow, ×0.7 each)
+        aiSlow: 0,              // vs-AI: Slow cards you played (cramps the AI's combos)
         cardSel: null,          // index of the currently selected hand card (tap again to play)
         playedThisRound: [],    // enhance cards you've played this attack phase (revealed to rival at resolve)
         palette: null,          // active colour picker: { title, els, exclude, onPick }
+        shieldPick: null,       // active "break which shield" picker: { i, id }
         empowerNext: 1,
-        bonusTimeNext: 0,
         held: null,
         spinTimer: 0,
         resolving: false,
@@ -423,6 +477,18 @@
             if (e.cancelable) e.preventDefault();
             return;
         }
+        if (G.shieldPick) {
+            for (const r of shieldPickRects()) {
+                if (!inRect(p, r)) continue;
+                const sp = G.shieldPick; G.shieldPick = null;
+                G.aiShields.splice(r.i, 1); AC.audio.play('coin'); consumeCard(sp.i, sp.id);
+                if (e.cancelable) e.preventDefault();
+                return;
+            }
+            if (!inRect(p, shieldPickPanel())) G.shieldPick = null;   // cancel (card not consumed)
+            if (e.cancelable) e.preventDefault();
+            return;
+        }
         if (G.resolving || G.held || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         if (onlineWaiting()) { if (e.cancelable) e.preventDefault(); return; }
         if (p.y < BOARD_TOP) {
@@ -465,29 +531,29 @@
     // Cards
     // =================================================================
 
-    function effectiveSpinTime() { return Math.max(2, BALANCE.spinTime - (G.spinPenalty || 0)) + (G.bonusTimeNext || 0); }
+    function effectiveSpinTime() { return Math.max(0.5, BALANCE.spinTime * (G.spinMultSelf || 1) * (G.spinMultOpp || 1)); }
     // One persistent hand: deal once at the start, then draw a single new card each
     // round. Unplayed cards carry over (they no longer re-roll every phase).
-    function countType(type) { let n = 0; for (const id of G.hand) if (CARDS[id].type === type) n++; return n; }
-    function drawOfType(type) {
-        if (countType(type) >= DUEL.maxPerType) return false;
-        const pool = type === 'defense' ? DEF_IDS : ENH_IDS;
-        G.hand.push(pool[AC.rng.int(G.rng, 0, pool.length)]);
+    function curType() { return G.phase === 'defense' ? 'defense' : 'enhance'; }
+    function pickWeighted(ids) {
+        let total = 0; for (const id of ids) total += (CARDS[id].weight || 1);
+        let x = AC.rng.float(G.rng, 0, total);
+        for (const id of ids) { x -= (CARDS[id].weight || 1); if (x <= 0) return id; }
+        return ids[ids.length - 1];
+    }
+    function drawFromPool(type) {
+        if (G.hand.length >= DUEL.maxHand) return false;
+        G.hand.push(pickWeighted(type === 'defense' ? DEF_IDS : ENH_IDS));
         return true;
     }
-    function dealStartingHand() {
-        G.hand = [];
-        for (let i = 0; i < DUEL.startPerType; i++) { drawOfType('defense'); drawOfType('enhance'); }
-    }
-    function drawRoundCard() { drawOfType('defense'); drawOfType('enhance'); }   // balanced: +1 of each type per round
-    function curType() { return G.phase === 'defense' ? 'defense' : 'enhance'; }
+    function dealStartingHand() { G.hand = []; drawFromPool('defense'); drawFromPool('defense'); drawFromPool('enhance'); drawFromPool('enhance'); }
     function canDrawMore() {
-        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.palette && !onlineWaiting()
-            && countType(curType()) < DUEL.maxPerType && G.energy >= DUEL.drawCost;
+        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.palette && !G.shieldPick && !onlineWaiting()
+            && G.hand.length < DUEL.maxHand && G.energy >= DUEL.drawCost;
     }
     function drawOneCard() {
         if (!canDrawMore()) return;
-        drawOfType(curType());
+        drawFromPool(curType());
         G.energy -= DUEL.drawCost;
         AC.audio.play('click');
         updateHud();
@@ -499,22 +565,48 @@
         updateHud();
     }
     function playable(id) {   // some cards need a legal target
-        if (id === 'break') return G.aiShields.length > 0;
+        const c = CARDS[id];
+        if (c && (c.cat === 'breakRand' || c.cat === 'breakPick')) return G.aiShields.length > 0;
         return true;
     }
     function cardPhaseOk(id) { return (CARDS[id].type === 'defense') === (G.phase === 'defense'); }
+    function addShield(s) { G.youShields.push(s); }
+    function applySlow() { if (G.online) G.online.slowOpp = (G.online.slowOpp || 0) + 1; else G.aiSlow = (G.aiSlow || 0) + 1; }
+    function randEl() { return ELEMENTS[AC.rng.int(G.rng, 0, ELEMENTS.length)]; }
     function playCard(i) {
         const id = G.hand[i];
         const c = id && CARDS[id];
         if (!c || G.resolving || G.held || G.energy < c.cost || !playable(id) || !cardPhaseOk(id)) return;
-        if (id === 'transmute') { openTransmute(i); return; }   // target pickers consume on confirm (cancel = free)
-        if (id === 'shBan') { openBanPicker(i); return; }
-        if (id === 'shEnhanced') { G.youShields.push({ type: 'enhanced' }); }
-        else if (id === 'shCombo') { G.youShields.push({ type: 'combo', mode: 'min', n: 5 }); }
-        else if (id === 'hasten') { G.aiSpinPenalty += 2; if (G.online) G.online.hastenOpp = (G.online.hastenOpp || 0) + 2; }
-        else if (id === 'break') { G.aiShields.shift(); }
-        else if (id === 'focus') { G.bonusTimeNext += 3; }
-        else if (id === 'enchant') { enchantRandom(3); }
+        switch (c.cat) {
+            // --- defense shields ---
+            case 'ban': addShield({ type: 'element', mode: 'ban', elements: [c.el] }); break;
+            case 'need': addShield({ type: 'element', mode: 'contains', elements: [c.el] }); break;
+            case 'banRand': addShield({ type: 'element', mode: 'ban', elements: [randEl()] }); break;
+            case 'needRand': addShield({ type: 'element', mode: 'contains', elements: [randEl()] }); break;
+            case 'banPick': return openPick(i, id, 'rtShBanPick', (e) => addShield({ type: 'element', mode: 'ban', elements: [e] }));
+            case 'needPick': return openPick(i, id, 'rtShBanPick', (e) => addShield({ type: 'element', mode: 'contains', elements: [e] }));
+            case 'needEnhAny': addShield({ type: 'enhanced' }); break;
+            case 'needEnhEl': addShield({ type: 'enhancedEl', elements: [c.el] }); break;
+            case 'needEnhRand': addShield({ type: 'enhancedEl', elements: [randEl()] }); break;
+            case 'needEnhPick': return openPick(i, id, 'rtShBanPick', (e) => addShield({ type: 'enhancedEl', elements: [e] }));
+            case 'comboMin': addShield({ type: 'combo', mode: 'min', n: c.n }); break;
+            case 'comboMax': addShield({ type: 'combo', mode: 'max', n: c.n }); break;
+            case 'firstMin': addShield({ type: 'firstWave', mode: 'min', n: c.n }); break;
+            case 'firstMax': addShield({ type: 'firstWave', mode: 'max', n: c.n }); break;
+            case 'slow': applySlow(); break;
+            // --- attack ---
+            case 'fast': G.spinMultSelf *= (1 / 0.7); break;
+            case 'enchEl': enchantElement(c.el, 3); break;
+            case 'enchRand': enchantRandom(3); break;
+            case 'enchPick': return openPick(i, id, 'rtTransmuteFrom', (e) => enchantElement(e, 3));
+            case 'transmute': applyTransmute(c.from, c.to); break;
+            case 'transToPick': return openPick(i, id, 'rtTransmuteTo', (to) => applyTransmute(c.from, to), c.from);
+            case 'transFromPick': return openPick(i, id, 'rtTransmuteFrom', (from) => applyTransmute(from, c.to), c.to);
+            case 'transBoth': return openTransmute(i);
+            case 'breakRand': if (G.aiShields.length) G.aiShields.splice(AC.rng.int(G.rng, 0, G.aiShields.length), 1); break;
+            case 'breakPick': return openShieldPick(i);
+            default: break;
+        }
         consumeCard(i, id);
     }
     function consumeCard(i, id) {
@@ -523,17 +615,23 @@
         else { const k = G.hand.indexOf(id); if (k >= 0) G.hand.splice(k, 1); }
         if (G.online && CARDS[id].type === 'enhance') G.playedThisRound.push(id);   // revealed to the rival at resolve
         AC.audio.play('gem');
-        addFloat(W / 2, 150, t('rdCard_' + id), accent(), 18);
+        addFloat(W / 2, 150, cardName(id), accent(), 18);
         updateHud();
     }
     function openPalette(opts) { G.palette = opts; markDirty(); }
+    function openPick(i, id, title, effect, exclude) {
+        openPalette({ title, els: ELEMENTS, exclude, onPick: (e) => { G.palette = null; effect(e); consumeCard(i, id); } });
+    }
     function openTransmute(i) {
+        const id = G.hand[i];
         openPalette({ title: 'rtTransmuteFrom', els: ELEMENTS, onPick: (from) => {
-            openPalette({ title: 'rtTransmuteTo', els: ELEMENTS, exclude: from, onPick: (to) => { applyTransmute(from, to); consumeCard(i, 'transmute'); } });
+            openPalette({ title: 'rtTransmuteTo', els: ELEMENTS, exclude: from, onPick: (to) => { applyTransmute(from, to); consumeCard(i, id); } });
         } });
     }
-    function openBanPicker(i) {
-        openPalette({ title: 'rtShBanPick', els: ATTACK_ELEMENTS, onPick: (el) => { G.palette = null; G.youShields.push({ type: 'element', mode: 'ban', elements: [el] }); consumeCard(i, 'shBan'); } });
+    function openShieldPick(i) { if (G.aiShields.length) { G.shieldPick = { i, id: G.hand[i] }; markDirty(); } }
+    function enchantElement(el, n) {
+        const c = []; for (let k = 0; k < COLS * ROWS; k++) { const o = board[k]; if (o && o.el === el && !o.enhanced) c.push(k); }
+        for (let j = 0; j < n && c.length; j++) { const r = AC.rng.int(G.rng, 0, c.length); board[c[r]].enhanced = true; board[c[r]].gfx = null; c.splice(r, 1); }
     }
     function applyTransmute(fromEl, toEl) {
         for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && o.el === fromEl) { o.el = toEl; o.gfx = null; } }
@@ -592,9 +690,15 @@
         if (!shield) return false;
         switch (shield.type) {
             case 'enhanced': return stats.enhancedCleared <= 0;
+            case 'enhancedEl': return !shield.elements.some((el) => (stats.enhancedEls && stats.enhancedEls.has(el)));
             case 'combo':
                 if (shield.mode === 'min') return stats.combos < shield.n;
+                if (shield.mode === 'max') return stats.combos > shield.n;
                 if (shield.mode === 'exact') return stats.combos !== shield.n;
+                return false;
+            case 'firstWave':
+                if (shield.mode === 'min') return stats.firstWave < shield.n;
+                if (shield.mode === 'max') return stats.firstWave > shield.n;
                 return false;
             case 'firstWaveMax': return stats.firstWave > shield.n;
             case 'element':
@@ -606,22 +710,23 @@
     function shieldsBlock(shields, stats) { return shields.some((s) => shieldUnmet(s, stats)); }
     function shieldLabel(s) {
         if (!s) return '';
+        const names = (s.elements || []).map((el) => t('el_' + el)).join('·');
         if (s.type === 'enhanced') return t('rtShEnhanced');
-        if (s.type === 'combo') return t('rtShComboMin', s.n);
-        if (s.type === 'firstWaveMax') return t('rtShFirstMax', s.n);
-        if (s.type === 'element') {
-            const names = s.elements.map((el) => t('el_' + el)).join('·');
-            return s.mode === 'ban' ? t('rtShBan', names) : t('rtShNeed', names);
-        }
+        if (s.type === 'enhancedEl') return t('cwNeedEnh', names);
+        if (s.type === 'combo') return s.mode === 'max' ? t('cwComboMax', s.n) : t('cwComboMin', s.n);
+        if (s.type === 'firstWave') return s.mode === 'max' ? t('cwFirstMax', s.n) : t('cwFirstMin', s.n);
+        if (s.type === 'firstWaveMax') return t('cwFirstMax', s.n);
+        if (s.type === 'element') return s.mode === 'ban' ? t('rtShBan', names) : t('rtShNeed', names);
         return '';
     }
     function oneShield(round) {
         const el = () => ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)];
-        switch (AC.rng.int(G.rng, 0, 5)) {
+        switch (AC.rng.int(G.rng, 0, 6)) {
             case 0: return { type: 'enhanced' };
-            case 1: return { type: 'combo', mode: 'min', n: 3 + Math.min(5, (round / 2) | 0) };
-            case 2: return { type: 'firstWaveMax', n: 2 };
-            case 3: return { type: 'element', mode: 'contains', elements: [el()] };
+            case 1: return { type: 'combo', mode: 'min', n: 5 + Math.min(3, (round / 3) | 0) };
+            case 2: return { type: 'combo', mode: 'max', n: 3 };
+            case 3: return { type: 'firstWave', mode: 'min', n: 4 };
+            case 4: return { type: 'element', mode: 'contains', elements: [el()] };
             default: return { type: 'element', mode: 'ban', elements: [el()] };
         }
     }
@@ -646,13 +751,14 @@
 
     function computeSpinResult(combos) {
         const n = combos.length;
-        const stats = { combos: n, firstWave: 0, enhancedCleared: 0, elements: new Set() };
+        const stats = { combos: n, firstWave: 0, enhancedCleared: 0, elements: new Set(), enhancedEls: new Set() };
         if (n === 0) return { dmg: 0, heal: 0, n: 0, blocked: false };
         const comboMult = 1 + BALANCE.comboStep * (n - 1);
         let dmg = 0, heal = 0;
         for (const g of combos) {
             if (g.wave === 0) stats.firstWave++;
             stats.enhancedCleared += (g.enhanced || 0);
+            if (g.enhanced > 0) stats.enhancedEls.add(g.el);
             stats.elements.add(g.el);
             const count = g.cells.length + (g.enhanced || 0) * (BALANCE.enhancedMult - 1);
             if (g.el === 'heart') { heal += count * BALANCE.heartHeal; continue; }
@@ -671,7 +777,7 @@
                 else if (dmg > 0) addFloat(W / 2, 96, '-' + dmg, '#ffd0d0', 26);
                 addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
             }
-            G.empowerNext = 1; G.bonusTimeNext = 0;
+            G.empowerNext = 1;
             G.cardSel = null; G.palette = null;
             G.resolving = false; G.resolve = null;
             G.online.sub = 'waitAtk';
@@ -686,7 +792,6 @@
             addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
         }
         G.empowerNext = 1;
-        G.bonusTimeNext = 0;
         G.cardSel = null; G.palette = null;
         G.resolving = false; G.resolve = null;
         if (G.aiHp <= 0) { G.aiHp = 0; updateHud(); duelOver(true); return; }
@@ -706,21 +811,25 @@
 
         // the rival "spins": a simulated profile that tries to meet YOUR shields
         let combos = AC.rng.int(G.rng, DUEL.aiComboMin, DUEL.aiComboMax + 1) + ((G.round / 6) | 0);
-        combos = Math.max(1, combos - (G.aiSpinPenalty || 0));   // your Hasten cramps it
-        let firstWave = combos;
+        combos = Math.max(1, combos - (G.aiSlow || 0));   // your Slow cramps it
+        let firstWave = 1 + AC.rng.int(G.rng, 0, 3);
         let enhancedCleared = AC.rng.float(G.rng, 0, 1) < 0.3 ? 1 : 0;
-        const els = new Set();
+        const els = new Set(), enhEls = new Set();
         const k = 2 + AC.rng.int(G.rng, 0, 2);
-        for (let i = 0; i < k; i++) els.add(ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)]);
+        for (let i = 0; i < k; i++) els.add(randEl());
         for (const s of G.youShields) {                          // it meets each shield with skill chance
             if (AC.rng.float(G.rng, 0, 1) > DUEL.aiSkill) continue;
             if (s.type === 'enhanced') enhancedCleared = Math.max(enhancedCleared, 1);
+            else if (s.type === 'enhancedEl') { enhancedCleared = Math.max(enhancedCleared, 1); s.elements.forEach((e) => { enhEls.add(e); els.add(e); }); }
             else if (s.type === 'combo' && s.mode === 'min') combos = Math.max(combos, s.n);
-            else if (s.type === 'firstWaveMax') firstWave = Math.min(firstWave, s.n);
+            else if (s.type === 'combo' && s.mode === 'max') combos = Math.min(combos, s.n);
+            else if (s.type === 'firstWave' && s.mode === 'min') firstWave = Math.max(firstWave, s.n);
+            else if (s.type === 'firstWave' && s.mode === 'max') firstWave = Math.min(firstWave, s.n);
             else if (s.type === 'element' && s.mode === 'ban') els.delete(s.elements[0]);
             else if (s.type === 'element' && s.mode === 'contains') s.elements.forEach((e) => els.add(e));
         }
-        const stats = { combos, firstWave, enhancedCleared, elements: els };
+        firstWave = Math.min(firstWave, combos);
+        const stats = { combos, firstWave, enhancedCleared, elements: els, enhancedEls: enhEls };
         const blocked = shieldsBlock(G.youShields, stats);
 
         if (blocked) {
@@ -745,24 +854,26 @@
         G.energy = DUEL.energy;
         G.youShields = [];
         G.cardSel = null;
-        G.aiSpinPenalty = 0;
-        G.spinPenalty = 0;
+        G.aiSlow = 0;
+        G.spinMultSelf = 1;
+        G.spinMultOpp = 1;
         G.empowerNext = 1;
-        G.bonusTimeNext = 0;
         G.phaseTimer = DUEL.phaseTime;
-        if (G.round > 1) drawRoundCard();     // one new card per round; the rest of the hand persists
-        if (G.online) { G.online.sub = 'def'; G.online.hastenOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
+        drawFromPool('defense');     // draw a defense card at the start of each round
+        if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
         const plan = aiDefend(G.round);
         G.aiShields = plan.shields;
-        G.spinPenalty = plan.hastenYou ? 2 : 0;   // rival's hasten shortens your spin this round
+        G.spinMultOpp = plan.hastenYou ? 0.7 : 1;   // vs-AI: rival may slow your spin this round
         updateHud();
     }
     function startAttackPhase() {
         G.phase = 'attack';
         G.energy = DUEL.energy;
         G.cardSel = null;
+        G.spinMultSelf = 1;
         G.phaseTimer = DUEL.phaseTime;
         G.playedThisRound = [];
+        drawFromPool('enhance');     // draw an enhance card at the start of the attack phase
         if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTime * 1000; }
         updateHud();
     }
@@ -773,7 +884,7 @@
             if (G.phase === 'defense') { submitDefense(); return; }
             if (G.phase === 'attack') {
                 addFloat(W / 2, 150, t('rdTimeUp'), '#ff6b6b', 20); AC.audio.play('empty');
-                G.empowerNext = 1; G.bonusTimeNext = 0; G.cardSel = null; G.palette = null;
+                G.empowerNext = 1; G.cardSel = null; G.palette = null;
                 G.online.sub = 'waitAtk';
                 submitAttack(0, 0);
                 updateHud();
@@ -784,7 +895,7 @@
         if (G.phase === 'attack') {
             addFloat(W / 2, 150, t('rdTimeUp'), '#ff6b6b', 20);
             AC.audio.play('empty');
-                G.empowerNext = 1; G.bonusTimeNext = 0; G.cardSel = null; G.palette = null;
+            G.empowerNext = 1; G.cardSel = null; G.palette = null;
             G.phase = 'ai'; G.aiTimer = DUEL.aiThink;
             updateHud();
         }
@@ -858,7 +969,7 @@
         G.online.waitSince = Date.now();
         net.updateRoom(room.code, {
             ['game.def.' + G.online.myUid]: serializeShields(G.youShields),
-            ['game.hasten.' + G.online.myUid]: G.online.hastenOpp || 0,
+            ['game.hasten.' + G.online.myUid]: G.online.slowOpp || 0,
         }).catch((e) => console.warn('[duel]', e));
         updateHud();
     }
@@ -942,10 +1053,10 @@
         // reveal: both defense submitted → attack phase, see the opponent's shields
         if (G.online.sub === 'waitDef' && g.def && g.def[my] && g.def[opp]) {
             G.aiShields = (g.def[opp] || []).slice();
-            const hz = (g.hasten && g.hasten[opp]) || 0;   // opponent's Hasten shortens YOUR spin this round
-            G.spinPenalty = hz;
+            const slows = (g.hasten && g.hasten[opp]) || 0;   // opponent's Slow shrinks YOUR spin time (×0.7 each)
             startAttackPhase();
-            if (hz > 0) addFloat(W / 2, 150, t('rdHastened', hz), '#ff9f43', 20);
+            G.spinMultOpp = Math.pow(0.7, slows);
+            if (slows > 0) addFloat(W / 2, 150, t('rdHastened'), '#ff9f43', 20);
             return;
         }
         // resolve: both attacks in (animate the opponent's strike once per round)
@@ -1070,6 +1181,7 @@
         drawPhaseTimer();
         drawSpinTimer();
         if (G.palette) drawPalette();
+        if (G.shieldPick) drawShieldPick();
         if (DEBUG) drawDebug();
     }
 
@@ -1238,7 +1350,7 @@
         if (G.online && G.online.oppLastCards && G.online.oppLastCards.length) {
             const counts = {};
             for (const id of G.online.oppLastCards) counts[id] = (counts[id] || 0) + 1;
-            const parts = Object.keys(counts).map((id) => t('rdCard_' + id) + (counts[id] > 1 ? '\u00d7' + counts[id] : ''));
+            const parts = Object.keys(counts).map((id) => cardName(id) + (counts[id] > 1 ? '\u00d7' + counts[id] : ''));
             ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
             ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `600 11px ${f}`;
             ctx.fillText(t('rdOppUsed', parts.join(' \u00b7 ')), 22, 60);
@@ -1250,7 +1362,7 @@
         // your defence state (shields + spin penalty), on your side just above your HP
         const defs = G.youShields.map((s) => shieldLabel(s));
         if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(defs.join(' · '), 22, LAY.youShieldY); }
-        if (G.spinPenalty > 0) { ctx.fillStyle = '#ff9f43'; ctx.font = `800 12px ${f}`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(t('rdHastenTag', G.spinPenalty), W - 22, LAY.youShieldY); }
+        if ((G.spinMultOpp || 1) < 1) { ctx.fillStyle = '#ff9f43'; ctx.font = `800 12px ${f}`; ctx.textAlign = 'right'; ctx.textBaseline = 'alphabetic'; ctx.fillText(t('rdHastenTag'), W - 22, LAY.youShieldY); }
         // HP bar hugging the board (right above the timer bar)
         ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(t('rdHp'), 22, LAY.youHpY + 10);
@@ -1323,16 +1435,13 @@
         // cost (top-left)
         ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.45)';
         ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(String(c.cost), b.x + 8, b.y + 20);
-        // name
-        ctx.fillStyle = '#fff';
-        ctx.font = `700 14px ${f}`; ctx.textAlign = 'center';
-        ctx.fillText(t('rdCard_' + b.id), b.x + b.w / 2, b.y + 20);
-        // short effect (wrapped, up to 3 lines)
-        ctx.fillStyle = 'rgba(230,236,255,0.82)'; ctx.font = `500 11px ${f}`;
-        let ey = b.y + 42;
-        const lines = wrapLines(t('rdCardShort_' + b.id), b.w - 12);
-        for (let k = 0; k < Math.min(lines.length, 3); k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 14; }
+        ctx.fillText(String(c.cost), b.x + 8, b.y + 18);
+        // name/effect (wrapped, up to 3 lines) — the name states the effect
+        ctx.fillStyle = '#fff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'center';
+        const lines = wrapLines(cardName(b.id), b.w - 12);
+        const show = Math.min(lines.length, 3);
+        let ey = b.y + b.h / 2 - (show - 1) * 7 + 2;
+        for (let k = 0; k < show; k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 14; }
         ctx.restore();
     }
     function drawEnergyPips() {
@@ -1394,6 +1503,32 @@
             if (dim) ctx.globalAlpha = 0.25;
             drawStone(r.el, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.44, defShape(), false, false);
             ctx.restore();
+        }
+        ctx.restore();
+    }
+    // "Break which shield" picker (lists the rival's shields as big buttons)
+    function shieldPickRects() {
+        const bw = 360, bh = 46, gap = 10, x = (W - bw) / 2, y0 = BOARD_TOP + 70;
+        return G.aiShields.map((s, i) => ({ i, s, x, y: y0 + i * (bh + gap), w: bw, h: bh }));
+    }
+    function shieldPickPanel() {
+        const r = shieldPickRects(); if (!r.length) return { x: 0, y: 0, w: 0, h: 0 };
+        const first = r[0], last = r[r.length - 1], pad = 18;
+        return { x: first.x - pad, y: first.y - pad - 30, w: first.w + pad * 2, h: (last.y + last.h) - first.y + pad * 2 + 30 };
+    }
+    function drawShieldPick() {
+        const f = getFont(), rects = shieldPickRects(), panel = shieldPickPanel();
+        ctx.save();
+        ctx.fillStyle = 'rgba(8,6,16,0.82)'; ctx.fillRect(0, BOARD_TOP - 4, W, H - (BOARD_TOP - 4));
+        ctx.fillStyle = 'rgba(22,19,32,0.98)'; roundRect(panel.x, panel.y, panel.w, panel.h, 16); ctx.fill();
+        ctx.lineWidth = 2; ctx.strokeStyle = accent(); roundRect(panel.x, panel.y, panel.w, panel.h, 16); ctx.stroke();
+        ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.font = `800 17px ${f}`;
+        ctx.fillText(t('rtPickShield'), W / 2, panel.y + 26);
+        for (const r of rects) {
+            ctx.fillStyle = 'rgba(127,212,255,0.16)'; roundRect(r.x, r.y, r.w, r.h, 10); ctx.fill();
+            ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(127,212,255,0.6)'; roundRect(r.x, r.y, r.w, r.h, 10); ctx.stroke();
+            ctx.fillStyle = '#a9e3ff'; ctx.font = `700 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(shieldLabel(r.s), r.x + r.w / 2, r.y + r.h / 2);
         }
         ctx.restore();
     }
@@ -1487,9 +1622,9 @@
         G.score = 0;
         G.cardSel = null;
         G.palette = null;
+        G.shieldPick = null;
         G.playedThisRound = [];
         G.empowerNext = 1;
-        G.bonusTimeNext = 0;
         G.held = null;
         G.spinTimer = 0;
         G.resolving = false;
@@ -1498,8 +1633,9 @@
         G.floats = [];
         G.shake = 0;
         G.youShields = [];
-        G.spinPenalty = 0;
-        G.aiSpinPenalty = 0;
+        G.spinMultSelf = 1;
+        G.spinMultOpp = 1;
+        G.aiSlow = 0;
         board = G.board = new Array(COLS * ROWS).fill(null);
         fillBoardNoMatches();
         dealStartingHand();
@@ -1704,7 +1840,7 @@
             hand() { return G.hand; },
             shields(k) { const kk = k | 0; G.aiShields = []; for (let i = 0; i < kk; i++) G.aiShields.push(oneShield(G.round)); return G.aiShields; },
             play(i) { playCard(i | 0); return G.hand; },
-            info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, energy: G.energy, hand: G.hand, youShields: G.youShields, spinPenalty: G.spinPenalty, shields: G.aiShields, dealt: G.score }; },
+            info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, energy: G.energy, hand: G.hand, youShields: G.youShields, spinMultSelf: G.spinMultSelf, spinMultOpp: G.spinMultOpp, shields: G.aiShields, dealt: G.score }; },
         };
         console.log('%c[Rune Duel] debug on', 'color:#d9544e;font-weight:700');
         console.log('RD.kill() hp(n) energy(n) hand() shields(k) play(i) info()');
