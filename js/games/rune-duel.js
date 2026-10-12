@@ -481,7 +481,8 @@
         }
         return groups;
     }
-    function applyGravity() {
+    function applyGravity(enhanceEls) {
+        const refilled = [];
         for (let c = 0; c < COLS; c++) {
             let write = ROWS - 1;
             for (let r = ROWS - 1; r >= 0; r--) {
@@ -493,7 +494,17 @@
                 }
             }
             let above = 1;
-            for (let r = write; r >= 0; r--) { const idx = r * COLS + c; board[idx] = newOrb(randomEl(), cellCX(idx), BOARD_TOP - above * CELL + CELL / 2); above++; }
+            for (let r = write; r >= 0; r--) { const idx = r * COLS + c; board[idx] = newOrb(randomEl(), cellCX(idx), BOARD_TOP - above * CELL + CELL / 2); above++; refilled.push(idx); }
+        }
+        // forge enhanced runes among the freshly-dropped runes — one per colour that just
+        // cleared 5+ (so a big wood clear guarantees an enhanced wood in the next drop).
+        if (enhanceEls && enhanceEls.length && refilled.length) {
+            const pool = refilled.slice();
+            for (const el of enhanceEls) {
+                if (!pool.length) break;
+                const idx = pool.splice(AC.rng.int(G.rng, 0, pool.length), 1)[0];
+                const o = board[idx]; o.el = el; o.enhanced = true; o.gfx = null;
+            }
         }
     }
     function enchantRandom(n) {
@@ -745,7 +756,7 @@
         G.spinOpen = false;
         if (G.online) { G.preSpinBoard = serializeBoard(); net.updateRoom(room.code, { ['game.spin.' + G.online.myUid]: G.round }).catch(() => {}); }   // snapshot + "I'm spinning"
         G.resolving = true;
-        G.resolve = { stage: 'pop', t: 0, combos: [], pending: [], popIndex: 0, wave: -1 };
+        G.resolve = { stage: 'pop', t: 0, combos: [], pending: [], popIndex: 0, wave: -1, enhNext: [] };
         beginCascade();
     }
     function beginCascade() {
@@ -757,16 +768,13 @@
     }
     function popGroup() {
         G.clearing.length = 0;
-        if (G.resolve.popIndex >= G.resolve.pending.length) { applyGravity(); G.resolve.stage = 'fall'; G.resolve.t = 0; return; }
+        if (G.resolve.popIndex >= G.resolve.pending.length) { applyGravity(G.resolve.enhNext); G.resolve.enhNext = []; G.resolve.stage = 'fall'; G.resolve.t = 0; return; }
         const g = G.resolve.pending[G.resolve.popIndex++];
         g.wave = G.resolve.wave;
         let enh = 0;
         for (const idx of g.cells) { const o = board[idx]; if (o.enhanced) enh++; o.scale = 1; G.clearing.push(o); board[idx] = null; }
         g.enhanced = enh;
-        if (g.cells.length >= CONFIG.bigThreshold) {
-            const pick = g.cells[AC.rng.int(G.rng, 0, g.cells.length)];
-            const o = newOrb(g.el, cellCX(pick), cellCY(pick), true); o.scale = 0; board[pick] = o;
-        }
+        if (g.cells.length >= CONFIG.bigThreshold) G.resolve.enhNext.push(g.el);   // forge an enhanced of this colour in the next drop
         G.resolve.combos.push(g);
         G.resolve.stage = 'pop'; G.resolve.t = 0;
         comboSound(G.resolve.combos.length);
@@ -870,11 +878,16 @@
         }
         return groups;
     }
-    function simGravityOn(a) {
+    function simGravityOn(a, enhanceEls) {
+        const refilled = [];
         for (let c = 0; c < COLS; c++) {
             let write = ROWS - 1;
             for (let r = ROWS - 1; r >= 0; r--) { const idx = r * COLS + c; if (a[idx] != null) { const w = write * COLS + c; if (w !== idx) { a[w] = a[idx]; a[idx] = null; } write--; } }
-            for (let r = write; r >= 0; r--) a[r * COLS + c] = { el: randomEl(), enhanced: false };
+            for (let r = write; r >= 0; r--) { a[r * COLS + c] = { el: randomEl(), enhanced: false }; refilled.push(r * COLS + c); }
+        }
+        if (enhanceEls && enhanceEls.length) {
+            const pool = refilled.slice();
+            for (const el of enhanceEls) { if (!pool.length) break; const idx = pool.splice(AC.rng.int(G.rng, 0, pool.length), 1)[0]; a[idx].el = el; a[idx].enhanced = true; }
         }
     }
     // Resolve a spin on a sim board (mutates it); returns stats + damage/heal like computeSpinResult.
@@ -883,14 +896,16 @@
         const elements = new Set(), enhancedEls = new Set();
         for (let guard = 0; guard < 40; guard++) {
             const groups = simMatchesOn(a); if (!groups.length) break;
+            const enhNext = [];
             for (const g of groups) {
                 let e = 0; for (const i of g.cells) if (a[i] && a[i].enhanced) e++;
                 n++; if (wave === 0) firstWave++; enhanced += e; elements.add(g.el); if (e > 0) enhancedEls.add(g.el);
                 const count = g.cells.length + e * (BALANCE.enhancedMult - 1);
                 if (g.el === 'heart') heal += count * BALANCE.heartHeal; else dmg += count * BALANCE.baseDamage;
+                if (g.cells.length >= CONFIG.bigThreshold) enhNext.push(g.el);
                 for (const i of g.cells) a[i] = null;
             }
-            simGravityOn(a); wave++;
+            simGravityOn(a, enhNext); wave++;
         }
         const comboMult = n > 0 ? 1 + BALANCE.comboStep * (n - 1) : 0;
         return { stats: { combos: n, firstWave, enhancedCleared: enhanced, elements, enhancedEls }, dmg: Math.round(dmg * comboMult), heal: Math.round(heal * comboMult) };
@@ -1067,7 +1082,9 @@
         G.phaseTimer = G.phaseMax = DUEL.phaseTimeDef;
         G.lastDrawn = null;
         G.spinOpen = false;
-        if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeDef * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
+        G.playedThisRound = [];   // last round's attack-card chips clear now (both sides)
+        G.aiPlayed = [];
+        if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeDef * 1000; G.aiShields = []; G.online.oppLastCards = []; net.updateRoom(room.code, { ['game.played.' + G.online.myUid]: [] }).catch(() => {}); pushMyBoard(); updateHud(); return; }
         if (!G.aiBoard) G.aiBoard = aiFillBoard();
         G.aiStatus = '';
         G.aiPlan = aiDefend(G.round);   // decided now but hidden; revealed when you reach the attack phase (like online)
@@ -1205,7 +1222,7 @@
     function submitAttack(dmg, heal) {
         if (!G.online) return;
         G.online.waitSince = Date.now();
-        net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0, cards: G.playedThisRound.slice(), board: G.preSpinBoard || serializeBoard() } }).catch((e) => console.warn('[duel]', e));
+        net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0, cards: G.playedThisRound.slice(), board: serializeBoard() } }).catch((e) => console.warn('[duel]', e));   // post-spin settled board
     }
     // Heartbeat: keep our own room's lastActionAt fresh (so it's never GC'd while we're
     // present), and periodically purge rooms others abandoned. Firestore has no
