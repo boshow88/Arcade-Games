@@ -52,6 +52,7 @@
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
         rdHastenTag: (n) => `Hastened \u2212${n}s`, rdOppUsed: (s) => `Rival last: ${s}`,
+        rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid',
         rdOnline: 'Online duel', rdOnlineBtn: 'Online', rdClose: 'Close',
         rdSignInGoogle: 'Sign in with Google', rdSignInGuest: 'Play as guest', rdSignOut: 'Sign out', rdGuest: 'Guest',
         rdSignedIn: (name) => `Signed in: ${name}`, rdSignInFirst: 'Sign in to create or join a room.',
@@ -97,6 +98,7 @@
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
         rdHastenTag: (n) => `被催促 \u2212${n}秒`, rdOppUsed: (s) => `對手上回合：${s}`,
+        rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色',
         rdOnline: '線上對戰', rdOnlineBtn: '線上', rdClose: '關閉',
         rdSignInGoogle: '用 Google 登入', rdSignInGuest: '以訪客身分遊玩', rdSignOut: '登出', rdGuest: '訪客',
         rdSignedIn: (name) => `已登入：${name}`, rdSignInFirst: '登入後即可建立或加入房間。',
@@ -166,7 +168,7 @@
     const DUEL = {
         hp: 2500, maxRounds: 30,
         energy: 10, startPerType: 2, maxPerType: 3, drawCost: 2,   // balanced draw: each type capped separately
-        phaseTime: 20,                  // seconds to decide in the defense / attack phase
+        phaseTime: 30,                  // seconds to decide in the defense / attack phase
         aiThink: 1.1,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
         aiComboMin: 3, aiComboMax: 7,   // its simulated combos (before meeting your shields)
@@ -216,7 +218,7 @@
         aiSpinPenalty: 0,       // the rival's combo reduction this round (your hasten)
         cardSel: null,          // index of the currently selected hand card (tap again to play)
         playedThisRound: [],    // enhance cards you've played this attack phase (revealed to rival at resolve)
-        transmute: null,        // { fromEl }
+        palette: null,          // active colour picker: { title, els, exclude, onPick }
         empowerNext: 1,
         bonusTimeNext: 0,
         held: null,
@@ -409,15 +411,16 @@
         if (e.target.closest('button, a')) return;
         if (!e.target.closest('.stage-pad')) return;
         const p = boardPos(e);
-        if (G.transmute) {
+        if (G.palette) {
             for (const r of paletteRects()) {
                 if (!inRect(p, r)) continue;
-                if (G.transmute.fromEl == null) { G.transmute.fromEl = r.el; AC.audio.play('grab'); }
-                else if (r.el !== G.transmute.fromEl) { applyTransmute(G.transmute.fromEl, r.el); }
+                if (G.palette.exclude && r.el === G.palette.exclude) { if (e.cancelable) e.preventDefault(); return; }
+                AC.audio.play('grab');
+                G.palette.onPick(r.el);
                 if (e.cancelable) e.preventDefault();
                 return;
             }
-            if (!inRect(p, palettePanelRect())) G.transmute = null;   // tap outside the palette cancels
+            if (!inRect(p, palettePanelRect())) G.palette = null;   // tap outside cancels (card not consumed)
             if (e.cancelable) e.preventDefault();
             return;
         }
@@ -480,7 +483,7 @@
     function drawRoundCard() { drawOfType('defense'); drawOfType('enhance'); }   // balanced: +1 of each type per round
     function curType() { return G.phase === 'defense' ? 'defense' : 'enhance'; }
     function canDrawMore() {
-        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.transmute && !onlineWaiting()
+        return (G.phase === 'defense' || G.phase === 'attack') && !G.resolving && !G.held && !G.palette && !onlineWaiting()
             && countType(curType()) < DUEL.maxPerType && G.energy >= DUEL.drawCost;
     }
     function drawOneCard() {
@@ -505,26 +508,38 @@
         const id = G.hand[i];
         const c = id && CARDS[id];
         if (!c || G.resolving || G.held || G.energy < c.cost || !playable(id) || !cardPhaseOk(id)) return;
+        if (id === 'transmute') { openTransmute(i); return; }   // target pickers consume on confirm (cancel = free)
+        if (id === 'shBan') { openBanPicker(i); return; }
         if (id === 'shEnhanced') { G.youShields.push({ type: 'enhanced' }); }
         else if (id === 'shCombo') { G.youShields.push({ type: 'combo', mode: 'min', n: 5 }); }
-        else if (id === 'shBan') { G.youShields.push({ type: 'element', mode: 'ban', elements: [ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)]] }); }
         else if (id === 'hasten') { G.aiSpinPenalty += 2; if (G.online) G.online.hastenOpp = (G.online.hastenOpp || 0) + 2; }
-        else if (id === 'break') { G.aiShields.shift(); AC.audio.play('coin'); }
+        else if (id === 'break') { G.aiShields.shift(); }
         else if (id === 'focus') { G.bonusTimeNext += 3; }
         else if (id === 'empower') { G.empowerNext *= 1.5; }
         else if (id === 'enchant') { enchantRandom(3); }
-        else if (id === 'transmute') { G.transmute = { fromEl: null }; }
-        G.energy -= c.cost;
-        G.hand.splice(i, 1);
-        if (G.online && c.type === 'enhance') G.playedThisRound.push(id);   // revealed to the rival at resolve
-        if (id !== 'transmute') { AC.audio.play('gem'); addFloat(W / 2, 150, t('rdCard_' + id), accent(), 18); }
+        consumeCard(i, id);
+    }
+    function consumeCard(i, id) {
+        G.energy -= CARDS[id].cost;
+        if (i >= 0 && i < G.hand.length && G.hand[i] === id) G.hand.splice(i, 1);
+        else { const k = G.hand.indexOf(id); if (k >= 0) G.hand.splice(k, 1); }
+        if (G.online && CARDS[id].type === 'enhance') G.playedThisRound.push(id);   // revealed to the rival at resolve
+        AC.audio.play('gem');
+        addFloat(W / 2, 150, t('rdCard_' + id), accent(), 18);
         updateHud();
+    }
+    function openPalette(opts) { G.palette = opts; markDirty(); }
+    function openTransmute(i) {
+        openPalette({ title: 'rtTransmuteFrom', els: ELEMENTS, onPick: (from) => {
+            openPalette({ title: 'rtTransmuteTo', els: ELEMENTS, exclude: from, onPick: (to) => { applyTransmute(from, to); consumeCard(i, 'transmute'); } });
+        } });
+    }
+    function openBanPicker(i) {
+        openPalette({ title: 'rtShBanPick', els: ATTACK_ELEMENTS, onPick: (el) => { G.palette = null; G.youShields.push({ type: 'element', mode: 'ban', elements: [el] }); consumeCard(i, 'shBan'); } });
     }
     function applyTransmute(fromEl, toEl) {
         for (let i = 0; i < COLS * ROWS; i++) { const o = board[i]; if (o && o.el === fromEl) { o.el = toEl; o.gfx = null; } }
-        G.transmute = null;
-        AC.audio.play('gem');
-        updateHud();
+        G.palette = null;
     }
 
     // =================================================================
@@ -659,7 +674,7 @@
                 addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
             }
             G.empowerNext = 1; G.bonusTimeNext = 0;
-            G.cardSel = null; G.transmute = null;
+            G.cardSel = null; G.palette = null;
             G.resolving = false; G.resolve = null;
             G.online.sub = 'waitAtk';
             submitAttack(dmg, heal);
@@ -674,7 +689,7 @@
         }
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
-        G.cardSel = null; G.transmute = null;
+        G.cardSel = null; G.palette = null;
         G.resolving = false; G.resolve = null;
         if (G.aiHp <= 0) { G.aiHp = 0; updateHud(); duelOver(true); return; }
         G.phase = 'ai';
@@ -760,7 +775,7 @@
             if (G.phase === 'defense') { submitDefense(); return; }
             if (G.phase === 'attack') {
                 addFloat(W / 2, 150, t('rdTimeUp'), '#ff6b6b', 20); AC.audio.play('empty');
-                G.empowerNext = 1; G.bonusTimeNext = 0; G.cardSel = null; G.transmute = null;
+                G.empowerNext = 1; G.bonusTimeNext = 0; G.cardSel = null; G.palette = null;
                 G.online.sub = 'waitAtk';
                 submitAttack(0, 0);
                 updateHud();
@@ -771,12 +786,12 @@
         if (G.phase === 'attack') {
             addFloat(W / 2, 150, t('rdTimeUp'), '#ff6b6b', 20);
             AC.audio.play('empty');
-            G.empowerNext = 1; G.bonusTimeNext = 0; G.cardSel = null; G.transmute = null;
+                G.empowerNext = 1; G.bonusTimeNext = 0; G.cardSel = null; G.palette = null;
             G.phase = 'ai'; G.aiTimer = DUEL.aiThink;
             updateHud();
         }
     }
-    function duelOver(win) {
+    function duelOver(win, draw) {
         if (G.phase === 'over') return;
         G.phase = 'over';
         const wasOnline = !!G.online;
@@ -785,11 +800,11 @@
         if (wasOnline) {
             // Online: show the result and drop back to the in-room pairing screen so the
             // host can start a rematch in the same room (room stays; cleaned on leave/GC).
-            lobbyResult = win ? t('rdYouWin') : t('rdYouLose');
-            AC.audio.play(win ? 'levelup' : 'gameover');
+            lobbyResult = draw ? t('rdDrawGame') : (win ? t('rdYouWin') : t('rdYouLose'));
+            AC.audio.play(win && !draw ? 'levelup' : 'gameover');
             openLobby();
         } else {
-            shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win } });
+            shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win, draw: !!draw } });
         }
     }
 
@@ -957,7 +972,7 @@
         // over
         if (g.status === 'over' && G.phase !== 'over') {
             if (g.hp) { G.youHp = g.hp[my]; G.aiHp = g.hp[opp]; updateHud(); }
-            duelOver(g.winner === my);
+            duelOver(g.winner === my, !g.winner);   // no winner recorded → draw (e.g. simultaneous KO)
         }
     }
     function hostStartGame() {
@@ -1056,7 +1071,7 @@
         else { if (G.phase === 'defense') drawDoneButton(); drawDrawButton(); }
         drawPhaseTimer();
         drawSpinTimer();
-        if (G.transmute) drawTransmuteHint();
+        if (G.palette) drawPalette();
         if (DEBUG) drawDebug();
     }
 
@@ -1175,11 +1190,6 @@
             ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.45)'; ctx.lineWidth = 3;
             roundRect(c * CELL + 3, BOARD_TOP + r * CELL + 3, CELL - 6, CELL - 6, 10); ctx.stroke(); ctx.restore();
         }
-        if (G.transmute && G.transmute.fromEl != null) {
-            ctx.save(); ctx.strokeStyle = 'rgba(255,255,255,0.7)'; ctx.lineWidth = 3;
-            for (let idx = 0; idx < COLS * ROWS; idx++) { const o = board[idx]; if (o && o.el === G.transmute.fromEl) { const r = cellRow(idx), c = cellCol(idx); roundRect(c * CELL + 4, BOARD_TOP + r * CELL + 4, CELL - 8, CELL - 8, 10); ctx.stroke(); } }
-            ctx.restore();
-        }
         for (let idx = 0; idx < COLS * ROWS; idx++) {
             const o = board[idx];
             if (!o || (G.held && idx === G.held.cell)) continue;
@@ -1269,7 +1279,7 @@
     function drawDrawButton() {
         if (!shell || !shell.isPlaying()) return;
         if (G.phase !== 'defense' && G.phase !== 'attack') return;
-        if (G.transmute || G.held || G.resolving) return;
+        if (G.palette || G.held || G.resolving) return;
         const b = drawMoreRect(), f = getFont(), ok = canDrawMore();
         ctx.save();
         ctx.fillStyle = ok ? 'rgba(217,84,78,0.16)' : 'rgba(255,255,255,0.05)';
@@ -1355,20 +1365,21 @@
         ctx.fillStyle = 'rgba(255,255,255,0.88)'; ctx.fillText(t('rdDiscard'), db.x + db.w / 2, db.y + db.h / 2);
         ctx.restore();
     }
-    // Transmute colour picker — choose source then target colour directly (no board tapping).
+    // Colour picker — used by Transmute (source/target) and Taboo Shield (choose a colour).
     function paletteRects() {
-        const sw = 74, gap = 12, n = ELEMENTS.length;
+        const els = (G.palette && G.palette.els) || ELEMENTS;
+        const sw = 74, gap = 12, n = els.length;
         const totalW = n * sw + (n - 1) * gap;
         const x0 = (W - totalW) / 2, y = BOARD_TOP + 150;
-        return ELEMENTS.map((el, i) => ({ el, x: x0 + i * (sw + gap), y, w: sw, h: sw }));
+        return els.map((el, i) => ({ el, x: x0 + i * (sw + gap), y, w: sw, h: sw }));
     }
     function palettePanelRect() {
         const r = paletteRects();
         const first = r[0], last = r[r.length - 1], pad = 18;
         return { x: first.x - pad, y: first.y - pad - 30, w: (last.x + last.w) - first.x + pad * 2, h: first.h + pad * 2 + 30 };
     }
-    function drawTransmuteHint() {
-        const f = getFont(), pick = G.transmute.fromEl == null;
+    function drawPalette() {
+        const f = getFont();
         const rects = paletteRects(), panel = palettePanelRect();
         ctx.save();
         ctx.fillStyle = 'rgba(8,6,16,0.82)';
@@ -1378,9 +1389,9 @@
         ctx.lineWidth = 2; ctx.strokeStyle = accent();
         roundRect(panel.x, panel.y, panel.w, panel.h, 16); ctx.stroke();
         ctx.fillStyle = '#fff'; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic'; ctx.font = `800 17px ${f}`;
-        ctx.fillText(pick ? t('rtTransmuteFrom') : t('rtTransmuteTo'), W / 2, panel.y + 26);
+        ctx.fillText(t(G.palette.title), W / 2, panel.y + 26);
         for (const r of rects) {
-            const dim = !pick && r.el === G.transmute.fromEl;   // can't pick the same colour as target
+            const dim = G.palette.exclude && r.el === G.palette.exclude;   // can't pick the excluded colour
             ctx.save();
             if (dim) ctx.globalAlpha = 0.25;
             drawStone(r.el, r.x + r.w / 2, r.y + r.h / 2, r.w * 0.44, defShape(), false, false);
@@ -1477,7 +1488,8 @@
         G.phaseTimer = 0;
         G.score = 0;
         G.cardSel = null;
-        G.transmute = null;
+        G.palette = null;
+        G.playedThisRound = [];
         G.empowerNext = 1;
         G.bonusTimeNext = 0;
         G.held = null;
