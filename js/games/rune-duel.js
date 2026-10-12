@@ -40,18 +40,9 @@
         rdOverWinHtml: (dmg, round) => `You won in <strong>${round}</strong> rounds (dealt ${dmg} damage).`,
         rdOverLoseHtml: (dmg, round) => `You fell on round <strong>${round}</strong> (dealt ${dmg} damage).`,
         rdOverHint: 'Press R or the button to duel again.',
-        rdCard_break: 'Break', rdCardd_break: 'Remove one of the rival\u2019s shields.',
-        rdCard_focus: 'Focus', rdCardd_focus: 'This spin: +3s of spin time.',
-        rdCard_empower: 'Empower', rdCardd_empower: 'This spin: damage ×1.5.',
-        rdCard_transmute: 'Transmute', rdCardd_transmute: 'Pick a colour, then a target \u2014 all runes of that colour become it.',
-        rdCard_enchant: 'Enchant', rdCardd_enchant: 'Turn 3 random runes into enhanced runes.',
-        rdCard_shEnhanced: 'Rune Shield', rdCardd_shEnhanced: 'Shield: the rival must clear an enhanced rune to hit you.',
-        rdCard_shCombo: 'Combo Shield', rdCardd_shCombo: 'Shield: the rival needs 5+ combos to hit you.',
-        rdCard_shBan: 'Taboo Shield', rdCardd_shBan: 'Shield: if the rival clears the named colour, its attack is blocked.',
-        rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!', rdSpinNow: 'Time\u2019s up — spin now!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
-        rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdSlowPill: 'Time \u2193', rdFastPill: 'Time \u2191', rdTime: 'Time', rdOppUsed: (s) => `Rival last: ${s}`,
+        rdTime: 'Time', rdOppUsed: (s) => `Rival last: ${s}`,
         rdOppSpin: 'spinning\u2026', rdOppDone: 'attacked', rdCopyCode: 'Copy', rdCopied: 'Copied!',
         rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid', rtPickShield: 'Pick a shield to break',
         cwBan: (e) => `Ban ${e}`, cwNeed: (e) => `Need ${e}`, cwNeedEnh: (e) => `Need ${e} enh.`,
@@ -75,8 +66,6 @@
         rdRoomNotFound: 'Room not found', rdRoomFull: 'Room is full', rdNetErr: 'Network error',
         rdDiscard: 'Discard', rdOppBoard: 'Rival\u2019s board', rdYouWin: 'You win!', rdYouLose: 'You lose',
         rdTapPlay: 'tap to play',
-        rdCardShort_shEnhanced: 'rival needs enhanced', rdCardShort_shCombo: 'rival needs 5+ combo', rdCardShort_shBan: 'rival can\u2019t clear a colour', rdCardShort_hasten: 'rival spin \u22122s',
-        rdCardShort_break: 'remove a rival shield', rdCardShort_focus: 'your spin +3s', rdCardShort_empower: 'your damage \u00d71.5', rdCardShort_transmute: 'recolour one colour', rdCardShort_enchant: '3 runes \u2192 enhanced',
         rtBlocked: 'Blocked!', rtCombo: (n) => `${n} Combo`,
         rtShEnhanced: 'Clear enhanced', rtShComboMin: (n) => `Need ${n}+ combo`, rtShFirstMax: (n) => `First wave \u2264 ${n}`,
         rtShNeed: (els) => `Clear ${els}`, rtShBan: (els) => `Don't clear ${els}`,
@@ -98,18 +87,9 @@
         rdOverWinHtml: (dmg, round) => `你在第 <strong>${round}</strong> 回合獲勝（造成 ${dmg} 傷害）。`,
         rdOverLoseHtml: (dmg, round) => `你在第 <strong>${round}</strong> 回合倒下（造成 ${dmg} 傷害）。`,
         rdOverHint: '按 R 或按鈕再對決一次。',
-        rdCard_break: '破盾', rdCardd_break: '移除對手的一個盾。',
-        rdCard_focus: '凝神', rdCardd_focus: '本次轉珠時間 +3 秒。',
-        rdCard_empower: '增幅', rdCardd_empower: '本次轉珠傷害 ×1.5。',
-        rdCard_transmute: '轉換', rdCardd_transmute: '選一個顏色，再選目標色；盤上該色全變目標色。',
-        rdCard_enchant: '附魔', rdCardd_enchant: '隨機 3 顆符石變成強化符石。',
-        rdCard_shEnhanced: '強化盾', rdCardd_shEnhanced: '盾：對手這回合要消到強化符石才打得到你。',
-        rdCard_shCombo: '連擊盾', rdCardd_shCombo: '盾：對手要 5+ 連擊才打得到你。',
-        rdCard_shBan: '禁消盾', rdCardd_shBan: '盾：對手若消到指定顏色，攻擊被擋。',
-        rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！', rdSpinNow: '時間到——快轉珠！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
-        rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdSlowPill: '時間\u2193', rdFastPill: '時間\u2191', rdTime: '時間', rdOppUsed: (s) => `對手上回合：${s}`,
+        rdTime: '時間', rdOppUsed: (s) => `對手上回合：${s}`,
         rdOppSpin: '轉珠中\u2026', rdOppDone: '已出手', rdCopyCode: '複製', rdCopied: '已複製！',
         rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色', rtPickShield: '點選要破除的盾',
         cwBan: (e) => `禁消${e}`, cwNeed: (e) => `需消${e}`, cwNeedEnh: (e) => `需消${e}強化`,
@@ -133,8 +113,6 @@
         rdRoomNotFound: '找不到房間', rdRoomFull: '房間已滿', rdNetErr: '連線錯誤',
         rdDiscard: '丟棄', rdOppBoard: '對手盤面', rdYouWin: '你贏了！', rdYouLose: '你輸了',
         rdTapPlay: '再點一下出牌',
-        rdCardShort_shEnhanced: '對手需消強化', rdCardShort_shCombo: '對手需5+連擊', rdCardShort_shBan: '對手禁消一色', rdCardShort_hasten: '對手轉珠−2秒',
-        rdCardShort_break: '破除對手一盾', rdCardShort_focus: '轉珠+3秒', rdCardShort_empower: '傷害×1.5', rdCardShort_transmute: '整片轉色', rdCardShort_enchant: '3顆轉強化',
         rtBlocked: '擋下！', rtCombo: (n) => `${n} 連擊`,
         rtShEnhanced: '需消強化', rtShComboMin: (n) => `需 ${n}+ 連擊`, rtShFirstMax: (n) => `首批 \u2264 ${n} 連擊`,
         rtShNeed: (els) => `需消 ${els}`, rtShBan: (els) => `禁消 ${els}`,
@@ -175,13 +153,35 @@
             const pp = new Path2D(); pp.arc(op.c[0], op.c[1], op.c[2], 0, PI2); return pp;
         });
     }
-    // Small Lucide UI glyphs (24×24 viewBox) for HUD pills — e.g. the time up/down arrows.
+    // Lucide-style glyphs (24×24 viewBox) for HUD pills and card tiles. An op is either
+    // a path string or { c:[cx,cy,r] } for a stroked circle.
     const UI_ICON_OPS = {
         up: ['M12 19V5', 'M5 12l7-7 7 7'],
         down: ['M12 5v14', 'M19 12l-7 7-7-7'],
+        ban: [{ c: [12, 12, 9] }, 'm5.6 5.6 12.8 12.8'],                    // forbid a colour
+        need: [{ c: [12, 12, 9] }, 'm8.3 12 2.5 2.5 4.8-4.8'],             // must clear a colour
+        enh: ['M12.983 21.186a1 1 0 0 1-1.966 0 10 10 0 0 0-8.203-8.203 1 1 0 0 1 0-1.966 10 10 0 0 0 8.203-8.203 1 1 0 0 1 1.966 0 10 10 0 0 0 8.203 8.203 1 1 0 0 1 0 1.966 10 10 0 0 0-8.203 8.203'],  // enhanced / enchant (sparkle)
+        combo: ['M4 14a1 1 0 0 1-.78-1.63l9.9-10.2a.5.5 0 0 1 .86.46l-1.92 6.02A1 1 0 0 0 13 10h7a1 1 0 0 1 .78 1.63l-9.9 10.2a.5.5 0 0 1-.86-.46l1.92-6.02A1 1 0 0 0 11 14z'],   // combo count (zap)
+        first: ['m7 6 5 5 5-5', 'm7 13 5 5 5-5'],                           // keep first wave low (chevrons-down)
+        trans: ['M12 22a7 7 0 0 0 7-7c0-2-1-3.9-3-5.5s-3.5-4-4-6.5c-.5 2.5-2 4.9-4 6.5C8 11.1 7 13 7 15a7 7 0 0 0 7 7z'],   // recolour (droplet)
+        brk: ['M20 13c0 5-3.5 7.5-7.66 8.95a1 1 0 0 1-.67-.01C7.5 20.5 4 18 4 13V6a1 1 0 0 1 1-1c2 0 4.5-1.2 6.24-2.72a1.17 1.17 0 0 1 1.52 0C14.51 3.81 17 5 19 5a1 1 0 0 1 1 1z', 'm5.5 5.5 13 13'],   // break a shield (shield + slash)
     };
     const UI_PATHS = {};
-    for (const _k in UI_ICON_OPS) UI_PATHS[_k] = UI_ICON_OPS[_k].map((d) => new Path2D(d));
+    for (const _k in UI_ICON_OPS) UI_PATHS[_k] = UI_ICON_OPS[_k].map((op) => {
+        if (typeof op === 'string') return new Path2D(op);
+        const p = new Path2D(); p.arc(op.c[0], op.c[1], op.c[2], 0, PI2); return p;
+    });
+    // card category → glyph key
+    const CAT_ICON = {
+        ban: 'ban', banRand: 'ban', banPick: 'ban',
+        need: 'need', needRand: 'need', needPick: 'need',
+        needEnhEl: 'enh', needEnhAny: 'enh', needEnhRand: 'enh', needEnhPick: 'enh',
+        comboMin: 'combo', comboMax: 'combo', firstMin: 'first', firstMax: 'first',
+        slow: 'down', fast: 'up',
+        transmute: 'trans', transToPick: 'trans', transFromPick: 'trans', transBoth: 'trans',
+        enchEl: 'enh', enchRand: 'enh', enchPick: 'enh',
+        breakRand: 'brk', breakPick: 'brk',
+    };
 
     const WEIGHTS = { fire: 1, water: 1, wood: 1, light: 1, dark: 1, heart: 0.75 };
     const WEIGHT_TOTAL = ELEMENTS.reduce((s, e) => s + WEIGHTS[e], 0);
@@ -347,6 +347,15 @@
             : { base: '#d16a4e', bg: 'rgba(195,85,64,0.16)', bgSel: 'rgba(195,85,64,0.36)', bgNew: 'rgba(240,140,90,0.17)', hi: '#ff9a63' };
     }
     function cardColors(id) { return typeColors(CARDS[id] && CARDS[id].type === 'defense'); }
+    // Which glyph + colour a card tile shows. Time cards are amber; element-targeting
+    // cards tint by that element; everything else uses its type's bright accent.
+    function cardIcon(c) {
+        const key = CAT_ICON[c.cat] || (c.type === 'defense' ? 'need' : 'trans');
+        if (c.cat === 'slow' || c.cat === 'fast') return { key, color: '#ffcf8f' };
+        const el = c.el || c.from || c.to;
+        if (el && ELEMENT_COLORS[el]) return { key, color: shade(ELEMENT_COLORS[el], 0.32) };
+        return { key, color: typeColors(c.type === 'defense').hi };
+    }
     function roundRect(x, y, w, h, r) {
         ctx.beginPath();
         ctx.moveTo(x + r, y);
@@ -1519,7 +1528,7 @@
         const x0 = (W - (w * n + gap * (n - 1))) / 2;
         return order.map((o, k) => ({ i: o.i, id: o.id, x: x0 + k * (w + gap), y, w, h }));
     }
-    function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 3, y: b.y - 10, w: b.w + 6, h: b.h + 12 } : b; }
+    function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 10, y: b.y - 18, w: b.w + 20, h: b.h + 24 } : b; }
     function doneButtonRect() { return { x: W / 2 - 90, y: LAY.actY, w: 180, h: LAY.actH }; }
     function drawMoreRect() { return { x: 16, y: LAY.actY, w: 100, h: LAY.actH }; }
     function playBtnRect() { return { x: W / 2 - 150, y: LAY.actY, w: 146, h: LAY.actH }; }
@@ -1578,13 +1587,20 @@
         // cost (top-left)
         ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.45)';
         ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-        ctx.fillText(String(c.cost), b.x + 8, b.y + 18);
-        // name/effect (wrapped, up to 3 lines) — the name states the effect
-        ctx.fillStyle = '#fff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'center';
-        const lines = wrapLines(cardName(b.id), b.w - 12);
-        const show = Math.min(lines.length, 3);
-        let ey = b.y + b.h / 2 - (show - 1) * 7 + 2;
-        for (let k = 0; k < show; k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 14; }
+        ctx.fillText(String(c.cost), b.x + 7, b.y + 17);
+        const ic = cardIcon(c);
+        const iconCol = ok ? ic.color : 'rgba(255,255,255,0.42)';
+        if (sel) {
+            // expanded: glyph on top, full name/effect below
+            drawUiIcon(ic.key, b.x + b.w / 2, b.y + 24, 23, iconCol, 2.4);
+            ctx.fillStyle = '#fff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
+            const lines = wrapLines(cardName(b.id), b.w - 8);
+            const show = Math.min(lines.length, 3);
+            let ey = b.y + 46; for (let k = 0; k < show; k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 13; }
+        } else {
+            // compact: just the category glyph, centred
+            drawUiIcon(ic.key, b.x + b.w / 2, b.y + b.h / 2 + 4, 30, iconCol, 2.6);
+        }
         ctx.restore();
     }
     function drawEnergyPips() {
