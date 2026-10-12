@@ -566,13 +566,8 @@
                 if (G.phase === 'defense' && inRect(p, doneButtonRect())) { AC.audio.unlock(); if (G.online) submitDefense(); else startAttackPhase(); if (e.cancelable) e.preventDefault(); return; }
                 if (canDrawMore() && inRect(p, drawMoreRect())) { AC.audio.unlock(); drawOneCard(); if (e.cancelable) e.preventDefault(); return; }
             }
-            // hit-test front-to-back: selected (on top) → top row → bottom row
-            const tiles = handTileRects();
-            const hitOrder = tiles.filter((b) => b.i === G.cardSel)
-                .concat(tiles.filter((b) => b.i !== G.cardSel && b.row === 0))
-                .concat(tiles.filter((b) => b.i !== G.cardSel && b.row === 1));
-            for (const base of hitOrder) {
-                if (inRect(p, tileRect(base))) { AC.audio.unlock(); G.cardSel = (G.cardSel === base.i ? null : base.i); if (e.cancelable) e.preventDefault(); return; }
+            for (const base of handTileRects()) {
+                if (inRect(p, base)) { AC.audio.unlock(); G.cardSel = (G.cardSel === base.i ? null : base.i); if (e.cancelable) e.preventDefault(); return; }
             }
             G.cardSel = null;   // tapped empty area → deselect
             return;
@@ -1564,9 +1559,11 @@
     // little lower; the small overlap keeps the footprint compact while leaving every
     // tile's lower-left corner visible for its 1–3 glyphs. Tap to select (pops up to
     // reveal the full name), tap again to play.
-    const HAND = { w: 104, h: 40, step: 52, rowOff: 30, topY: 86 };
+    // Two clean, non-overlapping rows of up to 5. Cards are wide and short; the icon
+    // cluster sits centre-left, the cost in the top-right corner. Selecting a card just
+    // makes it glow (no pop) — its full name shows in the action row instead.
+    const HAND = { cols: 5, gap: 8, margin: 14, h: 34, rowGap: 8, topY: 84 };
     function handTileRects() {
-        // group by major type (defense left, attack right); within each group keep draw order
         const order = G.hand.map((id, i) => ({ id, i })).sort((a, b) => {
             const ta = CARDS[a.id].type === 'defense' ? 0 : 1;
             const tb = CARDS[b.id].type === 'defense' ? 0 : 1;
@@ -1574,19 +1571,23 @@
         });
         const n = order.length;
         if (n === 0) return [];
-        const { w, h, step, rowOff, topY } = HAND;
-        const totalW = (n - 1) * step + w;
-        const x0 = Math.max(12, (W - totalW) / 2);
-        return order.map((o, k) => ({ i: o.i, id: o.id, row: k % 2, x: x0 + k * step, y: topY + (k % 2) * rowOff, w, h }));
+        const { cols, gap, margin, h, rowGap, topY } = HAND;
+        const w = (W - 2 * margin - (cols - 1) * gap) / cols;
+        const res = [];
+        for (let k = 0; k < n; k++) {
+            const row = Math.floor(k / cols);
+            const inRow = row === 0 ? Math.min(cols, n) : n - cols;
+            const rowW = inRow * w + (inRow - 1) * gap;
+            const x0 = (W - rowW) / 2;
+            res.push({ i: order[k].i, id: order[k].id, row, x: x0 + (k - row * cols) * (w + gap), y: topY + row * (h + rowGap), w, h });
+        }
+        return res;
     }
-    function tileRect(b) {
-        if (b.i !== G.cardSel) return b;
-        return { i: b.i, id: b.id, row: b.row, x: Math.max(8, Math.min(W - 8 - (b.w + 10), b.x - 5)), y: 72, w: b.w + 10, h: 94 };
-    }
+    function tileRect(b) { return b; }   // selection no longer pops the tile (it glows instead)
     function drawMoreRect() { return { x: 16, y: LAY.actY, w: 92, h: LAY.actH }; }
     function doneButtonRect() { return { x: W - 16 - 128, y: LAY.actY, w: 128, h: LAY.actH }; }   // 進入攻擊 hugs the right edge
-    function playBtnRect() { return { x: W / 2 - 150, y: LAY.actY, w: 146, h: LAY.actH }; }
-    function discardBtnRect() { return { x: W / 2 + 4, y: LAY.actY, w: 146, h: LAY.actH }; }
+    function playBtnRect() { return { x: W - 16 - 98 - 8 - 98, y: LAY.actY, w: 98, h: LAY.actH }; }
+    function discardBtnRect() { return { x: W - 16 - 98, y: LAY.actY, w: 98, h: LAY.actH }; }
     function drawDrawButton() {
         if (!shell || !shell.isPlaying()) return;
         if (G.phase !== 'defense' && G.phase !== 'attack') return;
@@ -1618,61 +1619,49 @@
         if (!shell || !shell.isPlaying()) return;
         const f = getFont();
         const tiles = handTileRects();
-        // draw back-to-front so the raised (top) row sits over the lowered (bottom) row,
-        // and the selected card pops over everything.
-        for (const b of tiles) if (b.row === 1 && b.i !== G.cardSel) drawCardTile(b, f);
-        for (const b of tiles) if (b.row === 0 && b.i !== G.cardSel) drawCardTile(b, f);
+        for (const b of tiles) if (b.i !== G.cardSel) drawCardTile(b, f);
         const sel = tiles.find((b) => b.i === G.cardSel);
-        if (sel) drawCardTile(sel, f);
+        if (sel) drawCardTile(sel, f);   // selected last so its glow sits on top
     }
-    // Draw 1–3 glyphs (and short text tokens) left-to-right, vertically centred on `cy`,
-    // auto-sized to fit `maxW`. Returns nothing.
-    function drawGlyphCluster(items, x, cy, maxW, sizeCap, f) {
-        const n = items.length;
-        let size = Math.floor((maxW - 4 * (n - 1)) / n);
-        size = Math.max(14, Math.min(sizeCap, size));
+    function glyphSize(n) { return n >= 3 ? 22 : (n === 2 ? 25 : 28); }
+    function clusterWidth(items, size, f) {
+        let w = 0;
+        for (const it of items) { if (it.g) w += size; else { ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; w += ctx.measureText(it.t).width; } w += 4; }
+        return Math.max(0, w - 4);
+    }
+    // Draw 1–3 glyphs (and short text tokens) left-to-right at a fixed size, centred on `cy`.
+    function drawGlyphCluster(items, x, cy, size, f) {
         let gx = x;
         for (const it of items) {
             if (it.g) { drawUiIcon(it.g, gx + size / 2, cy, size, it.c, 2.2); gx += size + 4; }
-            else {
-                ctx.fillStyle = it.c; ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-                ctx.fillText(it.t, gx, cy); gx += ctx.measureText(it.t).width + 4;
-            }
+            else { ctx.fillStyle = it.c; ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle'; ctx.fillText(it.t, gx, cy); gx += ctx.measureText(it.t).width + 4; }
         }
     }
     function drawCardTile(base, f) {
-        const b = tileRect(base), c = CARDS[b.id], sel = base.i === G.cardSel;
+        const b = base, c = CARDS[b.id], sel = base.i === G.cardSel;
         const active = cardPhaseOk(b.id);   // this phase's type is bright; the other dimmed
         const ok = active && G.energy >= c.cost && playable(b.id);
         const isNew = base.i === G.lastDrawn && ok;   // newest-drawn, but only while it's actually playable
         const col = cardColors(b.id);           // defense = blue, attack = red
         const glyphs = cardGlyphs(c);
-        const dim = (items) => ok ? items : items.map((it) => ({ g: it.g, t: it.t, c: 'rgba(255,255,255,0.4)' }));
+        const items = ok ? glyphs : glyphs.map((it) => ({ g: it.g, t: it.t, c: 'rgba(255,255,255,0.4)' }));
         ctx.save();
         ctx.globalAlpha = active ? 1 : 0.5;
         ctx.fillStyle = sel ? col.bgSel : (isNew ? col.bgNew : (ok ? col.bg : 'rgba(255,255,255,0.06)'));
         roundRect(b.x, b.y, b.w, b.h, 8); ctx.fill();
+        if (sel) { ctx.shadowColor = col.base; ctx.shadowBlur = 12; }   // selection = glow
         ctx.lineWidth = sel ? 2.5 : 1.5; ctx.strokeStyle = sel ? '#fff' : ((ok || isNew) ? col.base : 'rgba(255,255,255,0.18)');
         roundRect(b.x, b.y, b.w, b.h, 8); ctx.stroke();
-        if (sel) {
-            // expanded: cost top-left, glyphs row, full name below
-            ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.55)';
-            ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-            ctx.fillText(String(c.cost), b.x + 8, b.y + 18);
-            drawGlyphCluster(dim(glyphs), b.x + 12, b.y + 30, b.w - 24, 26, f);
-            ctx.fillStyle = '#fff'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'alphabetic';
-            const lines = wrapLines(cardName(b.id), b.w - 12);
-            let ey = b.y + 58; for (let k = 0; k < Math.min(lines.length, 3); k++) { ctx.fillText(lines[k], b.x + b.w / 2, ey); ey += 15; }
-        } else {
-            // compact: cost + glyph cluster in the always-visible lower-left band
-            const cy = b.y + b.h - 15;
-            ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.45)';
-            ctx.font = `800 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
-            ctx.fillText(String(c.cost), b.x + 7, cy);
-            const costW = ctx.measureText(String(c.cost)).width;
-            const gx = b.x + 7 + costW + 6;
-            drawGlyphCluster(dim(glyphs), gx, cy, b.x + b.w - 6 - gx, 24, f);
-        }
+        ctx.shadowBlur = 0;
+        // cost — top-right corner
+        ctx.fillStyle = ok ? col.base : 'rgba(255,255,255,0.45)';
+        ctx.font = `800 12px ${f}`; ctx.textAlign = 'right'; ctx.textBaseline = 'top';
+        ctx.fillText(String(c.cost), b.x + b.w - 7, b.y + 5);
+        // icon cluster — centre-left, vertically centred
+        const size = glyphSize(glyphs.length);
+        const cw = clusterWidth(glyphs, size, f);
+        const sx = Math.max(b.x + 8, b.x + (b.w - cw) / 2 - 10);
+        drawGlyphCluster(items, sx, b.y + b.h / 2, size, f);
         ctx.restore();
     }
     function drawEnergyPips() {
@@ -1693,10 +1682,18 @@
         const c = CARDS[id], f = getFont();
         const ok = (G.phase === 'defense' || G.phase === 'attack') && cardPhaseOk(id) && G.energy >= c.cost && playable(id);
         const pb = playBtnRect(), db = discardBtnRect();
+        const cy = LAY.actY + LAY.actH / 2;
         ctx.save();
+        // selected card's cost + name/effect on the left (this replaces the old pop-up)
+        ctx.fillStyle = cardColors(id).base; ctx.font = `800 13px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        ctx.fillText(String(c.cost), 18, cy);
+        const cw = ctx.measureText(String(c.cost)).width;
+        ctx.fillStyle = ok ? '#fff' : 'rgba(255,255,255,0.6)'; ctx.font = `700 14px ${f}`;
+        ctx.fillText(cardName(id), 18 + cw + 8, cy);
+        // Play / Discard on the right
         ctx.fillStyle = ok ? accent() : 'rgba(255,255,255,0.1)';
         roundRect(pb.x, pb.y, pb.w, pb.h, 9); ctx.fill();
-        ctx.fillStyle = ok ? '#1a1526' : 'rgba(255,255,255,0.4)'; ctx.font = `800 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+        ctx.fillStyle = ok ? '#1a1526' : 'rgba(255,255,255,0.4)'; ctx.font = `800 14px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
         ctx.fillText(t('rdPlay'), pb.x + pb.w / 2, pb.y + pb.h / 2);
         ctx.fillStyle = 'rgba(255,255,255,0.08)'; roundRect(db.x, db.y, db.w, db.h, 9); ctx.fill();
         ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.28)'; roundRect(db.x, db.y, db.w, db.h, 9); ctx.stroke();
