@@ -95,10 +95,12 @@ function fail(err) {
                 if (d.status !== 'waiting' || slots[1]) throw new Error('room full');
                 slots[1] = user.uid;                                 // write the whole array (no array dot-paths)
                 tx.update(ref, {
-                    status: 'playing',
+                    status: 'playing',                               // room is now occupied (not the match state)
                     slots,
                     [`players.${user.uid}`]: { uid: user.uid, name: user.name, photo: user.photo, anon: user.anon, slot: 1 },
                     round: 1,
+                    game: {},                                        // reset any stale match state → both must Ready again
+                    ready: {},
                     lastActionAt: serverTimestamp(),
                 });
                 return code;
@@ -121,7 +123,9 @@ function fail(err) {
                     const d = s.data();
                     const slots = Array.isArray(d.slots) ? d.slots.slice() : [d.hostUid || null, null];
                     if (slots[1] === user.uid) slots[1] = null;
-                    tx.update(ref, { [`players.${user.uid}`]: deleteField(), slots, status: d.status !== 'finished' ? 'waiting' : d.status, lastActionAt: serverTimestamp() });
+                    // guest leaves → free the seat and reset the match so the room cleanly
+                    // reopens to the lobby (no stale game.status to auto-start/auto-end a rejoin)
+                    tx.update(ref, { [`players.${user.uid}`]: deleteField(), slots, status: d.status !== 'finished' ? 'waiting' : d.status, game: {}, ready: {}, lastActionAt: serverTimestamp() });
                 });
             } catch (e) { /* ignore */ }
         }

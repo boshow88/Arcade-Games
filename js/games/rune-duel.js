@@ -1222,7 +1222,10 @@
     function submitAttack(dmg, heal) {
         if (!G.online) return;
         G.online.waitSince = Date.now();
-        net.updateRoom(room.code, { ['game.atk.' + G.online.myUid]: { dmg: dmg | 0, heal: heal | 0, cards: G.playedThisRound.slice(), board: serializeBoard() } }).catch((e) => console.warn('[duel]', e));   // post-spin settled board
+        const u = G.online.myUid, post = serializeBoard();   // post-spin settled board
+        // write atk AND the live board, so after the host clears atk the opponent's mini-board
+        // keeps showing this settled result (not the stale pre-spin board from pushLive).
+        net.updateRoom(room.code, { ['game.atk.' + u]: { dmg: dmg | 0, heal: heal | 0, cards: G.playedThisRound.slice(), board: post }, ['game.board.' + u]: post }).catch((e) => console.warn('[duel]', e));
     }
     // Heartbeat: keep our own room's lastActionAt fresh (so it's never GC'd while we're
     // present), and periodically purge rooms others abandoned. Firestore has no
