@@ -60,7 +60,7 @@
         rdRoomCreated: (code) => `Room ${code} — waiting for opponent\u2026`, rdWaitingOpp: 'Waiting for opponent\u2026',
         rdMatched: (name) => `Matched with ${name}!`, rdStartDuel: 'Start duel', rdWaitHost: 'Waiting for host to start\u2026',
         rdReadyUp: 'I\u2019m ready to start', rdReadyWait: 'Ready \u2014 waiting for opponent\u2026', rdOppReady: 'opponent ready',
-        rdDifficulty: 'Difficulty', rdLvEasy: 'Easy', rdLvNormal: 'Normal', rdLvHard: 'Hard',
+        rdDifficulty: 'Difficulty', rdLvEasy: 'Easy', rdLvNormal: 'Normal', rdLvHard: 'Hard', rdTimeShort: 'Time shorten',
         rdReasonForfeit: 'Opponent left or timed out \u2014 you win.',
         rdReasonKoWin: 'Rival HP hit 0 \u2014 you win.', rdReasonKoLose: 'Your HP hit 0 \u2014 you lose.', rdReasonDoubleKo: 'Both HP hit 0 \u2014 draw.',
         rdReasonHpWin: 'Round limit reached \u2014 more HP, you win.', rdReasonHpLose: 'Round limit reached \u2014 less HP, you lose.', rdReasonTimeDraw: 'Round limit reached, equal HP \u2014 draw.',
@@ -108,7 +108,7 @@
         rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
         rdReadyUp: '準備好了', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備',
-        rdDifficulty: '難度', rdLvEasy: '簡單', rdLvNormal: '普通', rdLvHard: '困難',
+        rdDifficulty: '難度', rdLvEasy: '簡單', rdLvNormal: '普通', rdLvHard: '困難', rdTimeShort: '時間縮短',
         rdReasonForfeit: '對手離開或逾時未行動，你獲勝。',
         rdReasonKoWin: '對手血量歸零，你獲勝。', rdReasonKoLose: '你的血量歸零，你落敗。', rdReasonDoubleKo: '雙方同時血量歸零，平手。',
         rdReasonHpWin: '回合數耗盡，你的血量較高，你獲勝。', rdReasonHpLose: '回合數耗盡，你的血量較低，你落敗。', rdReasonTimeDraw: '回合數耗盡且血量相同，平手。',
@@ -276,6 +276,7 @@
         aiBoard: null,          // vs-AI: the rival's own board (cells {el,enhanced})
         aiPlayed: [],           // vs-AI: cards the rival played this round (revealed in its panel)
         aiStatus: '',           // vs-AI: '' | 'spin' | 'done'
+        aiPlan: null,           // vs-AI: this round's defense decision, revealed at the attack phase
         aiLevel: 'normal',      // vs-AI difficulty (easy | normal | hard)
         round: 1,
         phase: 'defense',       // 'defense' | 'attack' | 'ai' | 'over'
@@ -553,13 +554,18 @@
             for (const r of shieldPickRects()) {
                 if (!inRect(p, r)) continue;
                 const sp = G.shieldPick; G.shieldPick = null;
-                G.aiShields.splice(r.i, 1); AC.audio.play('coin'); consumeCard(sp.i, sp.id);
+                if (r.t.kind === 'shield') G.aiShields.splice(r.t.i, 1); else removeSlowStack();
+                AC.audio.play('coin'); consumeCard(sp.i, sp.id);
                 if (e.cancelable) e.preventDefault();
                 return;
             }
             if (!inRect(p, shieldPickPanel())) G.shieldPick = null;   // cancel (card not consumed)
             if (e.cancelable) e.preventDefault();
             return;
+        }
+        // tap a shield / played-card chip to read its full effect
+        for (const ch of (G._rivalChips || []).concat(G._rivalUsed || [], G._youChips || [])) {
+            if (inRect(p, ch)) { addFloat(ch.x + ch.w / 2, ch.y + 34, ch.label, '#cfe8ff', 15); AC.audio.unlock(); if (e.cancelable) e.preventDefault(); return; }
         }
         if (G.resolving || G.held || G.countdown > 0 || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         if (onlineWaiting()) { if (e.cancelable) e.preventDefault(); return; }
@@ -649,7 +655,7 @@
     }
     function playable(id) {   // some cards need a legal target
         const c = CARDS[id];
-        if (c && (c.cat === 'breakRand' || c.cat === 'breakPick')) return G.aiShields.length > 0;
+        if (c && (c.cat === 'breakRand' || c.cat === 'breakPick')) return G.aiShields.length > 0 || (G.spinMultOpp || 1) < 1;
         return true;
     }
     function cardPhaseOk(id) { return (CARDS[id].type === 'defense') === (G.phase === 'defense'); }
@@ -686,7 +692,7 @@
             case 'transToPick': return openPick(i, id, 'rtTransmuteTo', (to) => applyTransmute(c.from, to), c.from);
             case 'transFromPick': return openPick(i, id, 'rtTransmuteFrom', (from) => applyTransmute(from, c.to), c.to);
             case 'transBoth': return openTransmute(i);
-            case 'breakRand': if (G.aiShields.length) G.aiShields.splice(AC.rng.int(G.rng, 0, G.aiShields.length), 1); break;
+            case 'breakRand': { const tg = breakTargets(); if (tg.length) { const p = tg[AC.rng.int(G.rng, 0, tg.length)]; if (p.kind === 'shield') G.aiShields.splice(p.i, 1); else removeSlowStack(); } break; }
             case 'breakPick': return openShieldPick(i);
             default: break;
         }
@@ -711,7 +717,16 @@
             openPalette({ title: 'rtTransmuteTo', els: ELEMENTS, exclude: from, onPick: (to) => { applyTransmute(from, to); consumeCard(i, id); } });
         } });
     }
-    function openShieldPick(i) { if (G.aiShields.length) { G.shieldPick = { i, id: G.hand[i] }; markDirty(); } }
+    function openShieldPick(i) { if (breakTargets().length) { G.shieldPick = { i, id: G.hand[i] }; markDirty(); } }
+    function slowStacks(mult) { mult = mult || 1; return mult >= 1 ? 0 : Math.max(1, Math.round(Math.log(mult) / Math.log(0.7))); }
+    function removeSlowStack() { G.spinMultOpp = Math.min(1, (G.spinMultOpp || 1) / 0.7); }
+    // things a Break card can remove: the rival's shields + each stack of its Shorten on you
+    function breakTargets() {
+        const out = G.aiShields.map((s, i) => ({ kind: 'shield', i, s, label: shieldLabel(s) }));
+        const n = slowStacks(G.spinMultOpp);
+        for (let k = 0; k < n; k++) out.push({ kind: 'time', label: t('rdTimeShort') });
+        return out;
+    }
     function enchantElement(el, n) {
         const c = []; for (let k = 0; k < COLS * ROWS; k++) { const o = board[k]; if (o && o.el === el && !o.enhanced) c.push(k); }
         for (let j = 0; j < n && c.length; j++) { const r = AC.rng.int(G.rng, 0, c.length); board[c[r]].enhanced = true; board[c[r]].gfx = null; c.splice(r, 1); }
@@ -1048,9 +1063,9 @@
         if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeDef * 1000; G.aiShields = []; pushMyBoard(); updateHud(); return; }
         if (!G.aiBoard) G.aiBoard = aiFillBoard();
         G.aiStatus = '';
-        const plan = aiDefend(G.round);
-        G.aiShields = plan.shields;
-        G.spinMultOpp = plan.hastenYou ? 0.7 : 1;   // vs-AI: rival may shorten your spin this round
+        G.aiPlan = aiDefend(G.round);   // decided now but hidden; revealed when you reach the attack phase (like online)
+        G.aiShields = [];
+        G.spinMultOpp = 1;
         updateHud();
     }
     function startAttackPhase() {
@@ -1063,7 +1078,8 @@
         G.preSpinBoard = null;
         G.lastDrawn = null;
         G.spinOpen = false;
-        if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeAtk * 1000; }
+        if (G.online) { G.online.sub = 'atk'; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeAtk * 1000; updateHud(); return; }
+        if (G.aiPlan) { G.aiShields = G.aiPlan.shields; G.spinMultOpp = G.aiPlan.hastenYou ? 0.7 : 1; G.aiPlan = null; }   // reveal the rival's defense now
         updateHud();
     }
     // Phase clock ran out: defense → go attack; attack (not yet spinning) → open the
@@ -1238,8 +1254,8 @@
         const dA = (a[A] && a[A].dmg) || 0, hA = (a[A] && a[A].heal) || 0;
         const dB = (a[B] && a[B].dmg) || 0, hB = (a[B] && a[B].heal) || 0;
         const hp = Object.assign({}, g.hp);
-        hp[A] = clamp(Math.min((hp[A] || 0) + hA, DUEL.hp) - dB);   // heal first (capped at max), then take damage
-        hp[B] = clamp(Math.min((hp[B] || 0) + hB, DUEL.hp) - dA);
+        hp[A] = clamp(Math.min(DUEL.hp, (hp[A] || 0) - dB + hA));   // take damage first, then heal (capped at max)
+        hp[B] = clamp(Math.min(DUEL.hp, (hp[B] || 0) - dA + hB));
         const round = g.round || 1;
         let status = 'playing', winner = null;
         if (hp[A] <= 0 || hp[B] <= 0 || round >= DUEL.maxRounds) {
@@ -1591,6 +1607,58 @@
         }
         ctx.restore();
     }
+    // Collapse a shield list into compact display items (icon glyphs + a full label),
+    // merging redundant shields (a stronger requirement subsumes a weaker one) and
+    // stacking Time-shorten into a single ×n chip.
+    function collapseShields(shields, slowN) {
+        const A = '#9cccf5';
+        const g = (key, col) => ({ g: key, c: col || A });
+        const elg = (e) => ({ g: e, c: elColor(e) });
+        const tx = (text) => ({ t: text, c: A });
+        let cmin = -Infinity, cmax = Infinity, fmin = -Infinity, fmax = Infinity, anyEnh = false;
+        const needEl = new Set(), needElEnh = new Set(), banEl = new Set();
+        for (const s of (shields || [])) {
+            if (!s) continue;
+            if (s.type === 'combo') { if (s.mode === 'max') cmax = Math.min(cmax, s.n); else cmin = Math.max(cmin, s.n); }
+            else if (s.type === 'firstWave') { if (s.mode === 'min') fmin = Math.max(fmin, s.n); else fmax = Math.min(fmax, s.n); }
+            else if (s.type === 'firstWaveMax') fmax = Math.min(fmax, s.n);
+            else if (s.type === 'enhanced') anyEnh = true;
+            else if (s.type === 'enhancedEl') (s.elements || []).forEach((e) => needElEnh.add(e));
+            else if (s.type === 'element') { if (s.mode === 'ban') (s.elements || []).forEach((e) => banEl.add(e)); else (s.elements || []).forEach((e) => needEl.add(e)); }
+        }
+        for (const e of needElEnh) needEl.delete(e);   // "need X enhanced" subsumes "need X"
+        if (needElEnh.size > 0) anyEnh = false;         // ...and subsumes "need enhanced (any)"
+        const items = [];
+        if (cmin > -Infinity) items.push({ glyphs: [g('ellipsis'), tx('\u2265' + cmin)], label: t('cwComboMin', cmin) });
+        if (cmax < Infinity) items.push({ glyphs: [g('ellipsis'), tx('\u2264' + cmax)], label: t('cwComboMax', cmax) });
+        if (fmin > -Infinity) items.push({ glyphs: [tx('\u2460\u2265' + fmin)], label: t('cwFirstMin', fmin) });
+        if (fmax < Infinity) items.push({ glyphs: [tx('\u2460\u2264' + fmax)], label: t('cwFirstMax', fmax) });
+        for (const e of needElEnh) items.push({ glyphs: [g('check'), elg(e), g('diamond')], label: t('cwNeedEnh', t('el_' + e)) });
+        if (anyEnh) items.push({ glyphs: [g('check'), g('diamond')], label: t('cwNeedEnhAny') });
+        for (const e of needEl) items.push({ glyphs: [g('check'), elg(e)], label: t('cwNeed', t('el_' + e)) });
+        for (const e of banEl) items.push({ glyphs: [g('ban'), elg(e)], label: t('cwBan', t('el_' + e)) });
+        if (slowN > 0) items.push({ glyphs: [g('clockDown', AMBER)], label: t('rdTimeShort'), count: slowN });
+        return items;
+    }
+    function chipWidth(item, size, f) {
+        let w = 12 + clusterWidth(item.glyphs, size, f);
+        if (item.count && item.count > 1) { ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; w += 3 + ctx.measureText('\u00d7' + item.count).width; }
+        return w;
+    }
+    function drawChip(x, y, h, item, size, f, used) {
+        const w = chipWidth(item, size, f), cy = y + h / 2;
+        ctx.fillStyle = used ? 'rgba(255,255,255,0.07)' : 'rgba(127,212,255,0.14)';
+        roundRect(x, y, w, h, 9); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = used ? 'rgba(255,255,255,0.22)' : 'rgba(127,212,255,0.5)';
+        roundRect(x, y, w, h, 9); ctx.stroke();
+        drawGlyphCluster(item.glyphs, x + 6, cy, size, f);
+        if (item.count && item.count > 1) {
+            const gw = clusterWidth(item.glyphs, size, f);
+            ctx.fillStyle = used ? 'rgba(255,255,255,0.75)' : '#cfe8ff'; ctx.font = `800 ${Math.round(size * 0.72)}px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+            ctx.fillText('\u00d7' + item.count, x + 6 + gw + 3, cy);
+        }
+        return w;
+    }
     function drawRivalPanel() {
         const f = getFont();
         const name = G.online ? G.online.oppName : t('rdRival');
@@ -1611,39 +1679,50 @@
         drawBar(22, 20, (hasMini ? MINI.ox - 34 : W - 44), 12, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
         ctx.textBaseline = 'middle';
-        // the rival's defences against YOUR attack: shields + your Shorten on them (time↓), as pills
-        const specs = G.aiShields.map((s) => ({ text: shieldLabel(s), kind: 'def' }));
-        if ((G.spinMultOpp || 1) < 1) specs.push({ text: t('rdTime'), icon: 'down', kind: 'time' });
+        // the rival's defences against YOUR attack, as collapsed icon chips (+ stacked time↓)
+        const shieldItems = collapseShields(G.aiShields, slowStacks(G.spinMultOpp));
+        const chipH = 19, chipSize = 15;
+        G._rivalChips = [];
         let px = rightEdge;
-        for (let i = specs.length - 1; i >= 0; i--) {
-            const sp = specs[i];
-            px -= pillW(sp.text, !!sp.icon, f);
-            drawPill(px, PILL.y, sp.text, sp.icon, sp.kind, f);
+        for (let i = shieldItems.length - 1; i >= 0; i--) {
+            const wItem = chipWidth(shieldItems[i], chipSize, f);
+            px -= wItem;
+            drawChip(px, PILL.y, chipH, shieldItems[i], chipSize, f, false);
+            G._rivalChips.push({ x: px, y: PILL.y, w: wItem, h: chipH, label: shieldItems[i].label + (shieldItems[i].count > 1 ? ' \u00d7' + shieldItems[i].count : '') });
             px -= PILL.gap;
         }
-        // what the rival played last attack (persists so you can study their style)
+        // what the rival played last attack, as icon chips (tap to read the full effect)
+        G._rivalUsed = [];
         if (oppCards && oppCards.length) {
-            const counts = {};
-            for (const id of oppCards) counts[id] = (counts[id] || 0) + 1;
-            const parts = Object.keys(counts).map((id) => cardName(id) + (counts[id] > 1 ? '\u00d7' + counts[id] : ''));
-            ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
-            ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = `600 11px ${f}`;
-            ctx.fillText(t('rdOppUsed', parts.join(' \u00b7 ')), 22, 60);
+            const counts = {}, orderIds = [];
+            for (const id of oppCards) { if (counts[id] == null) orderIds.push(id); counts[id] = (counts[id] || 0) + 1; }
+            let cx = 22; const uy = 62, uh = 18, us = 14;
+            for (const id of orderIds) {
+                const c = CARDS[id]; if (!c) continue;
+                const item = { glyphs: cardGlyphs(c), count: counts[id] };
+                const w = chipWidth(item, us, f);
+                if (cx + w > rightEdge) break;
+                drawChip(cx, uy, uh, item, us, f, true);
+                G._rivalUsed.push({ x: cx, y: uy, w, h: uh, label: cardName(id) + (counts[id] > 1 ? ' \u00d7' + counts[id] : '') });
+                cx += w + 5;
+            }
         }
         ctx.textBaseline = 'alphabetic';
     }
     function drawYouBar() {
         const f = getFont();
-        // Status pills ride the action row, to the right of the Draw / To-attack buttons:
-        //   defence group = your shields (blue), then — kept separate — your attack group
-        //   = time↑ (amber) + the attack cards you've played this round (compact glyphs).
+        G._youChips = [];
+        // Status chips ride the action row, to the right of the Draw / To-attack buttons:
+        //   defence group = your shields (collapsed icon chips), then — kept separate — your
+        //   attack group = time↑ (amber) + the attack cards you played this round.
         // Hidden while a card is selected (Play / Discard own the row then).
         if (G.cardSel == null && (G.phase === 'defense' || G.phase === 'attack')) {
             const py = LAY.actY + (LAY.actH - PILL.h) / 2;
             const draw = drawMoreRect();
-            let x = draw.x + draw.w + 12;   // pills fill the middle, between Draw (left) and To-attack (right)
-            const hasDef = G.youShields.length > 0;
-            for (const s of G.youShields) x += drawPill(x, py, shieldLabel(s), null, 'def', f) + PILL.gap;
+            let x = draw.x + draw.w + 12;   // chips fill the middle, between Draw (left) and To-attack (right)
+            const defItems = collapseShields(G.youShields, 0);
+            const hasDef = defItems.length > 0;
+            for (const it of defItems) { const w = chipWidth(it, 15, f); drawChip(x, py, PILL.h, it, 15, f, false); G._youChips.push({ x, y: py, w, h: PILL.h, label: it.label }); x += w + PILL.gap; }
             const hasTime = (G.spinMultSelf || 1) > 1, played = G.playedThisRound || [];
             if (hasTime || played.length) {
                 if (hasDef) x += PILL.groupGap - PILL.gap;
@@ -1852,7 +1931,7 @@
     // "Break which shield" picker (lists the rival's shields as big buttons)
     function shieldPickRects() {
         const bw = 360, bh = 46, gap = 10, x = (W - bw) / 2, y0 = BOARD_TOP + 70;
-        return G.aiShields.map((s, i) => ({ i, s, x, y: y0 + i * (bh + gap), w: bw, h: bh }));
+        return breakTargets().map((tt, i) => ({ t: tt, x, y: y0 + i * (bh + gap), w: bw, h: bh }));
     }
     function shieldPickPanel() {
         const r = shieldPickRects(); if (!r.length) return { x: 0, y: 0, w: 0, h: 0 };
@@ -1871,7 +1950,7 @@
             ctx.fillStyle = 'rgba(127,212,255,0.16)'; roundRect(r.x, r.y, r.w, r.h, 10); ctx.fill();
             ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(127,212,255,0.6)'; roundRect(r.x, r.y, r.w, r.h, 10); ctx.stroke();
             ctx.fillStyle = '#a9e3ff'; ctx.font = `700 15px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(shieldLabel(r.s), r.x + r.w / 2, r.y + r.h / 2);
+            ctx.fillText(r.t.label, r.x + r.w / 2, r.y + r.h / 2);
         }
         ctx.restore();
     }
@@ -1995,6 +2074,7 @@
         G.aiBoard = aiFillBoard();
         G.aiPlayed = [];
         G.aiStatus = '';
+        G.aiPlan = null;
         G.empowerNext = 1;
         G.held = null;
         G.spinTimer = 0;
