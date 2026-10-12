@@ -999,7 +999,7 @@
 
         function syncButtons() {
             if (dom.pauseBtn) {
-                const canPause = state === 'playing' || state === 'paused';
+                const canPause = (state === 'playing' || state === 'paused') && (opts.canPause ? opts.canPause() : true);
                 dom.pauseBtn.disabled = !canPause;
                 const label = dom.pauseBtn.querySelector('[data-role="pause-label"]');
                 if (label) label.textContent = state === 'paused' ? t('resume') : t('pause');
