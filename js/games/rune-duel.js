@@ -179,7 +179,7 @@
         popTime: 0.13, fallAnim: 0.16, bigThreshold: 5, scoreCap: 999999,
     };
     const BALANCE = {
-        spinTime: 6, baseDamage: 12, heartHeal: 60, comboStep: 0.25, enhancedMult: 1.5,
+        spinTime: 6, baseDamage: 12, heartHeal: 24, comboStep: 0.25, enhancedMult: 1.5,
     };
     const DUEL = {
         hp: 3000, maxRounds: 30,
@@ -1033,8 +1033,8 @@
         const dA = (a[A] && a[A].dmg) || 0, hA = (a[A] && a[A].heal) || 0;
         const dB = (a[B] && a[B].dmg) || 0, hB = (a[B] && a[B].heal) || 0;
         const hp = Object.assign({}, g.hp);
-        hp[A] = clamp((hp[A] || 0) - dB + hA);     // each takes the other's damage, heals self
-        hp[B] = clamp((hp[B] || 0) - dA + hB);
+        hp[A] = clamp(Math.min((hp[A] || 0) + hA, DUEL.hp) - dB);   // heal first (capped at max), then take damage
+        hp[B] = clamp(Math.min((hp[B] || 0) + hB, DUEL.hp) - dA);
         const round = g.round || 1;
         let status = 'playing', winner = null;
         if (hp[A] <= 0 || hp[B] <= 0 || round >= DUEL.maxRounds) {
@@ -1759,7 +1759,8 @@
             r.appendChild(lrow(create));
             r.appendChild(lrow(input, join));
         } else if (u && room && room.data && !opponentName(room.data)) {
-            const copy = lbtn(t('rdCopyCode') + ' ' + room.code, 'btn btn-primary'); copy.onclick = () => copyCode(room.code);
+            r.appendChild(el('div', 'lobby-code', room.code));
+            const copy = lbtn(t('rdCopyCode'), 'btn btn-primary'); copy.onclick = () => copyCode(room.code);
             const leave = lbtn(t('rdLeaveRoom'), 'btn'); leave.onclick = doLeave;
             r.appendChild(lrow(copy, leave));
         } else if (u && room && room.data && opponentName(room.data)) {
@@ -1771,7 +1772,7 @@
         // status
         let s = '';
         if (!u) s = t('rdSignInFirst');
-        else if (room && room.data) { const opp = opponentName(room.data); s = opp ? t('rdMatched', opp) : t('rdRoomCreated', room.code); }
+        else if (room && room.data) { const opp = opponentName(room.data); s = opp ? t('rdMatched', opp) : t('rdWaitingOpp'); }
         lobbyRefs.status.textContent = s;
     }
     function openLobby() { if (!net || !net.ok) return; if (!lobbyEl) buildLobby(); lobbyEl.hidden = false; renderLobby(); markDirty(); if (net.cleanupStaleRooms) net.cleanupStaleRooms().catch(() => {}); }
