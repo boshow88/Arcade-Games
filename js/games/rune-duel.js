@@ -51,7 +51,7 @@
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
-        rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdSlowPill: 'Time \u2193', rdOppUsed: (s) => `Rival last: ${s}`,
+        rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdSlowPill: 'Time \u2193', rdFastPill: 'Time \u2191', rdOppUsed: (s) => `Rival last: ${s}`,
         rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid', rtPickShield: 'Pick a shield to break',
         cwBan: (e) => `Ban ${e}`, cwNeed: (e) => `Need ${e}`, cwNeedEnh: (e) => `Need ${e} enh.`,
         cwBanRand: 'Ban random', cwBanPick: 'Ban chosen', cwNeedRand: 'Need random', cwNeedPick: 'Need chosen',
@@ -104,7 +104,7 @@
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
-        rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdSlowPill: '時間\u2193', rdOppUsed: (s) => `對手上回合：${s}`,
+        rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdSlowPill: '時間\u2193', rdFastPill: '時間\u2191', rdOppUsed: (s) => `對手上回合：${s}`,
         rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色', rtPickShield: '點選要破除的盾',
         cwBan: (e) => `禁消${e}`, cwNeed: (e) => `需消${e}`, cwNeedEnh: (e) => `需消${e}強化`,
         cwBanRand: '禁消隨機', cwBanPick: '禁消任選', cwNeedRand: '需消隨機', cwNeedPick: '需消任選',
@@ -1365,6 +1365,7 @@
         const f = getFont();
         // your defence state (shields + spin penalty), on your side just above your HP
         const defs = G.youShields.map((s) => shieldLabel(s));
+        if ((G.spinMultSelf || 1) > 1) defs.push(t('rdFastPill'));   // your own time boost, shown on your side
         if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(defs.join(' · '), 22, LAY.youShieldY); }
         // HP bar hugging the board (right above the timer bar)
         ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
