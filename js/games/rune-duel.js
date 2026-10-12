@@ -51,7 +51,7 @@
         rdCard_hasten: 'Hasten', rdCardd_hasten: 'Cramp the rival\u2019s spin this round (fewer combos).',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!', rdSpinNow: 'Time\u2019s up — spin now!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
-        rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdSlowPill: 'Time \u2193', rdFastPill: 'Time \u2191', rdOppUsed: (s) => `Rival last: ${s}`,
+        rdHastenTag: 'Hastened!', rdHastened: 'Rival slowed your spin!', rdSlowPill: 'Time \u2193', rdFastPill: 'Time \u2191', rdTime: 'Time', rdOppUsed: (s) => `Rival last: ${s}`,
         rdOppSpin: 'spinning\u2026', rdOppDone: 'attacked', rdCopyCode: 'Copy', rdCopied: 'Copied!',
         rdDrawGame: 'Draw!', rtShBanPick: 'Pick a colour to forbid', rtPickShield: 'Pick a shield to break',
         cwBan: (e) => `Ban ${e}`, cwNeed: (e) => `Need ${e}`, cwNeedEnh: (e) => `Need ${e} enh.`,
@@ -109,7 +109,7 @@
         rdCard_hasten: '催促', rdCardd_hasten: '這回合干擾對手轉珠（連擊變少）。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！', rdSpinNow: '時間到——快轉珠！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
-        rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdSlowPill: '時間\u2193', rdFastPill: '時間\u2191', rdOppUsed: (s) => `對手上回合：${s}`,
+        rdHastenTag: '被催促！', rdHastened: '對手縮短了你的轉珠時間！', rdSlowPill: '時間\u2193', rdFastPill: '時間\u2191', rdTime: '時間', rdOppUsed: (s) => `對手上回合：${s}`,
         rdOppSpin: '轉珠中\u2026', rdOppDone: '已出手', rdCopyCode: '複製', rdCopied: '已複製！',
         rdDrawGame: '平手！', rtShBanPick: '點選要禁消的顏色', rtPickShield: '點選要破除的盾',
         cwBan: (e) => `禁消${e}`, cwNeed: (e) => `需消${e}`, cwNeedEnh: (e) => `需消${e}強化`,
@@ -126,7 +126,7 @@
         rdCreateRoom: '建立房間', rdJoinRoom: '加入', rdRoomCode: '房號', rdLeaveRoom: '離開房間',
         rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
         rdMatched: (name) => `已配對：${name}！`, rdStartDuel: '開始對戰', rdWaitHost: '等待房主開始\u2026',
-        rdReadyUp: '準備好了，我想要開始', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備', rdGetReady: '準備中\u2026',
+        rdReadyUp: '準備好了', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備', rdGetReady: '準備中\u2026',
         rdReasonForfeit: '對手離開或逾時未行動，你獲勝。',
         rdReasonKoWin: '對手血量歸零，你獲勝。', rdReasonKoLose: '你的血量歸零，你落敗。', rdReasonDoubleKo: '雙方同時血量歸零，平手。',
         rdReasonHpWin: '回合數耗盡，你的血量較高，你獲勝。', rdReasonHpLose: '回合數耗盡，你的血量較低，你落敗。', rdReasonTimeDraw: '回合數耗盡且血量相同，平手。',
@@ -175,6 +175,14 @@
             const pp = new Path2D(); pp.arc(op.c[0], op.c[1], op.c[2], 0, PI2); return pp;
         });
     }
+    // Small Lucide UI glyphs (24×24 viewBox) for HUD pills — e.g. the time up/down arrows.
+    const UI_ICON_OPS = {
+        up: ['M12 19V5', 'M5 12l7-7 7 7'],
+        down: ['M12 5v14', 'M19 12l-7 7-7-7'],
+    };
+    const UI_PATHS = {};
+    for (const _k in UI_ICON_OPS) UI_PATHS[_k] = UI_ICON_OPS[_k].map((d) => new Path2D(d));
+
     const WEIGHTS = { fire: 1, water: 1, wood: 1, light: 1, dark: 1, heart: 0.75 };
     const WEIGHT_TOTAL = ELEMENTS.reduce((s, e) => s + WEIGHTS[e], 0);
 
@@ -1381,6 +1389,33 @@
         for (const p of paths) ctx.stroke(p);
         ctx.restore();
     }
+    // A HUD glyph from UI_PATHS (stroked, 24×24 viewBox), centred at (cx,cy).
+    function drawUiIcon(key, cx, cy, size, color, lw) {
+        const paths = UI_PATHS[key]; if (!paths) return;
+        const s = size / 24;
+        ctx.save();
+        ctx.translate(cx, cy); ctx.scale(s, s); ctx.translate(-12, -12);
+        ctx.strokeStyle = color; ctx.lineWidth = (lw || 2) / s; ctx.lineCap = 'round'; ctx.lineJoin = 'round';
+        for (const p of paths) ctx.stroke(p);
+        ctx.restore();
+    }
+    // Shared HUD pill (used for shields and the time up/down chips). kind: 'def' = blue
+    // shield, 'time' = amber time effect (with an up/down Lucide arrow). Returns its width.
+    const PILL = { h: 19, padX: 7, gap: 5, groupGap: 13, icon: 11, y: 37 };
+    function pillW(text, hasIcon, f) { ctx.font = `700 11px ${f}`; return PILL.padX * 2 + ctx.measureText(text).width + (hasIcon ? PILL.icon + 3 : 0); }
+    function drawPill(x, y, text, iconKey, kind, f) {
+        const w = pillW(text, !!iconKey, f), amber = kind === 'time';
+        ctx.fillStyle = amber ? 'rgba(255,183,94,0.16)' : 'rgba(127,212,255,0.16)';
+        roundRect(x, y, w, PILL.h, 9); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = amber ? 'rgba(255,183,94,0.6)' : 'rgba(127,212,255,0.6)';
+        roundRect(x, y, w, PILL.h, 9); ctx.stroke();
+        const col = amber ? '#ffcf8f' : '#a9e3ff';
+        ctx.fillStyle = col; ctx.font = `700 11px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        const tx = x + PILL.padX;
+        ctx.fillText(text, tx, y + PILL.h / 2 + 0.5);
+        if (iconKey) drawUiIcon(iconKey, tx + ctx.measureText(text).width + 3 + PILL.icon / 2, y + PILL.h / 2, PILL.icon, col, 2.2);
+        return w;
+    }
     function drawBoard() {
         ctx.save();
         for (let idx = 0; idx < COLS * ROWS; idx++) {
@@ -1431,22 +1466,15 @@
         drawBar(22, 20, (G.online ? MINI.ox - 34 : W - 44), 12, G.aiHp / G.aiMaxHp, '#ff5566', Math.max(0, Math.ceil(G.aiHp)) + ' / ' + G.aiMaxHp);
 
         ctx.textBaseline = 'middle';
-        // the rival's defences against YOUR attack: shields + Slow (shown together, like shields)
-        const pills = G.aiShields.map((s) => shieldLabel(s));
-        if ((G.spinMultOpp || 1) < 1) pills.push(t('rdSlowPill'));
+        // the rival's defences against YOUR attack: shields + your Slow on them (time↓), as pills
+        const specs = G.aiShields.map((s) => ({ text: shieldLabel(s), kind: 'def' }));
+        if ((G.spinMultOpp || 1) < 1) specs.push({ text: t('rdTime'), icon: 'down', kind: 'time' });
         let px = rightEdge;
-        for (let i = pills.length - 1; i >= 0; i--) {
-            const label = pills[i];
-            ctx.font = `700 11px ${f}`; ctx.textAlign = 'center';
-            const pw = ctx.measureText(label).width + 14;
-            px -= pw;
-            ctx.fillStyle = 'rgba(127,212,255,0.16)';
-            roundRect(px, 37, pw, 19, 9); ctx.fill();
-            ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(127,212,255,0.6)';
-            roundRect(px, 37, pw, 19, 9); ctx.stroke();
-            ctx.fillStyle = '#a9e3ff';
-            ctx.fillText(label, px + pw / 2, 47);
-            px -= 5;
+        for (let i = specs.length - 1; i >= 0; i--) {
+            const sp = specs[i];
+            px -= pillW(sp.text, !!sp.icon, f);
+            drawPill(px, PILL.y, sp.text, sp.icon, sp.kind, f);
+            px -= PILL.gap;
         }
         // what the rival played last attack (persists so you can study their style)
         if (G.online && G.online.oppLastCards && G.online.oppLastCards.length) {
@@ -1461,10 +1489,12 @@
     }
     function drawYouBar() {
         const f = getFont();
-        // your defence state (shields + spin penalty), on your side just above your HP
-        const defs = G.youShields.map((s) => shieldLabel(s));
-        if ((G.spinMultSelf || 1) > 1) defs.push(t('rdFastPill'));   // your own time boost, shown on your side
-        if (defs.length) { ctx.fillStyle = '#9fe0ff'; ctx.font = `700 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic'; ctx.fillText(defs.join(' · '), 22, LAY.youShieldY); }
+        // defence group (your shields, blue) and — kept visually separate — your attack
+        // measure (time↑, amber) just above your HP bar.
+        let x = 22; const py = LAY.youShieldY - 14;
+        const hasDef = G.youShields.length > 0;
+        for (const s of G.youShields) x += drawPill(x, py, shieldLabel(s), null, 'def', f) + PILL.gap;
+        if ((G.spinMultSelf || 1) > 1) { if (hasDef) x += PILL.groupGap - PILL.gap; drawPill(x, py, t('rdTime'), 'up', 'time', f); }
         // HP bar hugging the board (right above the timer bar)
         ctx.fillStyle = 'rgba(255,255,255,0.6)'; ctx.font = `600 12px ${f}`; ctx.textAlign = 'left'; ctx.textBaseline = 'alphabetic';
         ctx.fillText(t('rdHp'), 22, LAY.youHpY + 10);
