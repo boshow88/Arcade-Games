@@ -1504,8 +1504,8 @@
         // Hidden while a card is selected (Play / Discard own the row then).
         if (G.cardSel == null && (G.phase === 'defense' || G.phase === 'attack')) {
             const py = LAY.actY + (LAY.actH - PILL.h) / 2;
-            const done = doneButtonRect(), draw = drawMoreRect();
-            let x = (G.phase === 'defense' && !onlineWaiting()) ? done.x + done.w + 12 : draw.x + draw.w + 12;
+            const draw = drawMoreRect();
+            let x = draw.x + draw.w + 12;   // pills fill the middle, between Draw (left) and To-attack (right)
             const hasDef = G.youShields.length > 0;
             for (const s of G.youShields) x += drawPill(x, py, shieldLabel(s), null, 'def', f) + PILL.gap;
             const hasTime = (G.spinMultSelf || 1) > 1, played = G.playedThisRound || [];
@@ -1550,7 +1550,7 @@
     }
     function tileRect(b) { return b.i === G.cardSel ? { i: b.i, id: b.id, x: b.x - 10, y: b.y - 18, w: b.w + 20, h: b.h + 24 } : b; }
     function drawMoreRect() { return { x: 16, y: LAY.actY, w: 92, h: LAY.actH }; }
-    function doneButtonRect() { return { x: 112, y: LAY.actY, w: 120, h: LAY.actH }; }
+    function doneButtonRect() { return { x: W - 16 - 128, y: LAY.actY, w: 128, h: LAY.actH }; }   // 進入攻擊 hugs the right edge
     function playBtnRect() { return { x: W / 2 - 150, y: LAY.actY, w: 146, h: LAY.actH }; }
     function discardBtnRect() { return { x: W / 2 + 4, y: LAY.actY, w: 146, h: LAY.actH }; }
     function drawDrawButton() {
