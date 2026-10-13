@@ -1,16 +1,15 @@
 /**
- * Rune Duel — an orb-spinning versus duel (vs AI; online PvP is a later mode).
+ * Rune Clash — a two-phase orb-spinning versus match (vs a real-spinning AI, or
+ * online PvP by room code).
  *
- * A bounded duel: you and a rival each have an HP pool; it's a turn-based race to
- * zero. Each ROUND you draw a HAND of enhance cards and spend ENERGY to play them
- * (break the rival's shields, buff your spin, recolour runes…), then drag a rune
- * on your 6×5 board to clear 3+ of a colour, chain COMBOS and damage the rival —
- * but the rival raises SHIELDS each round (clear enhanced / N+ combos / a colour…)
- * that you must satisfy or your attack is blocked. HEART runes heal you; 5+ of a
- * colour forges an ENHANCED rune (×1.5). Then the rival strikes back.
+ * A bounded clash: you and a rival each hold an HP pool; it's a turn-based race to
+ * zero. Each ROUND has a DEFENSE phase (play shield cards the rival's spin must
+ * satisfy) and an ATTACK phase (play cards, then drag a rune on your 6×5 board to
+ * clear 3+ of a colour, chain COMBOS and damage the rival). Meet every shield the
+ * rival raised or your hit is blocked. HEART runes heal; clearing 5+ of a colour
+ * drops an ENHANCED rune (×1.5) in the next batch. Both sides act each round.
  *
- * This is the vs-AI card core. Defense cards (your own shields), timed phases and
- * online PvP come next. Built on window.ArcadeCommon. Canvas 2D at 600×760.
+ * Built on window.ArcadeCommon. Canvas 2D at 600×760. Online sync via Firestore.
  */
 (function () {
     'use strict';
@@ -35,8 +34,8 @@
         rdHelp2Html: 'In <strong>Attack</strong>, play cards (recolour, enhance, break shields, time), then <strong>drag a rune</strong> to line up <strong>3+ of a colour</strong>. Meet all the rival\u2019s shields or your hit is <strong>blocked</strong>. <strong>Heart</strong> heals; clearing <strong>5+</strong> of a colour drops an <strong>enhanced</strong> rune next.',
         rdHelp3Html: 'Cards cost <strong>energy</strong> (refilled each phase); <strong>Draw</strong> pulls one more for 1. Reduce the rival to <strong>0 HP</strong> to win; at the round cap, higher HP wins. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
         rdWin: 'Victory!', rdLose: 'Defeated',
-        rdOverWinHtml: (dmg, round) => `You won in <strong>${round}</strong> rounds (dealt ${dmg} damage).`,
-        rdOverLoseHtml: (dmg, round) => `You fell on round <strong>${round}</strong> (dealt ${dmg} damage).`,
+        rdOverWinHtml: (round) => `Won in <strong>${round}</strong> round(s).`,
+        rdOverLoseHtml: (round) => `Fell on round <strong>${round}</strong>.`,
         rdOverHint: 'Press R or the button to duel again.',
         rdDefense: 'Defense — play shields', rdAttack: 'Attack — cards & spin', rdDone: 'To attack \u2192', rdDraw: 'Draw', rdTimeUp: 'Time up!', rdSpinNow: 'Time\u2019s up — spin now!',
         rdPhaseDef: 'DEFENSE', rdPhaseAtk: 'ATTACK',
@@ -78,8 +77,8 @@
         rdHelp2Html: '<strong>攻擊</strong>階段出牌（轉色、附魔、破盾、時間），再<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除。須滿足對手所有的盾，否則攻擊被<strong>擋下</strong>。<strong>心</strong>珠回血；單色消 <strong>5 顆以上</strong>，下一批掉落會帶一顆<strong>強化符石</strong>。',
         rdHelp3Html: '出牌消耗<strong>能量</strong>（每階段補滿）；按<strong>抽牌</strong>花 1 點再抽一張。把對手血量打到 <strong>0</strong> 獲勝；回合用盡則血量較高者勝。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
         rdWin: '勝利！', rdLose: '落敗',
-        rdOverWinHtml: (dmg, round) => `你在第 <strong>${round}</strong> 回合獲勝（造成 ${dmg} 傷害）。`,
-        rdOverLoseHtml: (dmg, round) => `你在第 <strong>${round}</strong> 回合倒下（造成 ${dmg} 傷害）。`,
+        rdOverWinHtml: (round) => `在第 <strong>${round}</strong> 回合獲勝。`,
+        rdOverLoseHtml: (round) => `在第 <strong>${round}</strong> 回合倒下。`,
         rdOverHint: '按 R 或按鈕再對決一次。',
         rdDefense: '防禦階段——出防禦牌', rdAttack: '攻擊階段——出牌並轉珠', rdDone: '進入攻擊 \u2192', rdDraw: '抽牌', rdTimeUp: '時間到！', rdSpinNow: '時間到——快轉珠！',
         rdPhaseDef: '防禦', rdPhaseAtk: '攻擊',
@@ -1145,7 +1144,9 @@
             AC.audio.play(win && !draw ? 'levelup' : 'gameover');
             openLobby();
         } else {
-            shell.gameOver({ score: G.score, win: win, meta: { round: G.round, win, draw: !!draw, reason } });
+            if (win && !draw) recordAiWin(G.round);   // fewest-rounds best (vs-AI only)
+            shell.gameOver({ score: 0, win: win, meta: { round: G.round, win, draw: !!draw, reason } });
+            refreshBestPill();
         }
     }
 
@@ -2043,11 +2044,25 @@
     // HUD + overlay
     // =================================================================
 
+    // "Best" = fewest rounds taken to defeat the AI, per difficulty (lower is better).
+    // Online matches are honor-system and record nothing. We own the #best pill directly
+    // (the shell's score-based best is unused here).
+    function duelBest() {
+        try { const p = AC.prefs.get('rune-clash') || {}; const v = (p.bestRounds || {})[G.aiLevel]; return typeof v === 'number' ? v : null; } catch (e) { return null; }
+    }
+    function recordAiWin(rounds) {
+        try {
+            const p = AC.prefs.get('rune-clash') || {}, br = Object.assign({}, p.bestRounds);
+            if (br[G.aiLevel] == null || rounds < br[G.aiLevel]) { br[G.aiLevel] = rounds; AC.prefs.set('rune-clash', { bestRounds: br }); }
+        } catch (e) { /* ignore */ }
+    }
+    function refreshBestPill() { const b = document.getElementById('best'); if (!b) return; const v = duelBest(); b.textContent = v == null ? '\u2014' : String(v); }
     function updateHud() {
         markDirty();
         if (dom.round) dom.round.textContent = String(G.round);
         if (dom.hp) dom.hp.textContent = String(Math.max(0, Math.ceil(G.youHp)));
         if (hpStat) hpStat.classList.toggle('danger', G.youMaxHp > 0 && G.youHp / G.youMaxHp <= 0.3);
+        refreshBestPill();
     }
     function overlayContent(state, result) {
         if (state === 'idle') {
@@ -2057,10 +2072,8 @@
             const meta = (result && result.meta) || {};
             const win = !!meta.win, draw = !!meta.draw;
             const round = meta.round != null ? meta.round : G.round;
-            const dmg = AC.format.score(result ? result.score : G.score);
             const reason = meta.reason ? `<strong>${meta.reason}</strong><br>` : '';
-            let msg = reason + (win ? t('rdOverWinHtml', dmg, round) : t('rdOverLoseHtml', dmg, round));
-            if (result && result.isNewBest) msg += ` <strong>${t('newBest')}</strong>`;
+            const msg = reason + (win ? t('rdOverWinHtml', round) : t('rdOverLoseHtml', round));
             const title = draw ? t('rdDrawGame') : (win ? t('rdWin') : t('rdLose'));
             const badge = draw ? 'swords' : (win ? 'trophy' : 'skull');
             return { badge, title, message: msg, button: t('restart'), hint: t('rdOverHint') };
@@ -2110,6 +2123,7 @@
         startDefensePhase();
         G.countdown = 3;   // 3-2-1 preview of the opening board & hand before the clock starts
         if (shell) shell.refreshBest();
+        refreshBestPill();   // own the Best pill (fewest-rounds metric, not the shell score)
     }
     // =================================================================
     // Online lobby (Google / guest sign-in + room-code matchmaking)
@@ -2278,7 +2292,7 @@
         if (saved && AI_LEVELS[saved]) sel.value = saved;
         G.aiLevel = AI_LEVELS[sel.value] ? sel.value : 'normal';
         fill();
-        sel.addEventListener('change', () => { G.aiLevel = AI_LEVELS[sel.value] ? sel.value : 'normal'; try { localStorage.setItem('rd-ai-level', G.aiLevel); } catch (e) { /* ignore */ } });
+        sel.addEventListener('change', () => { G.aiLevel = AI_LEVELS[sel.value] ? sel.value : 'normal'; try { localStorage.setItem('rd-ai-level', G.aiLevel); } catch (e) { /* ignore */ } refreshBestPill(); });
         AC.i18n.subscribe(fill);
     }
     function init() {
@@ -2286,8 +2300,8 @@
         setupAiLevel();
         window.addEventListener('resize', () => { fitCanvas(); markDirty(); render(); });
         shell = AC.shell.create({
-            gameId: 'rune-duel',
-            mode: () => 'duel',
+            gameId: 'rune-clash',
+            mode: () => 'clash',
             step: 1 / 60,
             preventKeys: ['Space'],
             update,
@@ -2351,7 +2365,7 @@
             play(i) { playCard(i | 0); return G.hand; },
             info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, energy: G.energy, hand: G.hand, youShields: G.youShields, spinMultSelf: G.spinMultSelf, spinMultOpp: G.spinMultOpp, shields: G.aiShields, dealt: G.score }; },
         };
-        console.log('%c[Rune Duel] debug on', 'color:#d9544e;font-weight:700');
+        console.log('%c[Rune Clash] debug on', 'color:#d9544e;font-weight:700');
         console.log('RD.kill() hp(n) energy(n) hand() shields(k) play(i) info()');
     }
 

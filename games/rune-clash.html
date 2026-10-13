@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rune Duel · Arcade Games</title>
+    <title>Rune Clash · Arcade Games</title>
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/game.css">
@@ -29,7 +29,7 @@
             </a>
             <div class="game-title">
                 <span class="game-icon" data-icon="swords" aria-hidden="true"></span>
-                <span data-i18n="runeDuelName">Rune Duel</span>
+                <span data-i18n="runeClashName">Rune Clash</span>
             </div>
             <div class="lang-toggle" id="lang-toggle" role="radiogroup" data-i18n-aria-label="language">
                 <button type="button" data-lang="en" role="radio" aria-checked="true">EN</button>
@@ -41,10 +41,6 @@
             <div class="hud-stat accent">
                 <span class="hud-label"><span data-icon="swords" aria-hidden="true"></span><span data-i18n="rdRound">Round</span></span>
                 <span class="hud-value" id="round">1</span>
-            </div>
-            <div class="hud-stat">
-                <span class="hud-label"><span data-icon="heart" aria-hidden="true"></span><span data-i18n="rdHp">HP</span></span>
-                <span class="hud-value" id="hp">0</span>
             </div>
             <div class="hud-stat">
                 <span class="hud-label"><span data-icon="trophy" aria-hidden="true"></span><span data-i18n="best">Best</span></span>
@@ -84,7 +80,7 @@
         <div class="stage-pad">
         <div class="stage-wrap">
             <canvas class="stage-canvas drag-stage" id="stage" width="600" height="760"
-                    role="img" aria-label="Rune Duel board"></canvas>
+                    role="img" aria-label="Rune Clash board"></canvas>
             <div class="overlay" id="overlay" hidden>
                 <div class="overlay-card">
                     <span class="overlay-badge" id="overlay-badge" aria-hidden="true"></span>
@@ -102,7 +98,7 @@
             <ul>
                 <li data-i18n="rdHelp1Html">Each round, <strong>drag a rune</strong> and line up <strong>3+ of a colour</strong> to clear, chaining <strong>combos</strong> — the cleared runes <strong>damage your rival</strong>.</li>
                 <li data-i18n="rdHelp2Html">The rival raises a <strong>shield</strong> each round (clear enhanced / N+ combos / a named colour…). Meet it or your attack is blocked. <strong>Heart</strong> runes heal you; <strong>5+</strong> of a colour forges an <strong>enhanced</strong> rune.</li>
-                <li data-i18n="rdHelp3Html">Then the rival strikes back. Drop their HP to <strong>0</strong> to win the duel. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.</li>
+                <li data-i18n="rdHelp3Html">Then the rival strikes back. Drop their HP to <strong>0</strong> to win. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.</li>
             </ul>
         </section>
     </div>
@@ -110,6 +106,6 @@
     <script src="../js/common.js"></script>
     <script src="../js/firebase-config.js"></script>
     <script type="module" src="../js/net/net.js"></script>
-    <script src="../js/games/rune-duel.js"></script>
+    <script src="../js/games/rune-clash.js"></script>
 </body>
 </html>

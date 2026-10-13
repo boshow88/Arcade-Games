@@ -182,12 +182,13 @@ All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
 
 ---
 
-## Rune Duel
+## Rune Clash
 
-A two-phase orb-spinning **versus duel** — a bounded match, not an endless climb.
+A two-phase orb-spinning **versus match** — a bounded clash, not an endless climb.
 You and the rival each hold an HP pool; it's a race to zero. Play **vs a
 real-spinning AI** (Easy / Normal / Hard) or **online** against another person by
-room code. `best` = total damage dealt.
+room code. **Best** = the fewest rounds you've taken to beat the AI (per
+difficulty); online matches are honor-system and record nothing.
 
 ### Board & spinning
 
@@ -309,7 +310,7 @@ the reason.
 
 ### Tuning
 
-All at the top of `js/games/rune-duel.js`: `DUEL` (HP, round cap, energy, hand size,
+All at the top of `js/games/rune-clash.js`: `DUEL` (HP, round cap, energy, hand size,
 `phaseTimeDef` / `phaseTimeAtk`, resolve pause), `BALANCE` (spin time, base damage,
 heart heal, combo step, enhanced ×), `AI_LEVELS` (per-difficulty solver `tries` /
 `pathLen` / `skill` / shield stacking), and the `CARDS` pool built in `buildCards()`

@@ -380,6 +380,7 @@
             tagScore: 'Score chase',
             tagCombo: 'Combo',
             tagEndless: 'Endless',
+            tagVersus: 'Versus',
 
             // Colour Ladder card (real-time ghost-leg / amidakuji)
             ladderConnectName: 'Colour Ladder',
@@ -393,11 +394,11 @@
             dotDodgeCardBody:
                 'Bullets pour in from every side. Fly your dot, weave through the gaps, and last as long as you can.',
 
-            // Rune Duel card (orb-spinning versus duel — WIP)
-            runeDuelName: 'Rune Duel',
-            runeDuelTagline: 'Spin to duel; break their shields.',
-            runeDuelCardBody:
-                'A turn-based orb-spinning duel against an AI — chain combos, break shields, and outlast your rival. In the works.',
+            // Rune Clash card (two-phase orb-spinning versus match)
+            runeClashName: 'Rune Clash',
+            runeClashTagline: 'Spin, break shields, outlast your rival.',
+            runeClashCardBody:
+                'A two-phase orb-spinning match: raise shields, play cards, then spin to break the rival\u2019s shields. Versus a real-spinning AI (Easy/Normal/Hard) or online by room code.',
 
         },
         zh: {
@@ -438,6 +439,7 @@
             tagScore: '衝分',
             tagCombo: '連擊',
             tagEndless: '無盡',
+            tagVersus: '對戰',
 
             ladderConnectName: '彩球梯',
             ladderConnectTagline: '移動橫線，把球導到對的籃子。',
@@ -449,10 +451,10 @@
             dotDodgeCardBody:
                 '子彈從四面八方湧入。在縫隙間穿梭閃避，盡量撐久一點。',
 
-            runeDuelName: '符石對決',
-            runeDuelTagline: '轉珠對決，破盾取勝。',
-            runeDuelCardBody:
-                '回合制的轉珠對決，對手是 AI——串連擊、破敵盾、拚到對方先沒血。開發中。',
+            runeClashName: '符石交鋒',
+            runeClashTagline: '轉珠佈盾，破盾拚到底。',
+            runeClashCardBody:
+                '兩階段的轉珠較量：佈盾、出牌，再轉珠破解對手的盾。可對戰會轉珠的 AI（簡單／普通／困難）或用房號線上對戰。',
         },
     };
 
