@@ -846,15 +846,25 @@
     // Difficulty scales the solver's search (how good its spins are), how skilfully it
     // reacts to your shields, and how often it mends / stacks shields.
     // =================================================================
-    // `beamW` / `beamD` drive the beam-search orb solver (width × depth): it keeps the best
-    // drag-path prefixes at each step, so wider/deeper = stronger spins (more combos). Tuned so
-    // that, with no defending shields, average combos land at ~3 (easy) / ~5 (normal) / ~7 (hard).
-    // skill = chance it reacts to each of your shields with the right card; defCount = shields it
-    // raises on you; mend / slowChance = extras.
+    // ------------------------------------------------------------------------------------
+    // AI difficulty parameters — the ONLY place to tune the rival. The AI never draws from
+    // the card pool; it reasons about EFFECTS, so changing card costs / counts / weights
+    // (the CARDS table) never touches this logic.
+    //   beamW / beamD   beam-search width × depth for the real spin. Wider/deeper = stronger
+    //                   spins (more combos). Tuned so that with no shields, average combos
+    //                   land at ~3 (easy) / ~5 (normal) / ~7 (hard).
+    //   evalW / evalD   beam used only to JUDGE card plays (break vs. reshape). Bigger = it
+    //                   foresees more accurately which of your shields it can out-spin.
+    //   actBudget       how many reactive cards it may play per attack (reshape / break).
+    //   skill           chance it keeps reacting each step (lower = dithers / misses plays).
+    //   defCount        how many shields it raises on you each round.
+    //   mend            chance to heal 5% HP at the start of its turn.
+    //   slowChance      chance it shortens YOUR spin time that round.
+    // ------------------------------------------------------------------------------------
     const AI_LEVELS = {
-        easy: { beamW: 1, beamD: 3, skill: 0.4, defCount: 1, mend: 0.1, slowChance: 0.1 },
-        normal: { beamW: 4, beamD: 6, skill: 0.75, defCount: 1, mend: 0.22, slowChance: 0.28 },
-        hard: { beamW: 10, beamD: 11, skill: 0.97, defCount: 2, mend: 0.38, slowChance: 0.55 },
+        easy:   { beamW: 1,  beamD: 3,  evalW: 2, evalD: 4, actBudget: 1, skill: 0.4,  defCount: 1, mend: 0.1,  slowChance: 0.1 },
+        normal: { beamW: 4,  beamD: 6,  evalW: 4, evalD: 6, actBudget: 2, skill: 0.75, defCount: 1, mend: 0.22, slowChance: 0.28 },
+        hard:   { beamW: 10, beamD: 11, evalW: 6, evalD: 8, actBudget: 3, skill: 0.97, defCount: 2, mend: 0.38, slowChance: 0.55 },
     };
     function aiCfg() { return AI_LEVELS[G.aiLevel] || AI_LEVELS.normal; }
     // lightweight board = array of { el, enhanced } | null (no gfx/shape — sim only)
@@ -917,15 +927,10 @@
     function neighborsOf(idx) { const r = cellRow(idx), c = cellCol(idx), out = []; if (r > 0) out.push(idx - COLS); if (r < ROWS - 1) out.push(idx + COLS); if (c > 0) out.push(idx - 1); if (c < COLS - 1) out.push(idx + 1); return out; }
     function simEnchant(a, n) { const c = []; for (let i = 0; i < a.length; i++) if (a[i] && !a[i].enhanced) c.push(i); for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); a[c[j]].enhanced = true; c.splice(j, 1); } }
     function simTransmuteTo(a, to, n) { const c = []; for (let i = 0; i < a.length; i++) if (a[i] && a[i].el !== to) c.push(i); for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); a[c[j]].el = to; c.splice(j, 1); } }
-    // Beam-search solver: keep the `width` best drag-path prefixes at each of `depth` steps,
+    // Beam-search core: keep the `width` best drag-path prefixes at each of `depth` steps,
     // scoring each prefix by the spin it would produce (combos first, then damage, never a
-    // shield-blocked one). The best prefix's settled board is written back to `a` so the
-    // mini-board shows exactly the result we scored.
-    function aiSolve(a, youShields) {
-        const cfg = aiCfg();
-        const slow = Math.pow(0.6, G.aiSlow || 0);   // your Shorten cramps its "thinking"
-        const width = Math.max(1, Math.round((cfg.beamW || 4) * slow));
-        const depth = Math.max(3, Math.round((cfg.beamD || 6) * (0.6 + 0.4 * slow)));
+    // shield-blocked one). Returns the best spin result + its settled board (board untouched).
+    function beamSpin(a, youShields, width, depth) {
         const N = COLS * ROWS;
         let cur = [];
         for (let s = 0; s < N; s++) cur.push({ board: simClone(a), pos: s });
@@ -948,8 +953,45 @@
             scored.sort((x, y) => y.key - x.key);
             cur = scored.slice(0, width).map((e) => ({ board: e.board, pos: e.pos }));
         }
-        if (bestSettled) for (let i = 0; i < a.length; i++) a[i] = bestSettled[i];
-        return bestRes || simResolve(a);   // authoritative result (same rollout we scored)
+        return { res: bestRes, settled: bestSettled };
+    }
+    function beamDims(wBase, dBase, slowN) {
+        const slow = Math.pow(0.6, Math.max(0, slowN || 0));   // your Shorten cramps its "thinking"
+        return { width: Math.max(1, Math.round(wBase * slow)), depth: Math.max(3, Math.round(dBase * (0.6 + 0.4 * slow))) };
+    }
+    // The real spin: run the difficulty beam, write the settled board back to `a` (so the
+    // mini-board shows exactly the result), return that same rollout's result.
+    function aiSolve(a, youShields) {
+        const cfg = aiCfg();
+        const { width, depth } = beamDims(cfg.beamW || 4, cfg.beamD || 6, G.aiSlow || 0);
+        const r = beamSpin(a, youShields, width, depth);
+        if (r.settled) for (let i = 0; i < a.length; i++) a[i] = r.settled[i];
+        return r.res || simResolve(a);
+    }
+    // Judge a hypothetical: how good is a spin from board `a` against `shields`, if your
+    // Shorten on the AI were `slowN` stacks? Returns an expected-value scalar (blocked = awful).
+    // Used by aiPlayCards to decide whether reshaping or breaking a shield is worth it.
+    function aiEval(a, shields, slowN) {
+        const cfg = aiCfg();
+        const { width, depth } = beamDims(cfg.evalW || 4, cfg.evalD || 6, slowN);
+        const r = beamSpin(simClone(a), shields, Math.max(2, width), Math.max(4, depth));
+        if (!r.res) return 0;
+        const blocked = shieldsBlock(shields, r.res.stats);
+        return blocked ? -1e6 + r.res.stats.combos : r.res.dmg + r.res.heal * 0.3;
+    }
+    // One reshape option for a shield the AI can satisfy by transmuting / enchanting its own
+    // board (returns a reshaped clone + the card id to show). null if no reshape fits.
+    function reshapeFor(a, s) {
+        const b = simClone(a);
+        if (s.type === 'enhanced') { simEnchant(b, 3); return { board: b, played: 'ench_rand' }; }
+        if (s.type === 'enhancedEl' && s.elements) {
+            const el = s.elements[0];
+            simTransmuteTo(b, el, 3);
+            let n = 3; for (let i = 0; i < b.length && n > 0; i++) if (b[i] && b[i].el === el && !b[i].enhanced) { b[i].enhanced = true; n--; }
+            return { board: b, played: 'ench_' + el };
+        }
+        if (s.type === 'element' && s.mode === 'contains' && s.elements) { simTransmuteTo(b, s.elements[0], 4); return { board: b, played: 'trFr_' + s.elements[0] }; }
+        return null;
     }
 
     // Reactive defense: raise the shields that hurt YOU most, read off your board.
@@ -1030,8 +1072,11 @@
         updateHud();
     }
     // Step 1 (runs the moment the rival's turn begins): it "plays its attack cards"
-    // reactively to YOUR shields, reshaping its board. Revealed immediately so you see
-    // the cards and the transmuted/enchanted board before it spins.
+    // reactively to YOUR shields, reshaping its board and/or breaking shields it can't
+    // out-spin. Revealed immediately so you see the cards and the reshaped board before it
+    // spins. It decides greedily: each step it simulates every option (reshape a shield it can
+    // satisfy, break a shield outright, or break a stack of your Shorten) and takes the one
+    // that most raises its expected damage — so stronger levels break at the right moments.
     function aiPlayCards() {
         const cfg = aiCfg();
         G.aiPlayed = [];
@@ -1041,14 +1086,36 @@
             G.aiHp = Math.min(G.aiMaxHp, G.aiHp + h);
             addFloat(W / 2, 48, t('rdRivalMend') + ' +' + h, '#8fd1a0', 18);
         }
-        const a = simFromBoard(G.aiBoard);
-        for (const s of G.youShields) {
-            if (AC.rng.float(G.rng, 0, 1) > cfg.skill) continue;   // skill: it may miss the right card
-            if (s.type === 'enhanced') { simEnchant(a, 3); G.aiPlayed.push('ench_rand'); }
-            else if (s.type === 'enhancedEl' && s.elements) { simTransmuteTo(a, s.elements[0], 3); simEnchant(a, 3); G.aiPlayed.push('ench_' + s.elements[0]); }
-            else if (s.type === 'element' && s.mode === 'contains') { simTransmuteTo(a, s.elements[0], 4); G.aiPlayed.push('trFr_' + s.elements[0]); }
+        let a = simFromBoard(G.aiBoard);
+        let shields = G.youShields.slice();
+        let slowN = G.aiSlow || 0;                 // your Shorten on the AI (beam-weakening)
+        let budget = cfg.actBudget || 1;
+        while (budget-- > 0) {
+            if (AC.rng.float(G.rng, 0, 1) > cfg.skill) break;   // skill: may stop / miss a play
+            const base = aiEval(a, shields, slowN);
+            let best = null, bestGain = -Infinity;
+            for (let i = 0; i < shields.length; i++) {          // reshape to satisfy a shield
+                const b = reshapeFor(a, shields[i]); if (!b) continue;
+                const g = aiEval(b.board, shields, slowN) - base;
+                if (g > bestGain) { bestGain = g; best = { kind: 'reshape', board: b.board, played: b.played }; }
+            }
+            for (let i = 0; i < shields.length; i++) {          // break a shield outright
+                const g = aiEval(a, shields.slice(0, i).concat(shields.slice(i + 1)), slowN) - base;
+                if (g > bestGain) { bestGain = g; best = { kind: 'breakShield', idx: i }; }
+            }
+            if (slowN > 0) {                                    // break a stack of your Shorten
+                const g = aiEval(a, shields, slowN - 1) - base;
+                if (g > bestGain) { bestGain = g; best = { kind: 'breakTime' }; }
+            }
+            const minGain = base > 0 ? base * 0.2 + 20 : 1;     // only act on a real improvement
+            if (!best || bestGain < minGain) break;
+            if (best.kind === 'reshape') { a = best.board; G.aiPlayed.push(best.played); }
+            else if (best.kind === 'breakShield') { shields.splice(best.idx, 1); G.aiPlayed.push('brk_pick'); }
+            else { slowN = Math.max(0, slowN - 1); G.aiPlayed.push('brk_pick'); }
         }
-        G.aiBoard = a;   // reshaped board shown now (card effects visible before the spin)
+        G.aiBoard = a;              // reshaped board shown now (card effects visible before the spin)
+        G.youShields = shields;     // shields it broke are gone for the imminent spin + block check
+        G.aiSlow = slowN;           // broken Shorten stacks restore its spin strength
         updateHud(); markDirty();
     }
     // Step 2 (after a short think): it actually spins, settling its board, then strikes.
