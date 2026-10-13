@@ -665,7 +665,20 @@
     function cardPhaseOk(id) { return (CARDS[id].type === 'defense') === (G.phase === 'defense'); }
     function addShield(s) { G.youShields.push(s); }
     function applySlow() { G.mySlow = (G.mySlow || 0) + 1; if (G.online) G.online.slowOpp = (G.online.slowOpp || 0) + 1; else G.aiTimeMult = (G.aiTimeMult || 1) * 0.7; }   // offline: cramp the AI's spin time → smaller beam
-    function randEl() { return ELEMENTS[AC.rng.int(G.rng, 0, ELEMENTS.length)]; }
+    // Random-colour shields pick a non-heart colour you haven't already demanded / banned this
+    // round, so stacking two "random colour" cards gives two distinct, useful constraints
+    // (only falling back to a repeat once every attack colour is already covered).
+    function randShieldEl(kind) {
+        const used = new Set();
+        for (const s of G.youShields) {
+            if (!s) continue;
+            if (kind === 'ban') { if (s.type === 'element' && s.mode === 'ban') (s.elements || []).forEach((e) => used.add(e)); }
+            else if (s.type === 'enhancedEl' || (s.type === 'element' && s.mode === 'contains')) (s.elements || []).forEach((e) => used.add(e));
+        }
+        const pool = ATTACK_ELEMENTS.filter((e) => !used.has(e));
+        const src = pool.length ? pool : ATTACK_ELEMENTS;
+        return src[AC.rng.int(G.rng, 0, src.length)];
+    }
     function playCard(i) {
         const id = G.hand[i];
         const c = id && CARDS[id];
@@ -674,13 +687,13 @@
             // --- defense shields ---
             case 'ban': addShield({ type: 'element', mode: 'ban', elements: [c.el] }); break;
             case 'need': addShield({ type: 'element', mode: 'contains', elements: [c.el] }); break;
-            case 'banRand': addShield({ type: 'element', mode: 'ban', elements: [randEl()] }); break;
-            case 'needRand': addShield({ type: 'element', mode: 'contains', elements: [randEl()] }); break;
+            case 'banRand': addShield({ type: 'element', mode: 'ban', elements: [randShieldEl('ban')] }); break;
+            case 'needRand': addShield({ type: 'element', mode: 'contains', elements: [randShieldEl('need')] }); break;
             case 'banPick': return openPick(i, id, 'rtShBanPick', (e) => addShield({ type: 'element', mode: 'ban', elements: [e] }));
             case 'needPick': return openPick(i, id, 'rtShBanPick', (e) => addShield({ type: 'element', mode: 'contains', elements: [e] }));
             case 'needEnhAny': addShield({ type: 'enhanced' }); break;
             case 'needEnhEl': addShield({ type: 'enhancedEl', elements: [c.el] }); break;
-            case 'needEnhRand': addShield({ type: 'enhancedEl', elements: [randEl()] }); break;
+            case 'needEnhRand': addShield({ type: 'enhancedEl', elements: [randShieldEl('need')] }); break;
             case 'needEnhPick': return openPick(i, id, 'rtShBanPick', (e) => addShield({ type: 'enhancedEl', elements: [e] }));
             case 'comboMin': addShield({ type: 'combo', mode: 'min', n: c.n }); break;
             case 'comboMax': addShield({ type: 'combo', mode: 'max', n: c.n }); break;
@@ -814,6 +827,7 @@
         }
     }
     function shieldsBlock(shields, stats) { return shields.some((s) => shieldUnmet(s, stats)); }
+    function sameShield(a, b) { return !!a && !!b && a.type === b.type && a.mode === b.mode && a.n === b.n && (a.elements || []).join(',') === (b.elements || []).join(','); }
     function shieldLabel(s) {
         if (!s) return '';
         const names = (s.elements || []).map((el) => t('el_' + el)).join('·');
@@ -1097,7 +1111,12 @@
             else {
                 let el = pick.el;
                 if (el && AC.rng.float(G.rng, 0, 1) > cfg.skill) el = ATTACK_ELEMENTS[AC.rng.int(G.rng, 0, ATTACK_ELEMENTS.length)];   // weak: wrong target
-                const s = defenseShield(id, el); if (s) shields.push(s); else break;
+                let s = defenseShield(id, el);
+                if (s && el && shields.some((o) => sameShield(o, s))) {   // colour already covered → shift to a free one, else drop
+                    const free = ATTACK_ELEMENTS.map((e) => defenseShield(id, e)).filter((x) => x && !shields.some((o) => sameShield(o, x)));
+                    s = free.length ? free[AC.rng.int(G.rng, 0, free.length)] : null;
+                }
+                if (s && !shields.some((o) => sameShield(o, s))) shields.push(s);
             }
             G.aiEnergy -= c.cost; G.aiHand.splice(pick.h, 1);
             // stop once we've spent most of our energy on defense (leave a little slack)
