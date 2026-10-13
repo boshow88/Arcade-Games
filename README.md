@@ -15,7 +15,7 @@ retry.
 | -------------- | -------- | ------------------------------------------------------------------- |
 | Colour Ladder | Playable | Real-time ghost-leg: move colour-gated rungs to route colour balls into baskets |
 | Bullet Storm   | Playable | Omnidirectional bullet-dodge survival; relative-drag control, lasers & homing, score = survival time |
-| Rune Clash     | Playable | Two-phase orb-spinning versus match — raise shields, play cards, then spin to break the rival's shields. Vs a real-spinning AI (Easy/Normal/Hard) or online by room code; best = fewest rounds to beat the AI |
+| Rune Clash     | Playable | Two-phase orb-spinning versus match — raise shields, play cards, then spin to break the rival's shields. Vs a real-spinning computer opponent (Easy/Normal/Hard) or online by room code; best = fewest rounds to beat the computer |
 
 Full rule reference: [`docs/rules.md`](docs/rules.md).
 Architecture & dev notes: [`docs/DEV.md`](docs/DEV.md).

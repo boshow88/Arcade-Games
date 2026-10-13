@@ -404,7 +404,7 @@
             runeClashName: 'Rune Clash',
             runeClashTagline: 'Raise shields, play cards, then spin to break through.',
             runeClashCardBody:
-                'Raise shields, play cards, then spin to break the rival\u2019s shields. Versus AI or online.',
+                'Raise shields, play cards, then spin to break the rival\u2019s shields. Versus the computer or online.',
 
         },
         zh: {
@@ -460,7 +460,7 @@
             runeClashName: '符石交鋒',
             runeClashTagline: '佈盾、出牌，再轉珠破盾。',
             runeClashCardBody:
-                '佈盾、出牌，再轉珠破解對手的盾。可對戰 AI 或線上對戰。',
+                '佈盾、出牌，再轉珠破解對手的盾。可對戰電腦或線上對戰。',
         },
     };
 

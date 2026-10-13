@@ -186,9 +186,9 @@ All balance values live in `CONFIG` + `DIFFICULTIES` at the top of
 
 A two-phase orb-spinning **versus match** — a bounded clash, not an endless climb.
 You and the rival each hold an HP pool; it's a race to zero. Play **vs a
-real-spinning AI** (Easy / Normal / Hard) or **online** against another person by
-room code. **Best** = the fewest rounds you've taken to beat the AI (per
-difficulty); online matches are honor-system and record nothing.
+real-spinning computer opponent** (Easy / Normal / Hard) or **online** against
+another person by room code. **Best** = the fewest rounds you've taken to beat the
+computer (per difficulty); online matches are honor-system and record nothing.
 
 ### Board & spinning
 
@@ -283,14 +283,14 @@ common). Element families have one card per element.
 | Break random | Remove a random rival shield / time-shorten | 5 | 10 | 1 |
 | Break chosen | Remove a chosen rival shield / time-shorten | 8 | 5 | 1 |
 
-### Versus AI
+### Versus the computer
 
-Pick **Easy / Normal / Hard** on the game page (kept per browser). The AI has **its
-own board and really spins** — a heuristic solver searches drag paths and keeps the
-best spin that still meets your shields. It also **reads your board** to raise
-shields (e.g. demands a colour you're short on) and **plays attack cards** to meet
-yours before spinning. Difficulty scales its search, skill and shield stacking;
-your **Shorten** cramps its spin.
+Pick **Easy / Normal / Hard** on the game page (kept per browser). The computer has
+**its own board and really spins** — a beam-search solver searches drag paths and
+keeps the best spin that still meets your shields. It also **reads your board** to
+raise shields (e.g. demands a colour you're short on) and **plays attack cards from
+its own hand** to meet yours or boost its spin. Difficulty scales its search and
+skill; your **Shorten** cramps its spin.
 
 ### Online PvP
 
