@@ -56,7 +56,7 @@
         rdRoomCreated: (code) => `Room ${code} — waiting for opponent\u2026`, rdWaitingOpp: 'Waiting for opponent\u2026',
         rdMatched: (name) => `Matched with ${name}!`,
         rdReadyUp: 'I\u2019m ready to start', rdReadyWait: 'Ready \u2014 waiting for opponent\u2026', rdOppReady: 'opponent ready',
-        rdDifficulty: 'Difficulty', rdLvEasy: 'Easy', rdLvNormal: 'Normal', rdLvHard: 'Hard', rdTimeShort: 'Time shorten',
+        rdLvEasy: 'Easy', rdLvNormal: 'Normal', rdLvHard: 'Hard', rdTimeShort: 'Time shorten',
         rdReasonForfeit: 'Opponent left or timed out \u2014 you win.',
         rdReasonKoWin: 'Rival HP hit 0 \u2014 you win.', rdReasonKoLose: 'Your HP hit 0 \u2014 you lose.', rdReasonDoubleKo: 'Both HP hit 0 \u2014 draw.',
         rdReasonHpWin: 'Round limit reached \u2014 more HP, you win.', rdReasonHpLose: 'Round limit reached \u2014 less HP, you lose.', rdReasonTimeDraw: 'Round limit reached, equal HP \u2014 draw.',
@@ -99,7 +99,7 @@
         rdRoomCreated: (code) => `房號 ${code}——等待對手加入\u2026`, rdWaitingOpp: '等待對手\u2026',
         rdMatched: (name) => `已配對：${name}！`,
         rdReadyUp: '準備好了', rdReadyWait: '已準備，等待對手\u2026', rdOppReady: '對手已準備',
-        rdDifficulty: '難度', rdLvEasy: '簡單', rdLvNormal: '普通', rdLvHard: '困難', rdTimeShort: '時間縮短',
+        rdLvEasy: '簡單', rdLvNormal: '普通', rdLvHard: '困難', rdTimeShort: '時間縮短',
         rdReasonForfeit: '對手離開或逾時未行動，你獲勝。',
         rdReasonKoWin: '對手血量歸零，你獲勝。', rdReasonKoLose: '你的血量歸零，你落敗。', rdReasonDoubleKo: '雙方同時血量歸零，平手。',
         rdReasonHpWin: '回合數耗盡，你的血量較高，你獲勝。', rdReasonHpLose: '回合數耗盡，你的血量較低，你落敗。', rdReasonTimeDraw: '回合數耗盡且血量相同，平手。',
@@ -301,6 +301,7 @@
     let board = G.board;
     let seedCounter = 1;
     let shell = null;
+    let staged = 'normal';     // selected difficulty (seg); committed to G.aiLevel on each run
     let fontCache = null;
     let accentCache = null;
     let defaultShape = null;
@@ -845,10 +846,13 @@
     // Difficulty scales the solver's search (how good its spins are), how skilfully it
     // reacts to your shields, and how often it mends / stacks shields.
     // =================================================================
+    // `tries` / `pathLen` drive the random-restart orb solver: more/longer tries = better
+    // spins (more combos → more damage). skill = chance it reacts to each of your shields
+    // with the right card; defCount = shields it raises on you; mend / slowChance = extras.
     const AI_LEVELS = {
-        easy: { tries: 14, pathLen: 6, skill: 0.45, defCount: 1, mend: 0.12, slowChance: 0.12 },
-        normal: { tries: 46, pathLen: 9, skill: 0.72, defCount: 1, mend: 0.22, slowChance: 0.25 },
-        hard: { tries: 120, pathLen: 13, skill: 0.92, defCount: 2, mend: 0.32, slowChance: 0.4 },
+        easy: { tries: 12, pathLen: 6, skill: 0.4, defCount: 1, mend: 0.1, slowChance: 0.1 },
+        normal: { tries: 80, pathLen: 11, skill: 0.75, defCount: 1, mend: 0.22, slowChance: 0.28 },
+        hard: { tries: 520, pathLen: 18, skill: 0.97, defCount: 2, mend: 0.38, slowChance: 0.55 },
     };
     function aiCfg() { return AI_LEVELS[G.aiLevel] || AI_LEVELS.normal; }
     // lightweight board = array of { el, enhanced } | null (no gfx/shape — sim only)
@@ -2048,7 +2052,7 @@
     // Online matches are honor-system and record nothing. We own the #best pill directly
     // (the shell's score-based best is unused here).
     function duelBest() {
-        try { const p = AC.prefs.get('rune-clash') || {}; const v = (p.bestRounds || {})[G.aiLevel]; return typeof v === 'number' ? v : null; } catch (e) { return null; }
+        try { const p = AC.prefs.get('rune-clash') || {}; const v = (p.bestRounds || {})[staged]; return typeof v === 'number' ? v : null; } catch (e) { return null; }
     }
     function recordAiWin(rounds) {
         try {
@@ -2086,6 +2090,7 @@
     // =================================================================
 
     function resetRun() {
+        if (!G.online) G.aiLevel = staged;   // commit the selected difficulty for this run (vs-AI)
         G.rng = AC.rng.make((((Math.random() * 0x7fffffff) | 0) ^ (Date.now() & 0xffffff)) >>> 0);   // random board each run
         G.youHp = G.youMaxHp = DUEL.hp;
         G.aiHp = G.aiMaxHp = DUEL.hp;
@@ -2124,6 +2129,7 @@
         G.countdown = 3;   // 3-2-1 preview of the opening board & hand before the clock starts
         if (shell) shell.refreshBest();
         refreshBestPill();   // own the Best pill (fewest-rounds metric, not the shell score)
+        syncDiffButtons();   // committed difficulty now matches the staged pick
     }
     // =================================================================
     // Online lobby (Google / guest sign-in + room-code matchmaking)
@@ -2281,23 +2287,37 @@
         else window.addEventListener('arcade-net-ready', onReady, { once: true });
     }
 
-    function setupAiLevel() {
-        const sel = document.getElementById('ai-level'); if (!sel) return;
-        const lbl = document.getElementById('ai-level-label');
-        const fill = () => {
-            if (sel.options.length >= 3) { sel.options[0].textContent = t('rdLvEasy'); sel.options[1].textContent = t('rdLvNormal'); sel.options[2].textContent = t('rdLvHard'); }
-            if (lbl) lbl.textContent = t('rdDifficulty');
-        };
-        let saved = null; try { saved = localStorage.getItem('rd-ai-level'); } catch (e) { /* ignore */ }
-        if (saved && AI_LEVELS[saved]) sel.value = saved;
-        G.aiLevel = AI_LEVELS[sel.value] ? sel.value : 'normal';
-        fill();
-        sel.addEventListener('change', () => { G.aiLevel = AI_LEVELS[sel.value] ? sel.value : 'normal'; try { localStorage.setItem('rd-ai-level', G.aiLevel); } catch (e) { /* ignore */ } refreshBestPill(); });
-        AC.i18n.subscribe(fill);
+    // Difficulty picker — a segmented button group, same pattern as the other games:
+    // picking only *stages* a level; it's committed to G.aiLevel on the next run (Restart
+    // or Play again). On the ready screen it applies at once. Best is kept per difficulty.
+    function syncDiffButtons() {
+        const seg = document.getElementById('difficulty-seg'); if (!seg) return;
+        for (const b of seg.querySelectorAll('button[data-diff]')) {
+            const d = b.dataset.diff;
+            b.classList.toggle('active', d === staged);                               // staged pick
+            b.classList.toggle('committed', d === G.aiLevel && G.aiLevel !== staged);  // what this run uses
+            b.setAttribute('aria-checked', d === staged ? 'true' : 'false');
+        }
+    }
+    function setDifficulty(d) {
+        if (!AI_LEVELS[d] || d === staged) return;
+        staged = d;
+        try { AC.prefs.set('rune-clash', { difficulty: d }); } catch (e) { /* ignore */ }
+        if (shell && shell.state === 'idle') { resetRun(); render(); }   // ready screen → apply now
+        else { syncDiffButtons(); refreshBestPill(); }                   // mid-run → stage for next run
+    }
+    function setupDifficulty() {
+        const seg = document.getElementById('difficulty-seg'); if (!seg) return;
+        let saved = null; try { saved = (AC.prefs.get('rune-clash') || {}).difficulty; } catch (e) { /* ignore */ }
+        staged = AI_LEVELS[saved] ? saved : 'normal';
+        G.aiLevel = staged;
+        seg.addEventListener('click', (e) => { const btn = e.target.closest('button[data-diff]'); if (btn) { AC.audio.unlock(); setDifficulty(btn.dataset.diff); } });
+        syncDiffButtons();
+        AC.i18n.subscribe(syncDiffButtons);
     }
     function init() {
         fitCanvas();
-        setupAiLevel();
+        setupDifficulty();
         window.addEventListener('resize', () => { fitCanvas(); markDirty(); render(); });
         shell = AC.shell.create({
             gameId: 'rune-clash',

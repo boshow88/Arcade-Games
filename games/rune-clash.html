@@ -16,8 +16,6 @@
         .lobby-status { min-height: 1.3em; margin: 10px 2px 2px; color: rgba(255,255,255,0.85); font-size: 14px; }
         .lobby-code { font-size: 28px; font-weight: 600; letter-spacing: 7px; color: rgba(230,236,255,0.9); margin: 8px 0 2px; text-align: center; }
         #lobby .overlay-card { gap: 4px; }
-        .ai-level { display: inline-flex; align-items: center; gap: 6px; font-size: 13px; color: rgba(255,255,255,0.75); }
-        .ai-level select { padding: 6px 8px; border-radius: 8px; border: 1px solid rgba(255,255,255,0.2); background: rgba(255,255,255,0.08); color: #fff; font: inherit; }
     </style>
 </head>
 <body>
@@ -53,14 +51,11 @@
                 <span data-icon="swords" aria-hidden="true"></span>
                 <span data-i18n="rdOnlineBtn">Online</span>
             </button>
-            <label class="ai-level" id="ai-level-wrap">
-                <span id="ai-level-label">Difficulty</span>
-                <select id="ai-level">
-                    <option value="easy"></option>
-                    <option value="normal"></option>
-                    <option value="hard"></option>
-                </select>
-            </label>
+            <div class="seg" id="difficulty-seg" role="radiogroup" data-i18n-aria-label="difficulty">
+                <button type="button" class="btn toggle" data-diff="easy" data-i18n="rdLvEasy">Easy</button>
+                <button type="button" class="btn toggle" data-diff="normal" data-i18n="rdLvNormal">Normal</button>
+                <button type="button" class="btn toggle" data-diff="hard" data-i18n="rdLvHard">Hard</button>
+            </div>
             <span class="spacer"></span>
             <div class="control-actions">
                 <button class="btn" id="pause-btn" type="button" disabled>
