@@ -285,6 +285,12 @@
             + '<path d="M14.5 17.5 3.586 6.586A2 2 0 0 1 3 5.172V3h2.172a2 2 0 0 1 1.414.586L17.5 14.5"/>'
             + '<path d="m14.828 6.172 2.586-2.586A2 2 0 0 1 18.828 3H21v2.172a2 2 0 0 1-.586 1.414l-2.586 2.586"/>'
             + '<path d="m16 16 4 4"/><path d="m19 21 2-2"/><path d="m5 14 4 4"/><path d="m5 21-2-2"/><path d="M7.5 16.5 4 20"/>',
+        // a carved rune-stone (gem outline + a Fehu-like rune) for Rune Clash
+        runestone:
+            '<path d="M6 3h12l4 6-10 13L2 9Z"/>'
+            + '<path d="M10 6.5v9"/>'
+            + '<path d="M10 8 14 6"/>'
+            + '<path d="M10 11 14 9"/>',
         puzzle:
             '<path d="M15.39 4.39a1 1 0 0 0 1.68-.474 2.5 2.5 0 1 1 3.014 3.015 1 1 0 0 0-.474 1.68l1.683 1.682a2.414 2.414 0 0 1 0 3.414L19.61 19.39a1 1 0 0 1-1.68-.474 2.5 2.5 0 1 0-3.014 3.015 1 1 0 0 1 .474 1.68l-1.683 1.682a2.414 2.414 0 0 1-3.414 0L8.61 19.61a1 1 0 0 0-1.68.474 2.5 2.5 0 1 1-3.014-3.015 1 1 0 0 0 .474-1.68l-1.683-1.682a2.414 2.414 0 0 1 0-3.414L4.39 8.61a1 1 0 0 1 1.68.474 2.5 2.5 0 1 0 3.014-3.015 1 1 0 0 1-.474-1.68l1.683-1.682a2.414 2.414 0 0 1 3.414 0z"/>',
         skull:
@@ -396,9 +402,9 @@
 
             // Rune Clash card (two-phase orb-spinning versus match)
             runeClashName: 'Rune Clash',
-            runeClashTagline: 'Spin, break shields, outlast your rival.',
+            runeClashTagline: 'Raise shields, play cards, then spin to break through.',
             runeClashCardBody:
-                'A two-phase orb-spinning match: raise shields, play cards, then spin to break the rival\u2019s shields. Versus a real-spinning AI (Easy/Normal/Hard) or online by room code.',
+                'A two-phase orb-spinning match: raise shields, play cards, then spin to break the rival\u2019s shields. Versus AI or online by room code.',
 
         },
         zh: {
@@ -452,9 +458,9 @@
                 '子彈從四面八方湧入。在縫隙間穿梭閃避，盡量撐久一點。',
 
             runeClashName: '符石交鋒',
-            runeClashTagline: '轉珠佈盾，破盾拚到底。',
+            runeClashTagline: '佈盾、出牌，再轉珠破盾。',
             runeClashCardBody:
-                '兩階段的轉珠較量：佈盾、出牌，再轉珠破解對手的盾。可對戰會轉珠的 AI（簡單／普通／困難）或用房號線上對戰。',
+                '兩階段的轉珠較量：佈盾、出牌，再轉珠破解對手的盾。可對戰 AI 或用房號線上對戰。',
         },
     };
 

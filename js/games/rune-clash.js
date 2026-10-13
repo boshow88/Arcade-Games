@@ -419,7 +419,7 @@
         const speckles = [];
         const k = 4 + AC.rng.int(rng, 0, 3);
         for (let i = 0; i < k; i++) speckles.push({ dx: AC.rng.float(rng, -0.55, 0.55), dy: AC.rng.float(rng, -0.55, 0.55), r: AC.rng.float(rng, 0.06, 0.15), light: AC.rng.float(rng, 0, 1) < 0.4 });
-        return { rot: AC.rng.float(rng, -0.1, 0.1), jit, speckles, toneShift: AC.rng.float(rng, -0.07, 0.07) };
+        return { rot: AC.rng.float(rng, -0.06, 0.06), jit, speckles, toneShift: AC.rng.float(rng, -0.07, 0.07) };
     }
     function newOrb(el, x, y, enhanced) { return { el, x, y, scale: 1, shape: makeShape(G.rng), enhanced: !!enhanced }; }
     function elAt(r, c) { const o = board[r * COLS + c]; return o ? o.el : null; }
