@@ -1910,7 +1910,7 @@
         G._rivalUsed = [];
         const used = collapseAttackCards(oppCards);
         if (used.length) {
-            let cx = 22; const uy = 62, uh = 18, us = 14;
+            let cx = 22; const uy = 60, uh = 22, us = 17;
             for (const item of used) {
                 const w = chipWidth(item, us, f);
                 if (cx + w > rightEdge) break;
@@ -1929,16 +1929,16 @@
         //   attack group = time↑ (amber) + the attack cards you played this round.
         // Hidden while a card is selected (Play / Discard own the row then).
         if (G.cardSel == null && (G.phase === 'defense' || G.phase === 'attack')) {
-            const py = LAY.actY + (LAY.actH - PILL.h) / 2, size = 15;
+            const ph = 23, py = LAY.actY + (LAY.actH - ph) / 2, size = 17;
             const draw = drawMoreRect();
             let x = draw.x + draw.w + 12;   // chips fill the middle, between Draw (left) and To-attack (right)
             // defense group (your shields + your Shorten), then — separated — your attack group
             const defItems = collapseShields(G.youShields, G.mySlow || 0);
-            for (const it of defItems) { const w = chipWidth(it, size, f); drawChip(x, py, PILL.h, it, size, f, 'def'); G._youChips.push({ x, y: py, w, h: PILL.h, label: it.label + (it.count > 1 ? ' \u00d7' + it.count : '') }); x += w + PILL.gap; }
+            for (const it of defItems) { const w = chipWidth(it, size, f); drawChip(x, py, ph, it, size, f, 'def'); G._youChips.push({ x, y: py, w, h: ph, label: it.label + (it.count > 1 ? ' \u00d7' + it.count : '') }); x += w + PILL.gap; }
             const atkItems = collapseAttackCards(G.playedThisRound);
             if (atkItems.length) {
                 if (defItems.length) x += PILL.groupGap - PILL.gap;
-                for (const it of atkItems) { const w = chipWidth(it, size, f); drawChip(x, py, PILL.h, it, size, f, 'atk'); G._youChips.push({ x, y: py, w, h: PILL.h, label: it.label + (it.count > 1 ? ' \u00d7' + it.count : '') }); x += w + PILL.gap; }
+                for (const it of atkItems) { const w = chipWidth(it, size, f); drawChip(x, py, ph, it, size, f, 'atk'); G._youChips.push({ x, y: py, w, h: ph, label: it.label + (it.count > 1 ? ' \u00d7' + it.count : '') }); x += w + PILL.gap; }
             }
         }
         // HP bar hugging the board (right above the timer bar)
