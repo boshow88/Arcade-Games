@@ -598,7 +598,7 @@
     // =================================================================
 
     function updateHud() {
-        if (dom.time) dom.time.textContent = String(Math.floor(G.elapsed));
+        if (dom.time) dom.time.textContent = AC.format.score(Math.floor(G.elapsed));
         renderLives();
         if (livesStat) livesStat.classList.toggle('danger', G.lives <= 1);
     }

@@ -1658,8 +1658,8 @@
         const f = getFont();
         const groups = [
             { label: t('rdRound'), value: G.round + '/' + SAND.rounds },
-            { label: t('rdColDamage'), value: String(G.sandTotal || 0) },
-            { label: t('rdSandRunBest'), value: String(G.sandSpinRun || 0) },
+            { label: t('rdColDamage'), value: fmtNum(G.sandTotal || 0) },
+            { label: t('rdSandRunBest'), value: fmtNum(G.sandSpinRun || 0) },
         ];
         const lf = `600 11px ${f}`, vf = `800 17px ${f}`, gap = 28;
         const widths = groups.map((g) => { ctx.font = lf; const lw = ctx.measureText(g.label).width; ctx.font = vf; return Math.max(lw, ctx.measureText(g.value).width); });
@@ -2706,7 +2706,7 @@
         const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
         if (G.mode === 'sandbox') {
             set('round', G.round + ' / ' + SAND.rounds);
-            set('hud-dmg', String(G.sandTotal || 0));
+            set('hud-dmg', fmtNum(G.sandTotal || 0));
             set('hud-total', fmtNum(sandPrefs().bestTotal));
             set('hud-spin', fmtNum(sandPrefs().bestSpin));
         } else {
