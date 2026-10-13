@@ -73,6 +73,7 @@
         rdSandDone: 'Time!',
         rdSandIntro: 'Sandbag — a no-brainer damage run. Spin for 50 rounds against 3 elemental enemies and chase the highest total (and single-spin) damage. No cards, no defence.',
         rdSandStartHint: 'Drag a rune to spin · P pause',
+        rdSandRunBest: 'Run best',
         rdSandResultHtml: (total, spin) => `Dealt <strong>${total}</strong> over ${SAND.rounds} rounds · best hit <strong>${spin}</strong>.`,
         rdSandHint: 'Press R or the button to go again.',
         rdSandHelp1Html: 'A <strong>no-brainer</strong> damage run: <strong>drag a rune</strong>, line up <strong>3+ of a colour</strong> and chain <strong>combos</strong> over <strong>50 spins</strong>.',
@@ -127,6 +128,7 @@
         rdSandDone: '時間到！',
         rdSandIntro: '沙包——不用動腦的刷傷害模式。對三隻屬性敵人連轉 50 回合，拚最高總傷害（與單次轉珠傷害）。無卡牌、無防禦。',
         rdSandStartHint: '拖動符石轉珠 · P 暫停',
+        rdSandRunBest: '本場最高',
         rdSandResultHtml: (total, spin) => `${SAND.rounds} 回合共造成 <strong>${total}</strong> 傷害 · 最高單波 <strong>${spin}</strong>。`,
         rdSandHint: '按 R 或按鈕再打一輪。',
         rdSandHelp1Html: '<strong>不用動腦</strong>的刷傷害：<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除、串 <strong>連擊</strong>，共 <strong>50 次轉珠</strong>。',
@@ -349,6 +351,7 @@
         resolving: false,
         resolve: null,
         floats: [],
+        projectiles: [],        // attack dots in flight (both modes): { x,y,x0,y0,x1,y1,el,color,t,dur,onHit }
         shake: 0,
     };
 
@@ -846,10 +849,11 @@
         let enh = 0;
         for (const idx of g.cells) { const o = board[idx]; if (o.enhanced) enh++; o.scale = 1; G.clearing.push(o); board[idx] = null; }
         g.enhanced = enh;
-        if (g.cells.length >= CONFIG.bigThreshold) G.resolve.enhNext.push(g.el);   // forge an enhanced of this colour in the next drop
+        const big = g.cells.length >= CONFIG.bigThreshold;
+        if (big) G.resolve.enhNext.push(g.el);   // forge an enhanced of this colour in the next drop
         G.resolve.combos.push(g);
         G.resolve.stage = 'pop'; G.resolve.t = 0;
-        comboSound(G.resolve.combos.length);
+        if (big) bigClearSound(); else comboSound(G.resolve.combos.length);   // 5+ gets a fiercer, electronic sting
     }
     function comboSound(n) { AC.audio.tone(430 + Math.min(n, 12) * 60, 0.09, { type: 'triangle', volume: 0.14 }); }
     function stepResolve(dt) {
@@ -1218,8 +1222,8 @@
             if (n > 0) {
                 if (heal > 0) addFloat(W / 2, BOARD_TOP - 40, '+' + heal, ELEMENT_COLORS.heart, 20);
                 if (blocked) { addFloat(W / 2, 96, t('rtBlocked'), '#9fe0ff', 22); AC.audio.play('empty'); }
-                else if (dmg > 0) addFloat(W / 2, 96, '-' + dmg, '#ffd0d0', 26);
-                addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
+                else if (dmg > 0) { addFloat(W / 2, 92, '-' + dmg, '#ff8a8a', 32); spawnDuelProjectiles(G.resolve.combos); }
+                addFloat(W / 2, 132, t('rtCombo', n), accent(), 18);
             }
             G.empowerNext = 1;
             G.cardSel = null; G.palette = null;
@@ -1234,8 +1238,8 @@
         if (n > 0) {
             if (heal > 0) { G.youHp = Math.min(G.youMaxHp, G.youHp + heal); addFloat(W / 2, BOARD_TOP - 40, '+' + heal, ELEMENT_COLORS.heart, 20); }
             if (blocked) { addFloat(W / 2, 96, t('rtBlocked'), '#9fe0ff', 22); AC.audio.play('empty'); }
-            else if (dmg > 0) { G.aiHp -= dmg; G.score = Math.min(CONFIG.scoreCap, G.score + dmg); addFloat(W / 2, 96, '-' + dmg, '#ffd0d0', 26); }
-            addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
+            else if (dmg > 0) { G.aiHp -= dmg; G.score = Math.min(CONFIG.scoreCap, G.score + dmg); addFloat(W / 2, 92, '-' + dmg, '#ff8a8a', 32); spawnDuelProjectiles(G.resolve.combos); }
+            addFloat(W / 2, 132, t('rtCombo', n), accent(), 18);
         }
         if (!blocked && dmg > 0) recordDuelSpin(dmg);   // best single-hit (vs-computer)
         G.empowerNext = 1;
@@ -1403,6 +1407,57 @@
 
     function addFloat(x, y, text, color, size) { G.floats.push({ x, y, text, color, size: size || 18, t: 0, life: 1.4 }); }
 
+    // --- attack projectiles + per-element audio (shared by both modes) ---
+    // Each element has its own launch/impact pitch so a multi-colour spin sounds layered.
+    const ELEMENT_TONE = { fire: 300, water: 430, wood: 360, light: 560, dark: 250, yao: 490, steel: 200, heart: 470 };
+    function playLaunchSound(el) {
+        const f = ELEMENT_TONE[el] || 360;
+        AC.audio.tone(f, 0.08, { type: 'square', slideTo: f * 1.7, volume: 0.08 });
+    }
+    function playHitSound(el) {
+        const f = ELEMENT_TONE[el] || 360;
+        AC.audio.tone(f * 0.9, 0.11, { type: 'sawtooth', slideTo: f * 0.5, volume: 0.13 });
+    }
+    // A fierce, electronic sting for a big (5+) clear — distinct from the per-combo blip.
+    function bigClearSound() {
+        AC.audio.tone(360, 0.18, { type: 'sawtooth', slideTo: 1300, volume: 0.18 });
+        setTimeout(() => AC.audio.tone(820, 0.12, { type: 'square', volume: 0.1 }), 40);
+    }
+    function launchProjectile(x0, y0, x1, y1, el, onHit) {
+        G.projectiles.push({ x: x0, y: y0, x0, y0, x1, y1, el, color: shade(ELEMENT_COLORS[el] || '#ccc', 0.4), t: 0, dur: 0.17, onHit });
+        playLaunchSound(el);
+        markDirty();
+    }
+    function tickProjectiles(dt) {
+        for (let i = G.projectiles.length - 1; i >= 0; i--) {
+            const p = G.projectiles[i];
+            p.t += dt;
+            const k = Math.min(1, p.t / p.dur);
+            p.x = p.x0 + (p.x1 - p.x0) * k; p.y = p.y0 + (p.y1 - p.y0) * k;
+            if (k >= 1) { const cb = p.onHit; G.projectiles.splice(i, 1); if (cb) cb(); }
+        }
+        if (G.projectiles.length) markDirty();
+    }
+    function drawProjectiles() {
+        for (const p of G.projectiles) {
+            ctx.save();
+            ctx.fillStyle = p.color; ctx.shadowColor = p.color; ctx.shadowBlur = 12;
+            ctx.beginPath(); ctx.arc(p.x, p.y, 7, 0, PI2); ctx.fill();
+            ctx.globalAlpha = 0.5; ctx.beginPath(); ctx.arc(p.x, p.y, 11, 0, PI2); ctx.fill();
+            ctx.restore();
+        }
+    }
+    // Duel: cosmetic dots per cleared colour flying at the rival panel (damage itself is
+    // applied in finishResolve); each lands with its element's impact sound.
+    function spawnDuelProjectiles(combos) {
+        const seen = new Set();
+        for (const g of (combos || [])) {
+            if (g.el === 'heart' || seen.has(g.el)) continue;
+            seen.add(g.el);
+            launchProjectile(W / 2, BOARD_TOP + 14, W * 0.3, 32, g.el, () => { playHitSound(g.el); G.shake = Math.max(G.shake, 0.14); markDirty(); });
+        }
+    }
+
     // =================================================================
     // Sandbox ("Sandbag") mode — a no-brainer damage run: no cards, no defence, no HP bar.
     // Pure spinning against 3 elemental enemies for SAND.rounds spins; chase total + best hit.
@@ -1452,9 +1507,12 @@
             if (A.t >= SAND.strikeGap) { A.t = 0; fireStrike(A.strikes[A.i], A); A.i++; }
             return;
         }
+        if (G.projectiles.length) return;                                   // wait for the last shots to land
+        if (!A.shown) { A.shown = true; if (A.spinTotal > 0) bigSpinFloat(A.spinTotal); }   // emphasise this spin's total
         A.hold += dt;
         if (A.hold >= SAND.hold) finalizeSandRound(A.spinTotal);
     }
+    function bigSpinFloat(total) { G.floats.push({ x: W / 2, y: BOARD_TOP - 22, text: String(total), color: '#ffe08a', size: 46, t: 0, life: 1.6 }); }
     // Pick one target for an element: prefer an enemy it has a bonus against, then lowest HP,
     // then leftmost. Dead enemies stay on the field (per round) but are skipped while any live.
     function sandPickTarget(el) {
@@ -1468,17 +1526,22 @@
     }
     function fireStrike(s, A) {
         const targets = s.aoe ? G.enemies.slice() : [sandPickTarget(s.el)];
+        const x0 = W / 2, y0 = BOARD_TOP + 14;
         for (const e of targets) {
             if (!e) continue;
-            const mult = restraint(s.el, e.el);
-            const d = Math.round(s.dmg * mult);
-            e.hp -= d; e.flash = 0.45;
-            G.sandTotal += d; A.spinTotal += d;   // raw damage, overkill counts
             const R = enemyRect(G.enemies.indexOf(e));
-            const col = mult > 1 ? '#ffd36b' : (mult < 1 ? '#9fcff0' : '#ff8a6b');
-            addFloat(R.x + R.w / 2, R.y + 30, '-' + d, col, mult > 1 ? 22 : 17);
+            launchProjectile(x0, y0, R.x + R.w / 2, R.y + R.h / 2, s.el, () => sandApplyHit(s, e, A));   // damage lands when the dot arrives
         }
-        AC.audio.play('rock');
+    }
+    function sandApplyHit(s, e, A) {
+        const mult = restraint(s.el, e.el);
+        const d = Math.round(s.dmg * mult);
+        e.hp -= d; e.flash = 0.5;
+        G.sandTotal += d; A.spinTotal += d;   // raw damage, overkill counts
+        const R = enemyRect(G.enemies.indexOf(e));
+        const col = mult > 1 ? '#ffd36b' : (mult < 1 ? '#9fcff0' : '#ff8a6b');
+        addFloat(R.x + R.w / 2, R.y + 30, '-' + d, col, mult > 1 ? 22 : 17);
+        playHitSound(s.el);
         G.shake = Math.max(G.shake, s.aoe ? 0.3 : 0.16);
         updateHud(); markDirty();
     }
@@ -1533,10 +1596,33 @@
             ctx.restore();
         }
     }
+    function drawSandInfo() {
+        const f = getFont();
+        const groups = [
+            { label: t('rdRound'), value: G.round + '/' + SAND.rounds },
+            { label: t('rdColDamage'), value: String(G.sandTotal || 0) },
+            { label: t('rdSandRunBest'), value: String(G.sandSpinRun || 0) },
+        ];
+        const lf = `600 11px ${f}`, vf = `800 17px ${f}`, gap = 28;
+        const widths = groups.map((g) => { ctx.font = lf; const lw = ctx.measureText(g.label).width; ctx.font = vf; return Math.max(lw, ctx.measureText(g.value).width); });
+        const total = widths.reduce((a, b) => a + b, 0) + gap * (groups.length - 1);
+        ctx.save();
+        ctx.textBaseline = 'middle'; ctx.textAlign = 'center';
+        let x = (W - total) / 2;
+        for (let i = 0; i < groups.length; i++) {
+            const g = groups[i], cx = x + widths[i] / 2;
+            ctx.fillStyle = 'rgba(255,255,255,0.5)'; ctx.font = lf; ctx.fillText(g.label, cx, 15);
+            ctx.fillStyle = '#fff'; ctx.font = vf; ctx.fillText(g.value, cx, 35);
+            x += widths[i] + gap;
+        }
+        ctx.restore();
+    }
     function renderSandbox() {
+        drawSandInfo();
         drawEnemies();
         drawBoard();
         if (G.held) { const o = board[G.held.cell]; drawStone(o.el, o.x, o.y, CONFIG.orbRadius * 1.06, o.shape, true, o.enhanced); }
+        drawProjectiles();
         drawFloats();
     }
 
@@ -1827,14 +1913,13 @@
             if (fl.t >= fl.life) G.floats.splice(i, 1);
         }
         if (G.online && G.online.strike) tickStrike(dt);   // online: the delayed "incoming hit" beat
+        tickProjectiles(dt);                               // attack dots in flight (both modes)
         if (G.mode === 'sandbox') {
             if (G.phase === 'attack') {
                 if (G.held && G.held.moved) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
                 if (G.resolving) stepResolve(dt);
             } else if (G.phase === 'sandatk') tickSandAttack(dt);
-            settleOrbs(dt);   // lerp swapped/dropped orbs to their cells (same as duel)
-            return;
-        }
+        } else {
         if (G.phase === 'defense') {
             if (G.online) { if (!onlineWaiting()) G.phaseTimer = onlineRemain(); }
             else { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
@@ -1867,7 +1952,8 @@
                 if (sec <= 5 && sec > 0) AC.audio.tone(900, 0.07, { type: 'square', volume: 0.1 });   // urgency tick
             }
         }
-        settleOrbs(dt);
+        }   // end duel/online dispatch
+        settleOrbs(dt);   // shared tail: always lerp orbs to their cells, both modes
     }
 
     // =================================================================
@@ -1875,7 +1961,7 @@
     // =================================================================
 
     function animating() {
-        if (G.held || G.resolving || G.spinOpen || G.shake > 0 || G.floats.length) return true;
+        if (G.held || G.resolving || G.spinOpen || G.shake > 0 || G.floats.length || G.projectiles.length) return true;
         for (let i = 0; i < COLS * ROWS; i++) {
             const o = board[i];
             if (!o) continue;
@@ -1909,6 +1995,7 @@
         drawBoard();
         if (G.held) { const o = board[G.held.cell]; drawStone(o.el, o.x, o.y, CONFIG.orbRadius * 1.06, o.shape, true, o.enhanced); }
         drawOppBoard();
+        drawProjectiles();
         drawFloats();
         ctx.restore();
         drawHand();
@@ -2565,6 +2652,7 @@
         G.resolve = null;
         G.clearing = [];
         G.floats = [];
+        G.projectiles = [];
         G.shake = 0;
         G.youShields = [];
         G.spinMultSelf = 1;
