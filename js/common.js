@@ -285,6 +285,23 @@
             + '<path d="M14.5 17.5 3.586 6.586A2 2 0 0 1 3 5.172V3h2.172a2 2 0 0 1 1.414.586L17.5 14.5"/>'
             + '<path d="m14.828 6.172 2.586-2.586A2 2 0 0 1 18.828 3H21v2.172a2 2 0 0 1-.586 1.414l-2.586 2.586"/>'
             + '<path d="m16 16 4 4"/><path d="m19 21 2-2"/><path d="m5 14 4 4"/><path d="m5 21-2-2"/><path d="M7.5 16.5 4 20"/>',
+        // a single sword (lucide) — marks the solo "Sandbag" mode toggle
+        sword:
+            '<polyline points="14.5 17.5 3 6 3 3 6 3 17.5 14.5"/>'
+            + '<line x1="13" x2="19" y1="19" y2="13"/>'
+            + '<line x1="16" x2="20" y1="16" y2="20"/>'
+            + '<line x1="19" x2="21" y1="21" y2="19"/>',
+        // lucide "stone" — the Rune Stones brand mark (menu card + in-game)
+        stone:
+            '<path d="M11.264 2.205A4 4 0 0 0 6.42 4.211l-4 8a4 4 0 0 0 1.359 5.117l6 4a4 4 0 0 0 4.438 0l6-4a4 4 0 0 0 1.576-4.592l-2-6a4 4 0 0 0-2.53-2.53z"/>'
+            + '<path d="M11.99 22 14 12l7.822 3.184"/>'
+            + '<path d="M14 12 8.47 2.302"/>',
+        // two people (lucide) — the online PvP button
+        users:
+            '<path d="M16 21v-2a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v2"/>'
+            + '<circle cx="9" cy="7" r="4"/>'
+            + '<path d="M22 21v-2a4 4 0 0 0-3-3.87"/>'
+            + '<path d="M16 3.13a4 4 0 0 1 0 7.75"/>',
         // a carved rune-stone (gem outline + a Fehu-like rune) for Rune Clash
         runestone:
             '<path d="M6 3h12l4 6-10 13L2 9Z"/>'
@@ -400,8 +417,8 @@
             dotDodgeCardBody:
                 'Bullets pour in from every side. Fly your dot, weave through the gaps, and last as long as you can.',
 
-            // Rune Clash card (two-phase orb-spinning versus match)
-            runeClashName: 'Rune Clash',
+            // Rune Stones card (orb-spinning: solo Sandbag run or versus match)
+            runeClashName: 'Rune Stones',
             runeClashTagline: 'Raise shields, play cards, then spin to break through.',
             runeClashCardBody:
                 'Raise shields, play cards, then spin to break the rival\u2019s shields. Versus the computer or online.',
@@ -457,7 +474,7 @@
             dotDodgeCardBody:
                 '子彈從四面八方湧入。在縫隙間穿梭閃避，盡量撐久一點。',
 
-            runeClashName: '符石交鋒',
+            runeClashName: '盧恩符石',
             runeClashTagline: '佈盾、出牌，再轉珠破盾。',
             runeClashCardBody:
                 '佈盾、出牌，再轉珠破解對手的盾。可對戰電腦或線上對戰。',

@@ -1,6 +1,6 @@
 /**
- * Rune Clash — a two-phase orb-spinning versus match (vs a real-spinning AI, or
- * online PvP by room code).
+ * Rune Stones — an orb-spinning game with two modes: a solo "Sandbag" damage run,
+ * or a two-phase versus match (vs a real-spinning AI, or online PvP by room code).
  *
  * A bounded clash: you and a rival each hold an HP pool; it's a turn-based race to
  * zero. Each ROUND has a DEFENSE phase (play shield cards the rival's spin must
@@ -71,12 +71,12 @@
         rdModeDuel: 'Versus', rdModeSandbox: 'Sandbag',
         rdColBestRounds: 'Fewest', rdColBestSpin: 'Best hit', rdColDamage: 'Damage', rdColBestTotal: 'Best total',
         rdSandDone: 'Time!',
-        rdSandIntro: 'Sandbag — a no-brainer damage run. Spin for 50 rounds against 3 elemental enemies and chase the highest total (and single-spin) damage. No cards, no defence.',
+        rdSandIntro: 'Sandbag — spin for 50 rounds against 3 elemental enemies and chase the highest total (and single-spin) damage.',
         rdSandStartHint: 'Drag a rune to spin · P pause',
         rdSandRunBest: 'Run best',
         rdSandResultHtml: (total, spin) => `Dealt <strong>${total}</strong> over ${SAND.rounds} rounds · best hit <strong>${spin}</strong>.`,
         rdSandHint: 'Press R or the button to go again.',
-        rdSandHelp1Html: 'A <strong>no-brainer</strong> damage run: <strong>drag a rune</strong>, line up <strong>3+ of a colour</strong> and chain <strong>combos</strong> over <strong>50 spins</strong>.',
+        rdSandHelp1Html: '<strong>Drag a rune</strong>, line up <strong>3+ of a colour</strong> and chain <strong>combos</strong> over <strong>50 spins</strong>.',
         rdSandHelp2Html: 'Three <strong>enemies</strong> stand in; each colour you clear strikes a target with an <strong>elemental multiplier</strong> (×1.5 strong / ×0.5 weak). A <strong>5+</strong> group hits <strong>all three</strong>.',
         rdSandHelp3Html: 'Beat one and a fresh enemy takes its place. Chase the highest <strong>total</strong> and <strong>single-spin</strong> damage. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
     });
@@ -126,12 +126,12 @@
         rdModeDuel: '對戰', rdModeSandbox: '沙包',
         rdColBestRounds: '最短回合', rdColBestSpin: '最高單波', rdColDamage: '傷害', rdColBestTotal: '最高傷害',
         rdSandDone: '時間到！',
-        rdSandIntro: '沙包——不用動腦的刷傷害模式。對三隻屬性敵人連轉 50 回合，拚最高總傷害（與單次轉珠傷害）。無卡牌、無防禦。',
+        rdSandIntro: '沙包——對三隻屬性敵人連轉 50 回合，拚最高總傷害與單次轉珠傷害。',
         rdSandStartHint: '拖動符石轉珠 · P 暫停',
         rdSandRunBest: '本場最高',
         rdSandResultHtml: (total, spin) => `${SAND.rounds} 回合共造成 <strong>${total}</strong> 傷害 · 最高單波 <strong>${spin}</strong>。`,
         rdSandHint: '按 R 或按鈕再打一輪。',
-        rdSandHelp1Html: '<strong>不用動腦</strong>的刷傷害：<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除、串 <strong>連擊</strong>，共 <strong>50 次轉珠</strong>。',
+        rdSandHelp1Html: '<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除、串 <strong>連擊</strong>，共 <strong>50 次轉珠</strong>。',
         rdSandHelp2Html: '場上有三隻<strong>敵人</strong>；你消的每種顏色會依<strong>屬性倍率</strong>（剋 ×1.5／被剋 ×0.5）攻擊目標。單組消 <strong>5 顆以上</strong>該屬性改為<strong>打三隻</strong>。',
         rdSandHelp3Html: '打倒一隻就補上新敵人。拼<strong>總傷害</strong>與<strong>單次轉珠</strong>的最高紀錄。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
     });
@@ -141,9 +141,17 @@
     // =================================================================
 
     const W = 600, H = 760;
-    const COLS = 6, ROWS = 5;
+    const COLS = 6;
     const CELL = 100;
-    const BOARD_TOP = H - ROWS * CELL; // = 260
+    // Rows (and the board's top edge) depend on the mode: duel/online is 6×5, Sandbag is
+    // 6×6 (taller board, slimmer enemy band above). applyBoardGeometry() sets these per run.
+    const DUEL_ROWS = 5;
+    let ROWS = DUEL_ROWS;
+    let BOARD_TOP = H - ROWS * CELL; // duel = 260, sandbox = 160
+    function applyBoardGeometry() {
+        ROWS = (G.mode === 'sandbox') ? SAND.rows : DUEL_ROWS;
+        BOARD_TOP = H - ROWS * CELL;
+    }
     // layout anchors for the top HUD (above the board) — tweak here to re-space
     const LAY = { handY: 90, handH: 70, energyY: 168, actY: 178, actH: 32, youHpY: 238, youHpH: 12 };
 
@@ -228,11 +236,22 @@
     // enemies you pound for a fixed number of spins. 妖 replaces 心 (attack, flower icon).
     const SAND = {
         rounds: 50,
-        elements: ['fire', 'water', 'wood', 'light', 'dark', 'yao'],   // step 1: 6 colours (steel added later)
+        rows: 6,                        // Sandbag board is always 6×6, regardless of difficulty
+        spinTime: 7.5,                  // Sandbag spin window (seconds), regardless of difficulty
+        // Attack-rune / enemy element pool, scaled by difficulty — the only thing difficulty
+        // changes here: Easy drops 妖 and 鋼, Normal drops 鋼, Hard has every attribute.
+        elements: {
+            easy:   ['fire', 'water', 'wood', 'light', 'dark'],
+            normal: ['fire', 'water', 'wood', 'light', 'dark', 'yao'],
+            hard:   ['fire', 'water', 'wood', 'light', 'dark', 'yao', 'steel'],
+        },
         hpTiers: [100, 200, 400, 800],
+        sizeByTier: [0.80, 0.87, 0.94, 1.0],   // tougher enemies (more HP) look a little bigger
         strikeGap: 0.26,                // delay between each element's strike in the attack anim
         hold: 0.9,                      // beat after all strikes before the next spin
     };
+    // The active Sandbag element pool for the committed difficulty (G.aiLevel).
+    function sandElements() { return SAND.elements[G.aiLevel] || SAND.elements.normal; }
     // Elemental multiplier grid: RESTRAINT[attacker][defender]. Not a simple triangle, so a
     // grid is clearer to tune. (水>火>木>水, 光↔暗, 妖↔鋼; 妖/鋼 resist light/dark.)
     const RESTRAINT = {
@@ -465,7 +484,7 @@
         return r * COLS + c;
     }
     function randomEl() {
-        if (G.mode === 'sandbox') return SAND.elements[AC.rng.int(G.rng, 0, SAND.elements.length)];   // 6 colours, equal weight
+        if (G.mode === 'sandbox') { const els = sandElements(); return els[AC.rng.int(G.rng, 0, els.length)]; }   // difficulty-scaled pool, equal weight
         let x = AC.rng.float(G.rng, 0, WEIGHT_TOTAL);
         for (const el of ELEMENTS) { x -= WEIGHTS[el]; if (x <= 0) return el; }
         return 'fire';
@@ -683,7 +702,10 @@
     // Cards
     // =================================================================
 
-    function effectiveSpinTime() { return Math.max(0.5, BALANCE.spinTime * (G.spinMultSelf || 1) * (G.spinMultOpp || 1)); }
+    function effectiveSpinTime() {
+        const base = (G.mode === 'sandbox') ? SAND.spinTime : BALANCE.spinTime;   // Sandbag spins run 7.5s
+        return Math.max(0.5, base * (G.spinMultSelf || 1) * (G.spinMultOpp || 1));
+    }
     // One persistent hand: deal once at the start, then draw a single new card each
     // round. Unplayed cards carry over (they no longer re-roll every phase).
     function curType() { return G.phase === 'defense' ? 'defense' : 'enhance'; }
@@ -1463,7 +1485,8 @@
     // Pure spinning against 3 elemental enemies for SAND.rounds spins; chase total + best hit.
     // =================================================================
     function sandNewEnemy() {
-        const el = SAND.elements[AC.rng.int(G.rng, 0, SAND.elements.length)];
+        const els = sandElements();
+        const el = els[AC.rng.int(G.rng, 0, els.length)];
         const hp = SAND.hpTiers[AC.rng.int(G.rng, 0, SAND.hpTiers.length)];   // random tier
         return { el, hp, maxHp: hp, flash: 0 };
     }
@@ -1571,28 +1594,37 @@
     function duelBestSpin() { try { const v = (AC.prefs.get('rune-clash') || {}).bestSpin; return v && typeof v[staged] === 'number' ? v[staged] : null; } catch (e) { return null; } }
 
     // --- sandbox rendering ---
+    // Each enemy gets a fixed slot; the drawn card fills the band between the info row and the
+    // (taller, 6×6) board. The card is scaled by HP tier so tougher enemies read a touch bigger.
     function enemyRect(i) {
         const pad = 12, gap = 10, n = 3;
         const w = (W - pad * 2 - gap * (n - 1)) / n;
-        return { x: pad + i * (w + gap), y: 54, w, h: 150 };
+        const top = 46, h = Math.max(72, BOARD_TOP - top - 12);
+        return { x: pad + i * (w + gap), y: top, w, h };
     }
     function drawEnemies() {
         const f = getFont();
         for (let i = 0; i < G.enemies.length; i++) {
-            const e = G.enemies[i], R = enemyRect(i), col = ELEMENT_COLORS[e.el] || '#888', dead = e.hp <= 0;
+            const e = G.enemies[i], slot = enemyRect(i), col = ELEMENT_COLORS[e.el] || '#888', dead = e.hp <= 0;
+            const ti = SAND.hpTiers.indexOf(e.maxHp);
+            const sc = (ti >= 0 && SAND.sizeByTier[ti] != null) ? SAND.sizeByTier[ti] : 1;
+            const w = slot.w * sc, h = slot.h * sc;
+            const R = { x: slot.x + (slot.w - w) / 2, y: slot.y + (slot.h - h), w, h };   // bottom-anchored so HP bars line up
+            const rad = Math.min(12, h * 0.12);
             ctx.save();
             ctx.globalAlpha = dead ? 0.38 : 1;
-            ctx.fillStyle = shade(col, -0.18); roundRect(R.x, R.y, R.w, R.h, 12); ctx.fill();
-            ctx.lineWidth = 2; ctx.strokeStyle = shade(col, 0.22); roundRect(R.x, R.y, R.w, R.h, 12); ctx.stroke();
-            drawRuneIcon(e.el, R.x + R.w / 2, R.y + 50, 52, 'rgba(255,255,255,0.92)', 3.2);
-            ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            ctx.fillText(t('el_' + e.el), R.x + R.w / 2, R.y + 92);
-            const bx = R.x + 14, bw = R.w - 28, by = R.y + R.h - 24, bh = 13;
+            ctx.fillStyle = shade(col, -0.18); roundRect(R.x, R.y, R.w, R.h, rad); ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = shade(col, 0.22); roundRect(R.x, R.y, R.w, R.h, rad); ctx.stroke();
+            ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            drawRuneIcon(e.el, R.x + R.w / 2, R.y + h * 0.30, h * 0.42, 'rgba(255,255,255,0.92)', Math.max(2.4, h * 0.03));
+            ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `700 ${Math.max(11, Math.round(h * 0.13))}px ${f}`;
+            ctx.fillText(t('el_' + e.el), R.x + R.w / 2, R.y + h * 0.60);
+            const bh = Math.max(10, h * 0.12), bx = R.x + 12, bw = R.w - 24, by = R.y + R.h - bh - 7;
             ctx.fillStyle = 'rgba(0,0,0,0.38)'; roundRect(bx, by, bw, bh, 6); ctx.fill();
             ctx.fillStyle = '#ff5566'; roundRect(bx, by, bw * Math.max(0, Math.min(1, e.hp / e.maxHp)), bh, 6); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.font = `800 11px ${f}`;
+            ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.max(10, Math.round(h * 0.105))}px ${f}`;
             ctx.fillText(Math.max(0, Math.ceil(e.hp)) + ' / ' + e.maxHp, R.x + R.w / 2, by + bh / 2 + 0.5);
-            if (e.flash > 0) { ctx.globalAlpha = Math.min(0.55, e.flash); ctx.fillStyle = '#fff'; roundRect(R.x, R.y, R.w, R.h, 12); ctx.fill(); }
+            if (e.flash > 0) { ctx.globalAlpha = Math.min(0.55, e.flash); ctx.fillStyle = '#fff'; roundRect(R.x, R.y, R.w, R.h, rad); ctx.fill(); }
             ctx.restore();
         }
     }
@@ -1629,7 +1661,7 @@
     // --- mode-aware HUD (columns differ per mode) ---
     function hudStatHtml(labelKey, valueId, accent) {
         return '<div class="hud-stat' + (accent ? ' accent' : '') + '">'
-            + '<span class="hud-label"><span data-icon="' + (accent ? 'swords' : 'trophy') + '" aria-hidden="true"></span>'
+            + '<span class="hud-label"><span data-icon="' + (accent ? 'stone' : 'trophy') + '" aria-hidden="true"></span>'
             + '<span data-i18n="' + labelKey + '">' + t(labelKey) + '</span></span>'
             + '<span class="hud-value" id="' + valueId + '">\u2014</span></div>';
     }
@@ -2608,8 +2640,8 @@
     }
     function overlayContent(state, result) {
         if (state === 'idle') {
-            if (stagedMode === 'sandbox') return { badge: 'swords', title: t('rdReady'), message: t('rdSandIntro'), button: t('play'), hint: t('rdSandStartHint') };
-            return { badge: 'swords', title: t('rdReady'), message: t('rdIntro'), button: t('play'), hint: t('rdStartHintHtml') };
+            if (stagedMode === 'sandbox') return { badge: 'stone', title: t('rdReady'), message: t('rdSandIntro'), button: t('play'), hint: t('rdSandStartHint') };
+            return { badge: 'stone', title: t('rdReady'), message: t('rdIntro'), button: t('play'), hint: t('rdStartHintHtml') };
         }
         if (state === 'over') {
             const meta = (result && result.meta) || {};
@@ -2633,6 +2665,7 @@
 
     function resetRun() {
         if (!G.online) { G.mode = stagedMode; G.aiLevel = staged; } else { G.mode = 'duel'; }   // online is always duel
+        applyBoardGeometry();   // sets ROWS / BOARD_TOP for this mode (sandbox = 6×6) before the board is built
         G.rng = AC.rng.make((((Math.random() * 0x7fffffff) | 0) ^ (Date.now() & 0xffffff)) >>> 0);   // random board each run
         G.round = 1;
         G.aiTimer = 0;
@@ -2874,7 +2907,7 @@
             b.setAttribute('aria-checked', m === stagedMode ? 'true' : 'false');
         }
         const diff = document.getElementById('difficulty-seg');
-        if (diff) diff.style.display = (stagedMode === 'sandbox') ? 'none' : '';
+        if (diff) diff.style.display = '';   // difficulty now applies to both modes (sandbox scales attribute count)
         const online = document.getElementById('online-btn');
         if (online && !G.online) online.hidden = (stagedMode === 'sandbox') || !(net && net.ok);   // sandbox is solo; else show once net is ready
     }
@@ -2965,7 +2998,7 @@
             play(i) { playCard(i | 0); return G.hand; },
             info() { return { round: G.round, phase: G.phase, you: G.youHp, rival: G.aiHp, energy: G.energy, hand: G.hand, youShields: G.youShields, spinMultSelf: G.spinMultSelf, spinMultOpp: G.spinMultOpp, shields: G.aiShields, dealt: G.score }; },
         };
-        console.log('%c[Rune Clash] debug on', 'color:#d9544e;font-weight:700');
+        console.log('%c[Rune Stones] debug on', 'color:#d9544e;font-weight:700');
         console.log('RD.kill() hp(n) energy(n) hand() shields(k) play(i) info()');
     }
 

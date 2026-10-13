@@ -310,7 +310,7 @@ the reason.
 
 ### Tuning
 
-All at the top of `js/games/rune-clash.js`: `DUEL` (HP, round cap, energy, hand size,
+All at the top of `js/games/rune-stones.js`: `DUEL` (HP, round cap, energy, hand size,
 `phaseTimeDef` / `phaseTimeAtk`, resolve pause), `BALANCE` (spin time, base damage,
 heart heal, combo step, enhanced ×), `AI_LEVELS` (per-difficulty solver `tries` /
 `pathLen` / `skill` / shield stacking), and the `CARDS` pool built in `buildCards()`

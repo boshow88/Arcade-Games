@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Rune Clash · Arcade Games</title>
+    <title>Rune Stones · Arcade Games</title>
     <link rel="icon" type="image/svg+xml" href="../favicon.svg">
     <link rel="stylesheet" href="../css/common.css">
     <link rel="stylesheet" href="../css/game.css">
@@ -26,8 +26,8 @@
                 <span data-i18n="menu">Menu</span>
             </a>
             <div class="game-title">
-                <span class="game-icon" data-icon="swords" aria-hidden="true"></span>
-                <span data-i18n="runeClashName">Rune Clash</span>
+                <span class="game-icon" data-icon="stone" aria-hidden="true"></span>
+                <span data-i18n="runeClashName">Rune Stones</span>
             </div>
             <div class="lang-toggle" id="lang-toggle" role="radiogroup" data-i18n-aria-label="language">
                 <button type="button" data-lang="en" role="radio" aria-checked="true">EN</button>
@@ -37,7 +37,7 @@
 
         <div class="hud">
             <div class="hud-stat accent">
-                <span class="hud-label"><span data-icon="swords" aria-hidden="true"></span><span data-i18n="rdRound">Round</span></span>
+                <span class="hud-label"><span data-icon="stone" aria-hidden="true"></span><span data-i18n="rdRound">Round</span></span>
                 <span class="hud-value" id="round">1</span>
             </div>
             <div class="hud-stat">
@@ -47,19 +47,25 @@
         </div>
 
         <div class="control-row">
-            <button class="btn" id="online-btn" type="button" hidden>
-                <span data-icon="swords" aria-hidden="true"></span>
-                <span data-i18n="rdOnlineBtn">Online</span>
-            </button>
             <div class="seg" id="mode-seg" role="radiogroup" aria-label="Mode">
-                <button type="button" class="btn toggle" data-mode="duel" data-i18n="rdModeDuel">Versus</button>
-                <button type="button" class="btn toggle" data-mode="sandbox" data-i18n="rdModeSandbox">Sandbag</button>
+                <button type="button" class="btn toggle" data-mode="sandbox">
+                    <span data-icon="sword" aria-hidden="true"></span>
+                    <span data-i18n="rdModeSandbox">Sandbag</span>
+                </button>
+                <button type="button" class="btn toggle" data-mode="duel">
+                    <span data-icon="swords" aria-hidden="true"></span>
+                    <span data-i18n="rdModeDuel">Versus</span>
+                </button>
             </div>
             <div class="seg" id="difficulty-seg" role="radiogroup" data-i18n-aria-label="difficulty">
                 <button type="button" class="btn toggle" data-diff="easy" data-i18n="rdLvEasy">Easy</button>
                 <button type="button" class="btn toggle" data-diff="normal" data-i18n="rdLvNormal">Normal</button>
                 <button type="button" class="btn toggle" data-diff="hard" data-i18n="rdLvHard">Hard</button>
             </div>
+            <button class="btn" id="online-btn" type="button" hidden>
+                <span data-icon="users" aria-hidden="true"></span>
+                <span data-i18n="rdOnlineBtn">Online</span>
+            </button>
             <span class="spacer"></span>
             <div class="control-actions">
                 <button class="btn" id="pause-btn" type="button" disabled>
@@ -79,7 +85,7 @@
         <div class="stage-pad">
         <div class="stage-wrap">
             <canvas class="stage-canvas drag-stage" id="stage" width="600" height="760"
-                    role="img" aria-label="Rune Clash board"></canvas>
+                    role="img" aria-label="Rune Stones board"></canvas>
             <div class="overlay" id="overlay" hidden>
                 <div class="overlay-card">
                     <span class="overlay-badge" id="overlay-badge" aria-hidden="true"></span>
@@ -105,6 +111,6 @@
     <script src="../js/common.js"></script>
     <script src="../js/firebase-config.js"></script>
     <script type="module" src="../js/net/net.js"></script>
-    <script src="../js/games/rune-clash.js"></script>
+    <script src="../js/games/rune-stones.js"></script>
 </body>
 </html>
