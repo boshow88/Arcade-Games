@@ -188,6 +188,7 @@
         phaseTimeDef: 30,               // seconds to decide in the defense phase
         phaseTimeAtk: 40,               // seconds to decide in the attack phase
         resolvePause: 1.6,              // hold at round end so the mutual attack is readable
+        strikeDelay: 0.5,               // online: beat between the heal and the incoming hit (layering)
         aiThink: 1.5,
         aiBase: 40, aiPerCombo: 28,     // rival damage ≈ aiBase + combos·aiPerCombo
         aiComboMin: 3, aiComboMax: 7,   // its simulated combos (before meeting your shields)
@@ -1270,7 +1271,7 @@
         G.spinOpen = false;
         G.playedThisRound = [];   // last round's attack-card chips clear now (both sides)
         G.aiPlayed = [];
-        if (G.online) { G.online.sub = 'def'; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeDef * 1000; G.aiShields = []; G.online.oppLastCards = []; net.updateRoom(room.code, { ['game.played.' + G.online.myUid]: [] }).catch(() => {}); pushMyBoard(); updateHud(); return; }
+        if (G.online) { G.online.sub = 'def'; G.online.strike = null; G.online.slowOpp = 0; G.online.phaseDeadline = Date.now() + DUEL.phaseTimeDef * 1000; G.aiShields = []; G.online.oppLastCards = []; net.updateRoom(room.code, { ['game.played.' + G.online.myUid]: [] }).catch(() => {}); pushMyBoard(); updateHud(); return; }
         if (!G.aiBoard) G.aiBoard = aiFillBoard();
         G.aiStatus = '';
         G.aiPlan = aiPlanDefense(G.round);   // decided now but hidden; revealed when you reach the attack phase (like online)
@@ -1491,6 +1492,23 @@
             'game.status': status, 'game.winner': winner,
         }).catch((e) => console.warn('[duel]', e));
     }
+    // Online layering: after the heal beat, land the incoming hit a short moment later, then
+    // settle to the authoritative HP (if it has arrived) and start the round-end hold.
+    function tickStrike(dt) {
+        const s = G.online && G.online.strike;
+        if (!s || s.done) return;
+        s.t -= dt;
+        if (s.t > 0) return;
+        s.done = true;
+        if (s.dmg > 0) { G.youHp = Math.max(0, G.youHp - s.dmg); G.shake = 0.4; addFloat(W / 2, BOARD_TOP - 70, '-' + s.dmg, '#ff6b6b', 24); AC.audio.play('rock'); }
+        if (s.ready) {   // authoritative HP already synced → reconcile + begin the hold
+            if (s.youFinal != null) G.youHp = s.youFinal;
+            if (s.aiFinal != null) G.aiHp = s.aiFinal;
+            G.online.strike = null;
+            G.phase = 'resolved'; G.resolveHold = DUEL.resolvePause;
+        }
+        updateHud();
+    }
     function onRoomGame(data) {
         markDirty();
         if (G.online && !data && G.phase !== 'over') { duelOver(true, false, 'forfeit'); return; }   // room vanished → opponent left, you win
@@ -1513,20 +1531,25 @@
             G.spinMultOpp = Math.pow(0.7, slows);   // shown as the rival's 時間↓ pill, no extra toast needed
             return;
         }
-        // resolve: both attacks in (animate the opponent's strike once per round)
+        // resolve: both attacks in — play it in two beats (heal, then the incoming hit) so the
+        // exchange reads instead of landing all at once.
         if (g.atk && g.atk[my] && g.atk[opp] && G.online.lastResolvedRound < (g.round || 1)) {
             G.online.lastResolvedRound = g.round || 1;
             G.online.bothAtkSince = Date.now();
             G.online.oppLastCards = (g.atk[opp] && g.atk[opp].cards) || [];   // reveal what the rival played
-            const oppDmg = (g.atk[opp] && g.atk[opp].dmg) || 0;
-            if (oppDmg > 0) { G.shake = 0.4; addFloat(W / 2, BOARD_TOP - 70, '-' + oppDmg, '#ff6b6b', 24); AC.audio.play('rock'); }
+            const oppDmg = (g.atk[opp] && g.atk[opp].dmg) || 0, oppHeal = (g.atk[opp] && g.atk[opp].heal) || 0;
+            if (oppHeal > 0) { G.aiHp = Math.min(G.aiMaxHp, G.aiHp + oppHeal); addFloat(W / 2, 48, '+' + oppHeal, ELEMENT_COLORS.heart, 18); }   // beat 1: heal
+            G.online.strike = { t: DUEL.strikeDelay, dmg: oppDmg, done: false, ready: false };                                                  // beat 2: queued hit
             if (G.online.host) hostResolve(g);
             return;
         }
-        // next round
+        // next round — but let the strike beat finish first if one is mid-flight
         if (g.status === 'playing' && (g.round || 1) > G.round) {
             G.round = g.round;
             G.online.bothAtkSince = 0;
+            const s = G.online.strike;
+            if (s && !s.done) { s.youFinal = g.hp && g.hp[my]; s.aiFinal = g.hp && g.hp[opp]; s.ready = true; return; }   // strike will apply the final HP + hold
+            G.online.strike = null;
             if (g.hp) { G.youHp = g.hp[my]; G.aiHp = g.hp[opp]; }
             updateHud();
             G.phase = 'resolved'; G.resolveHold = DUEL.resolvePause;   // hold so the exchange is readable
@@ -1534,6 +1557,9 @@
         }
         // over
         if (g.status === 'over' && G.phase !== 'over') {
+            const s = G.online.strike;
+            if (s && !s.done && s.dmg > 0) { G.shake = 0.4; addFloat(W / 2, BOARD_TOP - 70, '-' + s.dmg, '#ff6b6b', 24); AC.audio.play('rock'); }   // show the finishing blow
+            G.online.strike = null;
             if (g.hp) { G.youHp = g.hp[my]; G.aiHp = g.hp[opp]; updateHud(); }
             duelOver(g.winner === my, !g.winner);   // no winner recorded → draw (e.g. simultaneous KO)
         }
@@ -1585,6 +1611,7 @@
             fl.t += dt; fl.y -= 22 * dt;
             if (fl.t >= fl.life) G.floats.splice(i, 1);
         }
+        if (G.online && G.online.strike) tickStrike(dt);   // online: the delayed "incoming hit" beat
         if (G.phase === 'defense') {
             if (G.online) { if (!onlineWaiting()) G.phaseTimer = onlineRemain(); }
             else { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
