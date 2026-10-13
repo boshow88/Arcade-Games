@@ -30,9 +30,9 @@
         rdPlay: 'Play',
         rdIntro: 'A turn-based orb duel. Each round you raise shields in Defense, then play cards and spin in Attack — clear 3+ of a colour to hit the rival while meeting their shields. First to 0 HP loses.',
         rdStartHintHtml: 'Draw & play cards, then drag a rune to spin · <kbd>P</kbd> pause',
-        rdHelp1Html: 'Each round has two phases. In <strong>Defense</strong>, play <strong>shield</strong> cards that the rival\u2019s spin must satisfy to hit you; press <strong>To attack</strong> when done.',
-        rdHelp2Html: 'In <strong>Attack</strong>, play cards (recolour, enhance, break shields, time), then <strong>drag a rune</strong> to line up <strong>3+ of a colour</strong>. Meet all the rival\u2019s shields or your hit is <strong>blocked</strong>. <strong>Heart</strong> heals; clearing <strong>5+</strong> of a colour drops an <strong>enhanced</strong> rune next.',
-        rdHelp3Html: 'Cards cost <strong>energy</strong> (refilled each phase); <strong>Draw</strong> pulls one more for 1. Reduce the rival to <strong>0 HP</strong> to win; at the round cap, higher HP wins. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
+        rdHelp1Html: 'Each round has two phases, and <strong>each refills your energy</strong>. In <strong>Defense</strong>, <strong>draw</strong> and play <strong>shield</strong> cards the rival\u2019s spin must satisfy to hit you; press <strong>To attack</strong> when done.',
+        rdHelp2Html: 'In <strong>Attack</strong> you can <strong>draw and play cards too</strong> (recolour, enhance, <strong>break shields</strong>, time), then <strong>drag a rune</strong> to line up <strong>3+ of a colour</strong>. Meet all the rival\u2019s shields or your hit is <strong>blocked</strong>. <strong>Heart</strong> heals; clearing <strong>5+</strong> of a colour drops an <strong>enhanced</strong> rune next.',
+        rdHelp3Html: '<strong>Draw</strong> pulls one more card for 1 energy <strong>from the current phase\u2019s pool</strong> (shields in Defense, attack cards in Attack). Reduce the rival to <strong>0 HP</strong> to win; at the round cap, higher HP wins. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
         rdWin: 'Victory!', rdLose: 'Defeated',
         rdOverWinHtml: (round) => `Won in <strong>${round}</strong> round(s).`,
         rdOverLoseHtml: (round) => `Fell on round <strong>${round}</strong>.`,
@@ -73,9 +73,9 @@
         rdPlay: '出牌',
         rdIntro: '回合制轉珠對決。每回合先在防禦階段佈盾，再於攻擊階段出牌並轉珠——消除同色 3 顆以上攻擊對手，同時滿足對手的盾。先把對方血量打到 0 者獲勝。',
         rdStartHintHtml: '抽牌出牌，再拖動符石轉珠 · <kbd>P</kbd> 暫停',
-        rdHelp1Html: '每回合分兩階段。<strong>防禦</strong>階段出<strong>盾牌</strong>，對手的轉珠必須滿足這些盾才打得到你；完成後按「<strong>進入攻擊</strong>」。',
-        rdHelp2Html: '<strong>攻擊</strong>階段出牌（轉色、附魔、破盾、時間），再<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除。須滿足對手所有的盾，否則攻擊被<strong>擋下</strong>。<strong>心</strong>珠回血；單色消 <strong>5 顆以上</strong>，下一批掉落會帶一顆<strong>強化符石</strong>。',
-        rdHelp3Html: '出牌消耗<strong>能量</strong>（每階段補滿）；按<strong>抽牌</strong>花 1 點再抽一張。把對手血量打到 <strong>0</strong> 獲勝；回合用盡則血量較高者勝。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
+        rdHelp1Html: '每回合分兩階段，<strong>每階段能量都會補滿</strong>。<strong>防禦</strong>階段可<strong>抽牌</strong>並出<strong>盾牌</strong>，對手的轉珠必須滿足這些盾才打得到你；完成後按「<strong>進入攻擊</strong>」。',
+        rdHelp2Html: '<strong>攻擊</strong>階段<strong>同樣能抽牌、出牌</strong>（轉色、附魔、<strong>破盾</strong>、時間），再<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除。須滿足對手所有的盾，否則攻擊被<strong>擋下</strong>。<strong>心</strong>珠回血；單色消 <strong>5 顆以上</strong>，下一批掉落會帶一顆<strong>強化符石</strong>。',
+        rdHelp3Html: '<strong>抽牌</strong>花 1 點能量，抽一張<strong>當前階段</strong>的牌（防禦抽盾、攻擊抽攻擊牌）。把對手血量打到 <strong>0</strong> 獲勝；回合用盡則血量較高者勝。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
         rdWin: '勝利！', rdLose: '落敗',
         rdOverWinHtml: (round) => `在第 <strong>${round}</strong> 回合獲勝。`,
         rdOverLoseHtml: (round) => `在第 <strong>${round}</strong> 回合倒下。`,
@@ -516,6 +516,13 @@
     }
     function inRect(p, r) { return p.x >= r.x && p.x <= r.x + r.w && p.y >= r.y && p.y <= r.y + r.h; }
     function swapCells(a, b) { const tmp = board[a]; board[a] = board[b]; board[b] = tmp; }
+    // A soft, short click per swap — pitched by cell so sweeping across the board strums like
+    // running your finger over a comb's teeth. `k` staggers multiple swaps in one frame.
+    function swapTick(idx, k) {
+        const f = 440 + cellCol(idx) * 42 + cellRow(idx) * 12;
+        const fire = () => AC.audio.tone(f, 0.03, { type: 'square', volume: 0.05 });
+        if (k) setTimeout(fire, k * 14); else fire();
+    }
     function stepToward(from, to) {
         const nr = cellRow(from) + Math.sign(cellRow(to) - cellRow(from));
         const nc = cellCol(from) + Math.sign(cellCol(to) - cellCol(from));
@@ -525,10 +532,11 @@
         if (!G.held) return;
         G.held.px = px; G.held.py = py;
         const target = cellAtPixel(px, py);
-        let guard = 0;
+        let guard = 0, k = 0;
         while (G.held.cell !== target && guard++ < 12) {
             const next = stepToward(G.held.cell, target);
             swapCells(G.held.cell, next);
+            swapTick(next, k++);
             G.held.cell = next;
             if (!G.held.moved) { G.held.moved = true; if (!G.spinOpen) G.spinTimer = effectiveSpinTime(); }
         }
@@ -572,14 +580,16 @@
             if (inRect(p, ch)) { addFloat(ch.x + ch.w / 2, ch.y + 34, ch.label, '#cfe8ff', 15); AC.audio.unlock(); if (e.cancelable) e.preventDefault(); return; }
         }
         if (G.resolving || G.held || G.countdown > 0 || (G.phase !== 'defense' && G.phase !== 'attack')) return;
-        if (onlineWaiting()) { if (e.cancelable) e.preventDefault(); return; }
+        // Done your turn and waiting for the opponent? You can still browse your hand and
+        // discard — just not play, draw or spin (that's next round).
+        const waiting = onlineWaiting();
         if (p.y < BOARD_TOP) {
             if (G.spinOpen) { if (e.cancelable) e.preventDefault(); return; }   // spin window is open → cards locked, only the board is interactive
             // action row: when a card is selected it shows big Play / Discard buttons
             if (G.cardSel != null) {
-                if (inRect(p, playBtnRect())) { const i = G.cardSel; G.cardSel = null; AC.audio.unlock(); playCard(i); if (e.cancelable) e.preventDefault(); return; }
+                if (!waiting && inRect(p, playBtnRect())) { const i = G.cardSel; G.cardSel = null; AC.audio.unlock(); playCard(i); if (e.cancelable) e.preventDefault(); return; }
                 if (inRect(p, discardBtnRect())) { const i = G.cardSel; G.cardSel = null; AC.audio.unlock(); discardCard(i); if (e.cancelable) e.preventDefault(); return; }
-            } else {
+            } else if (!waiting) {
                 if (G.phase === 'defense' && inRect(p, doneButtonRect())) { AC.audio.unlock(); if (G.online) submitDefense(); else startAttackPhase(); if (e.cancelable) e.preventDefault(); return; }
                 if (canDrawMore() && inRect(p, drawMoreRect())) { AC.audio.unlock(); drawOneCard(); if (e.cancelable) e.preventDefault(); return; }
             }
@@ -589,6 +599,7 @@
             G.cardSel = null;   // tapped empty area → deselect
             return;
         }
+        if (waiting) { if (e.cancelable) e.preventDefault(); return; }   // no spinning while waiting for the opponent
         if (G.phase !== 'attack') return;   // can only spin in the attack phase
         AC.audio.unlock();
         G.cardSel = null;   // starting a spin deselects any card (cards lock during the spin)
@@ -2075,7 +2086,7 @@
         if (!shell || !shell.isPlaying() || G.cardSel == null) return;
         const id = G.hand[G.cardSel]; if (!id) { G.cardSel = null; return; }
         const c = CARDS[id], f = getFont();
-        const ok = (G.phase === 'defense' || G.phase === 'attack') && cardPhaseOk(id) && G.energy >= c.cost && playable(id);
+        const ok = (G.phase === 'defense' || G.phase === 'attack') && !onlineWaiting() && cardPhaseOk(id) && G.energy >= c.cost && playable(id);
         const pb = playBtnRect(), db = discardBtnRect();
         const cy = LAY.actY + LAY.actH / 2;
         ctx.save();
