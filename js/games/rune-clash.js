@@ -846,13 +846,15 @@
     // Difficulty scales the solver's search (how good its spins are), how skilfully it
     // reacts to your shields, and how often it mends / stacks shields.
     // =================================================================
-    // `tries` / `pathLen` drive the random-restart orb solver: more/longer tries = better
-    // spins (more combos → more damage). skill = chance it reacts to each of your shields
-    // with the right card; defCount = shields it raises on you; mend / slowChance = extras.
+    // `beamW` / `beamD` drive the beam-search orb solver (width × depth): it keeps the best
+    // drag-path prefixes at each step, so wider/deeper = stronger spins (more combos). Tuned so
+    // that, with no defending shields, average combos land at ~3 (easy) / ~5 (normal) / ~7 (hard).
+    // skill = chance it reacts to each of your shields with the right card; defCount = shields it
+    // raises on you; mend / slowChance = extras.
     const AI_LEVELS = {
-        easy: { tries: 12, pathLen: 6, skill: 0.4, defCount: 1, mend: 0.1, slowChance: 0.1 },
-        normal: { tries: 80, pathLen: 11, skill: 0.75, defCount: 1, mend: 0.22, slowChance: 0.28 },
-        hard: { tries: 520, pathLen: 18, skill: 0.97, defCount: 2, mend: 0.38, slowChance: 0.55 },
+        easy: { beamW: 1, beamD: 3, skill: 0.4, defCount: 1, mend: 0.1, slowChance: 0.1 },
+        normal: { beamW: 4, beamD: 6, skill: 0.75, defCount: 1, mend: 0.22, slowChance: 0.28 },
+        hard: { beamW: 10, beamD: 11, skill: 0.97, defCount: 2, mend: 0.38, slowChance: 0.55 },
     };
     function aiCfg() { return AI_LEVELS[G.aiLevel] || AI_LEVELS.normal; }
     // lightweight board = array of { el, enhanced } | null (no gfx/shape — sim only)
@@ -913,34 +915,41 @@
         return a;
     }
     function neighborsOf(idx) { const r = cellRow(idx), c = cellCol(idx), out = []; if (r > 0) out.push(idx - COLS); if (r < ROWS - 1) out.push(idx + COLS); if (c > 0) out.push(idx - 1); if (c < COLS - 1) out.push(idx + 1); return out; }
-    function applyPath(a, start, path) { let cur = start; for (const nx of path) { const tmp = a[cur]; a[cur] = a[nx]; a[nx] = tmp; cur = nx; } }
     function simEnchant(a, n) { const c = []; for (let i = 0; i < a.length; i++) if (a[i] && !a[i].enhanced) c.push(i); for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); a[c[j]].enhanced = true; c.splice(j, 1); } }
     function simTransmuteTo(a, to, n) { const c = []; for (let i = 0; i < a.length; i++) if (a[i] && a[i].el !== to) c.push(i); for (let k = 0; k < n && c.length; k++) { const j = AC.rng.int(G.rng, 0, c.length); a[c[j]].el = to; c.splice(j, 1); } }
-    function scoreSpin(res, youShields) {
-        const blocked = shieldsBlock(youShields, res.stats);
-        let s = res.dmg + res.heal * 0.3 + res.stats.combos * 2;
-        if (blocked) s -= 1e6;   // never settle for a blocked attack if avoidable
-        return s;
-    }
-    // Heuristic solver: try many random drag paths, keep the one whose spin scores best,
-    // then actually apply it to `a` (so the mini-board shows the settled result).
+    // Beam-search solver: keep the `width` best drag-path prefixes at each of `depth` steps,
+    // scoring each prefix by the spin it would produce (combos first, then damage, never a
+    // shield-blocked one). The best prefix's settled board is written back to `a` so the
+    // mini-board shows exactly the result we scored.
     function aiSolve(a, youShields) {
         const cfg = aiCfg();
         const slow = Math.pow(0.6, G.aiSlow || 0);   // your Shorten cramps its "thinking"
-        const tries = Math.max(4, Math.round(cfg.tries * slow));
-        const maxLen = Math.max(3, Math.round(cfg.pathLen * (0.6 + 0.4 * slow)));
-        let bestStart = 0, bestPath = [], bestScore = -Infinity;
-        for (let ti = 0; ti < tries; ti++) {
-            const start = AC.rng.int(G.rng, 0, COLS * ROWS);
-            const len = 2 + AC.rng.int(G.rng, 0, maxLen);
-            const path = []; let cur = start, prev = -1;
-            for (let s = 0; s < len; s++) { const nb = neighborsOf(cur).filter((x) => x !== prev); if (!nb.length) break; const nx = nb[AC.rng.int(G.rng, 0, nb.length)]; path.push(nx); prev = cur; cur = nx; }
-            const copy = simClone(a); applyPath(copy, start, path);
-            const sc = scoreSpin(simResolve(copy), youShields);
-            if (sc > bestScore) { bestScore = sc; bestStart = start; bestPath = path.slice(); }
+        const width = Math.max(1, Math.round((cfg.beamW || 4) * slow));
+        const depth = Math.max(3, Math.round((cfg.beamD || 6) * (0.6 + 0.4 * slow)));
+        const N = COLS * ROWS;
+        let cur = [];
+        for (let s = 0; s < N; s++) cur.push({ board: simClone(a), pos: s });
+        let bestKey = -Infinity, bestRes = null, bestSettled = null;
+        for (let d = 0; d < depth; d++) {
+            const scored = [];
+            for (const node of cur) {
+                for (const nx of neighborsOf(node.pos)) {
+                    const placed = simClone(node.board);
+                    const tmp = placed[node.pos]; placed[node.pos] = placed[nx]; placed[nx] = tmp;
+                    const settled = simClone(placed);
+                    const res = simResolve(settled);   // settled now holds the post-spin board
+                    const blocked = shieldsBlock(youShields, res.stats);
+                    const key = (blocked ? -1e9 : 0) + res.stats.combos * 1000 + res.dmg;
+                    if (key > bestKey) { bestKey = key; bestRes = res; bestSettled = settled; }
+                    scored.push({ key, board: placed, pos: nx });
+                }
+            }
+            if (!scored.length) break;
+            scored.sort((x, y) => y.key - x.key);
+            cur = scored.slice(0, width).map((e) => ({ board: e.board, pos: e.pos }));
         }
-        applyPath(a, bestStart, bestPath);
-        return simResolve(a);   // authoritative result on the real sim board
+        if (bestSettled) for (let i = 0; i < a.length; i++) a[i] = bestSettled[i];
+        return bestRes || simResolve(a);   // authoritative result (same rollout we scored)
     }
 
     // Reactive defense: raise the shields that hurt YOU most, read off your board.
