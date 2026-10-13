@@ -74,6 +74,7 @@
         rdSandIntro: 'Sandbag — spin for 50 rounds against 3 elemental enemies and chase the highest total (and single-spin) damage.',
         rdSandStartHint: 'Drag a rune to spin · P pause',
         rdSandRunBest: 'Run best',
+        rdSandVs: 'Your damage ×',
         rdSandResultHtml: (total, spin) => `Dealt <strong>${total}</strong> over ${SAND.rounds} rounds · best hit <strong>${spin}</strong>.`,
         rdSandHint: 'Press R or the button to go again.',
         rdSandHelp1Html: '<strong>Drag a rune</strong>, line up <strong>3+ of a colour</strong> and chain <strong>combos</strong> over <strong>50 spins</strong>.',
@@ -129,6 +130,7 @@
         rdSandIntro: '沙包——對三隻屬性敵人連轉 50 回合，拚最高總傷害與單次轉珠傷害。',
         rdSandStartHint: '拖動符石轉珠 · P 暫停',
         rdSandRunBest: '本場最高',
+        rdSandVs: '你的攻擊倍率',
         rdSandResultHtml: (total, spin) => `${SAND.rounds} 回合共造成 <strong>${total}</strong> 傷害 · 最高單波 <strong>${spin}</strong>。`,
         rdSandHint: '按 R 或按鈕再打一輪。',
         rdSandHelp1Html: '<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除、串 <strong>連擊</strong>，共 <strong>50 次轉珠</strong>。',
@@ -237,7 +239,7 @@
     const SAND = {
         rounds: 50,
         rows: 6,                        // Sandbag board is always 6×6, regardless of difficulty
-        spinTime: 7.5,                  // Sandbag spin window (seconds), regardless of difficulty
+        spinTime: 7,                    // Sandbag spin window (seconds), regardless of difficulty
         // Attack-rune / enemy element pool, scaled by difficulty — the only thing difficulty
         // changes here: Easy drops 妖 and 鋼, Normal drops 鋼, Hard has every attribute.
         elements: {
@@ -246,7 +248,7 @@
             hard:   ['fire', 'water', 'wood', 'light', 'dark', 'yao', 'steel'],
         },
         hpTiers: [100, 200, 400, 800],
-        sizeByTier: [0.80, 0.87, 0.94, 1.0],   // tougher enemies (more HP) look a little bigger
+        sizeByTier: [0.74, 0.81, 0.88, 0.94],   // tougher enemies (more HP) look a little bigger; all kept clear of the score row
         strikeGap: 0.26,                // delay between each element's strike in the attack anim
         hold: 0.9,                      // beat after all strikes before the next spin
     };
@@ -335,6 +337,7 @@
         sandTotal: 0,           // sandbox: damage dealt so far this run
         sandSpinRun: 0,         // sandbox: best single-spin this run
         sandAtk: null,          // sandbox: the post-spin strike animation state
+        sandInspect: null,      // sandbox: index of the enemy whose restraint tooltip is showing (hover / long-press)
         aiBoard: null,          // vs-AI: the rival's own board (cells {el,enhanced})
         aiHand: [],             // vs-AI: the rival's own card hand (mixed, like yours — hidden from you)
         aiEnergy: 0,            // vs-AI: the rival's energy this phase
@@ -461,6 +464,21 @@
         ctx.arcTo(x + w, y + h, x, y + h, r);
         ctx.arcTo(x, y + h, x, y, r);
         ctx.arcTo(x, y, x + w, y, r);
+        ctx.closePath();
+    }
+    // A cut-corner (chamfered) slab — a carved-stone tile. Path-only, like roundRect, so callers
+    // fill()/stroke() after. `c` is the corner cut length.
+    function slab(x, y, w, h, c) {
+        c = Math.max(0, Math.min(c, w / 2, h / 2));
+        ctx.beginPath();
+        ctx.moveTo(x + c, y);
+        ctx.lineTo(x + w - c, y);
+        ctx.lineTo(x + w, y + c);
+        ctx.lineTo(x + w, y + h - c);
+        ctx.lineTo(x + w - c, y + h);
+        ctx.lineTo(x + c, y + h);
+        ctx.lineTo(x, y + h - c);
+        ctx.lineTo(x, y + c);
         ctx.closePath();
     }
     function hexToRgb(h) { h = h.replace('#', ''); return [parseInt(h.slice(0, 2), 16), parseInt(h.slice(2, 4), 16), parseInt(h.slice(4, 6), 16)]; }
@@ -655,6 +673,11 @@
         for (const ch of (G._rivalChips || []).concat(G._rivalUsed || [], G._youChips || [])) {
             if (inRect(p, ch)) { addFloat(ch.x + ch.w / 2, ch.y + 34, ch.label, '#cfe8ff', 15); AC.audio.unlock(); if (e.cancelable) e.preventDefault(); return; }
         }
+        // Sandbag: press / long-press an enemy to inspect your restraint multipliers against it.
+        if (G.mode === 'sandbox' && !G.held) {
+            const ei = enemyAtPixel(p);
+            if (ei >= 0) { setInspect(ei); if (e.cancelable) e.preventDefault(); return; }
+        }
         if (G.resolving || G.held || G.countdown > 0 || (G.phase !== 'defense' && G.phase !== 'attack')) return;
         // Done your turn and waiting for the opponent? You can still browse your hand and
         // discard — just not play, draw or spin (that's next round).
@@ -681,18 +704,18 @@
         G.cardSel = null;   // starting a spin deselects any card (cards lock during the spin)
         const cell = cellAtPixel(p.x, p.y);
         G.held = { cell, px: p.x, py: p.y, moved: false };
+        setInspect(null);   // grabbing a rune dismisses any restraint tooltip
         if (!G.spinOpen) G.spinTimer = effectiveSpinTime();   // spin window already counting → keep its clock
         const o = board[cell]; if (o) { o.x = p.x; o.y = p.y; }
         AC.audio.play('grab');
         if (e.cancelable) e.preventDefault();
     }
     function onPointerMove(e) {
-        if (!G.held) return;
-        markDirty();
-        dragTo(boardPos(e).x, boardPos(e).y);
-        if (e.cancelable) e.preventDefault();
+        if (G.held) { markDirty(); dragTo(boardPos(e).x, boardPos(e).y); if (e.cancelable) e.preventDefault(); return; }
+        if (G.mode === 'sandbox' && shell.isPlaying()) setInspect(enemyAtPixel(boardPos(e)));   // mouse hover (and touch drag) over enemies
     }
-    function onPointerUp() {
+    function onPointerUp(e) {
+        if (G.sandInspect != null && !(e && e.pointerType === 'mouse')) setInspect(null);   // touch/pen lift hides it; mouse keeps hovering
         if (!G.held) return;
         if (G.held.moved) startResolve();
         else G.held = null;
@@ -1492,7 +1515,7 @@
     }
     function spawnEnemies() { G.enemies = [sandNewEnemy(), sandNewEnemy(), sandNewEnemy()]; }
     function resetSandbox() {
-        G.sandTotal = 0; G.sandSpinRun = 0; G.sandAtk = null;
+        G.sandTotal = 0; G.sandSpinRun = 0; G.sandAtk = null; G.sandInspect = null;
         G.hand = []; G.energy = 0;
         G._rivalChips = []; G._rivalUsed = []; G._youChips = [];   // no duel chips in sandbox
         spawnEnemies();
@@ -1599,7 +1622,7 @@
     function enemyRect(i) {
         const pad = 12, gap = 10, n = 3;
         const w = (W - pad * 2 - gap * (n - 1)) / n;
-        const top = 46, h = Math.max(72, BOARD_TOP - top - 12);
+        const top = 50, h = Math.max(72, BOARD_TOP - top - 12);
         return { x: pad + i * (w + gap), y: top, w, h };
     }
     function drawEnemies() {
@@ -1610,21 +1633,24 @@
             const sc = (ti >= 0 && SAND.sizeByTier[ti] != null) ? SAND.sizeByTier[ti] : 1;
             const w = slot.w * sc, h = slot.h * sc;
             const R = { x: slot.x + (slot.w - w) / 2, y: slot.y + (slot.h - h), w, h };   // bottom-anchored so HP bars line up
-            const rad = Math.min(12, h * 0.12);
+            const cut = Math.min(14, Math.min(R.w, R.h) * 0.2);   // chamfered "carved stone" corners
             ctx.save();
             ctx.globalAlpha = dead ? 0.38 : 1;
-            ctx.fillStyle = shade(col, -0.18); roundRect(R.x, R.y, R.w, R.h, rad); ctx.fill();
-            ctx.lineWidth = 2; ctx.strokeStyle = shade(col, 0.22); roundRect(R.x, R.y, R.w, R.h, rad); ctx.stroke();
+            ctx.fillStyle = shade(col, -0.18); slab(R.x, R.y, R.w, R.h, cut); ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = shade(col, 0.22); slab(R.x, R.y, R.w, R.h, cut); ctx.stroke();
+            if (G.sandInspect === i) { ctx.lineWidth = 2.5; ctx.strokeStyle = 'rgba(255,255,255,0.85)'; slab(R.x + 1.5, R.y + 1.5, R.w - 3, R.h - 3, cut); ctx.stroke(); }
             ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
-            drawRuneIcon(e.el, R.x + R.w / 2, R.y + h * 0.30, h * 0.42, 'rgba(255,255,255,0.92)', Math.max(2.4, h * 0.03));
-            ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `700 ${Math.max(11, Math.round(h * 0.13))}px ${f}`;
-            ctx.fillText(t('el_' + e.el), R.x + R.w / 2, R.y + h * 0.60);
-            const bh = Math.max(10, h * 0.12), bx = R.x + 12, bw = R.w - 24, by = R.y + R.h - bh - 7;
-            ctx.fillStyle = 'rgba(0,0,0,0.38)'; roundRect(bx, by, bw, bh, 6); ctx.fill();
-            ctx.fillStyle = '#ff5566'; roundRect(bx, by, bw * Math.max(0, Math.min(1, e.hp / e.maxHp)), bh, 6); ctx.fill();
-            ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.max(10, Math.round(h * 0.105))}px ${f}`;
+            // HP bar sits at the bottom; the rune icon (no text label) centres in the space above it.
+            const bh = Math.max(10, h * 0.13), bx = R.x + 12, bw = R.w - 24, by = R.y + R.h - bh - 7;
+            const iconSz = Math.min(R.w * 0.52, (by - R.y) * 0.74);
+            drawRuneIcon(e.el, R.x + R.w / 2, R.y + (by - R.y) * 0.5, iconSz, 'rgba(255,255,255,0.95)', Math.max(2.4, iconSz * 0.07));
+            ctx.fillStyle = 'rgba(0,0,0,0.42)'; roundRect(bx, by, bw, bh, 6); ctx.fill();
+            ctx.fillStyle = shade(col, 0.2); roundRect(bx, by, bw * Math.max(0, Math.min(1, e.hp / e.maxHp)), bh, 6); ctx.fill();   // HP fill in the enemy's own element colour (a shade brighter than the card)
+            ctx.fillStyle = '#fff'; ctx.font = `800 ${Math.max(10, Math.round(h * 0.11))}px ${f}`;
+            ctx.shadowColor = 'rgba(0,0,0,0.6)'; ctx.shadowBlur = 2;
             ctx.fillText(Math.max(0, Math.ceil(e.hp)) + ' / ' + e.maxHp, R.x + R.w / 2, by + bh / 2 + 0.5);
-            if (e.flash > 0) { ctx.globalAlpha = Math.min(0.55, e.flash); ctx.fillStyle = '#fff'; roundRect(R.x, R.y, R.w, R.h, rad); ctx.fill(); }
+            ctx.shadowBlur = 0;
+            if (e.flash > 0) { ctx.globalAlpha = Math.min(0.55, e.flash); ctx.fillStyle = '#fff'; slab(R.x, R.y, R.w, R.h, cut); ctx.fill(); }
             ctx.restore();
         }
     }
@@ -1649,6 +1675,56 @@
         }
         ctx.restore();
     }
+    function enemyAtPixel(p) {
+        for (let i = 0; i < G.enemies.length; i++) if (inRect(p, enemyRect(i))) return i;
+        return -1;
+    }
+    function setInspect(i) {
+        const v = (i != null && i >= 0) ? i : null;
+        if (G.sandInspect !== v) { G.sandInspect = v; markDirty(); }
+    }
+    // Restraint tooltip: for the inspected enemy (defender), show how hard each of your attack
+    // runes hits it — a row of rune chips with ↑ (strong ×1.5) / ↓ (weak ×0.5) and the number.
+    function drawInspect(i) {
+        const e = G.enemies[i]; if (!e) return;
+        const f = getFont();
+        const pool = sandElements();
+        const n = pool.length;
+        const chipW = 42, chipGap = 4, padX = 12, padTop = 8, padBot = 10, headH = 22;
+        const rowW = n * chipW + (n - 1) * chipGap;
+        const panelW = Math.max(rowW + padX * 2, 150);
+        const panelH = padTop + headH + 48 + padBot;
+        const slot = enemyRect(i);
+        let px = Math.round(slot.x + slot.w / 2 - panelW / 2);
+        px = Math.max(8, Math.min(W - panelW - 8, px));
+        const py = BOARD_TOP + 8;   // floats over the top of the board, just under the enemy row
+        ctx.save();
+        const caretX = Math.max(px + 16, Math.min(px + panelW - 16, slot.x + slot.w / 2));
+        ctx.fillStyle = 'rgba(12,10,24,0.96)';
+        roundRect(px, py, panelW, panelH, 12); ctx.fill();
+        ctx.beginPath(); ctx.moveTo(caretX - 8, py + 1); ctx.lineTo(caretX + 8, py + 1); ctx.lineTo(caretX, py - 8); ctx.closePath(); ctx.fill();
+        ctx.lineWidth = 1.5; ctx.strokeStyle = 'rgba(255,255,255,0.2)'; roundRect(px, py, panelW, panelH, 12); ctx.stroke();
+        // header — enemy rune + label
+        ctx.textAlign = 'left'; ctx.textBaseline = 'middle';
+        const hcY = py + padTop + headH / 2;
+        drawRuneIcon(e.el, px + padX + 9, hcY, 20, ELEMENT_COLORS[e.el] || '#fff', 2.4);
+        ctx.fillStyle = 'rgba(255,255,255,0.82)'; ctx.font = `700 12px ${f}`;
+        ctx.fillText(t('rdSandVs'), px + padX + 24, hcY);
+        // chips — one per attacker element
+        let cx = px + (panelW - rowW) / 2;
+        const iconCy = py + padTop + headH + 15;
+        for (const a of pool) {
+            const m = restraint(a, e.el), c = cx + chipW / 2;
+            const strong = m > 1, weak = m < 1;
+            const col = strong ? '#6ee07f' : (weak ? '#ff6b6b' : 'rgba(255,255,255,0.5)');
+            drawRuneIcon(a, c, iconCy, 22, ELEMENT_COLORS[a] || '#fff', 2.4);
+            if (strong || weak) drawUiIcon(strong ? 'up' : 'down', c + 11, iconCy - 9, 13, col, 2.4);
+            ctx.fillStyle = col; ctx.font = `800 12px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText('\u00d7' + m, c, iconCy + 20);
+            cx += chipW + chipGap;
+        }
+        ctx.restore();
+    }
     function renderSandbox() {
         drawSandInfo();
         drawEnemies();
@@ -1656,6 +1732,7 @@
         if (G.held) { const o = board[G.held.cell]; drawStone(o.el, o.x, o.y, CONFIG.orbRadius * 1.06, o.shape, true, o.enhanced); }
         drawProjectiles();
         drawFloats();
+        if (G.sandInspect != null) drawInspect(G.sandInspect);
     }
 
     // --- mode-aware HUD (columns differ per mode) ---
@@ -2921,7 +2998,7 @@
     function setupMode() {
         const seg = document.getElementById('mode-seg'); if (!seg) return;
         let saved = null; try { saved = (AC.prefs.get('rune-clash') || {}).mode; } catch (e) { /* ignore */ }
-        stagedMode = (saved === 'sandbox') ? 'sandbox' : 'duel';
+        stagedMode = (saved === 'duel') ? 'duel' : 'sandbox';   // first visit defaults to Sandbag; a saved choice wins
         G.mode = stagedMode;
         seg.addEventListener('click', (e) => { const btn = e.target.closest('button[data-mode]'); if (btn) { AC.audio.unlock(); setMode(btn.dataset.mode); } });
         syncModeButtons();
@@ -2948,7 +3025,7 @@
         document.addEventListener('pointerdown', onPointerDown, { passive: false });
         window.addEventListener('pointermove', onPointerMove, { passive: false });
         window.addEventListener('pointerup', onPointerUp);
-        window.addEventListener('pointercancel', () => { if (G.held && !G.held.moved) G.held = null; else if (G.held) startResolve(); });
+        window.addEventListener('pointercancel', () => { setInspect(null); if (G.held && !G.held.moved) G.held = null; else if (G.held) startResolve(); });
         AC.i18n.subscribe(() => { markDirty(); updateHud(); if (lobbyEl && !lobbyEl.hidden) renderLobby(); });
         setupOnline();
         setInterval(onlineWatchdog, 1000);
