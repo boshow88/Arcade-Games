@@ -1832,6 +1832,7 @@
                 if (G.held && G.held.moved) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
                 if (G.resolving) stepResolve(dt);
             } else if (G.phase === 'sandatk') tickSandAttack(dt);
+            settleOrbs(dt);   // lerp swapped/dropped orbs to their cells (same as duel)
             return;
         }
         if (G.phase === 'defense') {
