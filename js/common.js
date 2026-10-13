@@ -393,12 +393,6 @@
             dotDodgeCardBody:
                 'Bullets pour in from every side. Fly your dot, weave through the gaps, and last as long as you can.',
 
-            // Rune Tower card (orb-matching roguelite tower climb — WIP)
-            runeTowerName: 'Rune Tower',
-            runeTowerTagline: 'Spin the orbs, climb the tower.',
-            runeTowerCardBody:
-                'Drag an orb to line matching runes into rows, chain big combos, and blast each foe with the right element. A short orb-matching climb — in the works.',
-
             // Rune Duel card (orb-spinning versus duel — WIP)
             runeDuelName: 'Rune Duel',
             runeDuelTagline: 'Spin to duel; break their shields.',
@@ -454,11 +448,6 @@
             dotDodgeTagline: '閃避子彈，撐過風暴。',
             dotDodgeCardBody:
                 '子彈從四面八方湧入。在縫隙間穿梭閃避，盡量撐久一點。',
-
-            runeTowerName: '符石塔',
-            runeTowerTagline: '轉動符石，一路爬塔。',
-            runeTowerCardBody:
-                '拖動符石，把同色連成一線、串出大連擊，用對屬性轟掉每個敵人。一款短篇轉珠爬塔——開發中。',
 
             runeDuelName: '符石對決',
             runeDuelTagline: '轉珠對決，破盾取勝。',
