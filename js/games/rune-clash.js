@@ -67,6 +67,17 @@
         rtPopupHint: 'Tap outside to cancel',
         rtTransmuteFrom: 'Tap a colour to change', rtTransmuteTo: 'Tap the target colour',
         el_fire: 'Fire', el_water: 'Water', el_wood: 'Wood', el_light: 'Light', el_dark: 'Dark', el_heart: 'Heart',
+        el_yao: 'Spirit', el_steel: 'Steel',
+        rdModeDuel: 'Versus', rdModeSandbox: 'Sandbag',
+        rdColBestRounds: 'Fewest', rdColBestSpin: 'Best hit', rdColDamage: 'Damage', rdColBestTotal: 'Best total',
+        rdSandDone: 'Time!',
+        rdSandIntro: 'Sandbag — a no-brainer damage run. Spin for 50 rounds against 3 elemental enemies and chase the highest total (and single-spin) damage. No cards, no defence.',
+        rdSandStartHint: 'Drag a rune to spin · P pause',
+        rdSandResultHtml: (total, spin) => `Dealt <strong>${total}</strong> over ${SAND.rounds} rounds · best hit <strong>${spin}</strong>.`,
+        rdSandHint: 'Press R or the button to go again.',
+        rdSandHelp1Html: 'A <strong>no-brainer</strong> damage run: <strong>drag a rune</strong>, line up <strong>3+ of a colour</strong> and chain <strong>combos</strong> over <strong>50 spins</strong>.',
+        rdSandHelp2Html: 'Three <strong>enemies</strong> stand in; each colour you clear strikes a target with an <strong>elemental multiplier</strong> (×1.5 strong / ×0.5 weak). A <strong>5+</strong> group hits <strong>all three</strong>.',
+        rdSandHelp3Html: 'Beat one and a fresh enemy takes its place. Chase the highest <strong>total</strong> and <strong>single-spin</strong> damage. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.',
     });
     Object.assign(AC.i18n.STRINGS.zh, {
         rdRound: '回合', rdHp: '生命', rdReady: '準備開始', rdRival: '對手',
@@ -110,6 +121,17 @@
         rtPopupHint: '點擊外面取消',
         rtTransmuteFrom: '點選要轉換的顏色', rtTransmuteTo: '點選目標顏色',
         el_fire: '火', el_water: '水', el_wood: '木', el_light: '光', el_dark: '暗', el_heart: '心',
+        el_yao: '妖', el_steel: '鋼',
+        rdModeDuel: '對戰', rdModeSandbox: '沙包',
+        rdColBestRounds: '最短回合', rdColBestSpin: '最高單波', rdColDamage: '傷害', rdColBestTotal: '最高傷害',
+        rdSandDone: '時間到！',
+        rdSandIntro: '沙包——不用動腦的刷傷害模式。對三隻屬性敵人連轉 50 回合，拚最高總傷害（與單次轉珠傷害）。無卡牌、無防禦。',
+        rdSandStartHint: '拖動符石轉珠 · P 暫停',
+        rdSandResultHtml: (total, spin) => `${SAND.rounds} 回合共造成 <strong>${total}</strong> 傷害 · 最高單波 <strong>${spin}</strong>。`,
+        rdSandHint: '按 R 或按鈕再打一輪。',
+        rdSandHelp1Html: '<strong>不用動腦</strong>的刷傷害：<strong>拖動符石</strong>連成<strong>同色 3 顆以上</strong>消除、串 <strong>連擊</strong>，共 <strong>50 次轉珠</strong>。',
+        rdSandHelp2Html: '場上有三隻<strong>敵人</strong>；你消的每種顏色會依<strong>屬性倍率</strong>（剋 ×1.5／被剋 ×0.5）攻擊目標。單組消 <strong>5 顆以上</strong>該屬性改為<strong>打三隻</strong>。',
+        rdSandHelp3Html: '打倒一隻就補上新敵人。拼<strong>總傷害</strong>與<strong>單次轉珠</strong>的最高紀錄。<kbd>P</kbd> 暫停 · <kbd>R</kbd> 重新開始 · <kbd>M</kbd> 靜音。',
     });
 
     // =================================================================
@@ -128,6 +150,7 @@
     const ELEMENT_COLORS = {
         fire: '#c35540', water: '#4f7ba4', wood: '#5f8a52',
         light: '#c3a24a', dark: '#7b6a99', heart: '#c1738a',
+        yao: '#c1738a', steel: '#8b8f97',   // sandbox attack runes (妖 shares heart's colour, flower icon)
     };
     const ICON_OPS = {
         water: [{ p: 'M7.001 15.085A1.5 1.5 0 0 1 9 16.5' }, { c: [18.5, 8.5, 3.5] }, { c: [7.5, 16.5, 5.5] }, { c: [7.5, 4.5, 2.5] }],
@@ -136,6 +159,8 @@
         light: [{ p: 'M12.983 21.186a1 1 0 0 1-1.966 0 10 10 0 0 0-8.203-8.203 1 1 0 0 1 0-1.966 10 10 0 0 0 8.203-8.203 1 1 0 0 1 1.966 0 10 10 0 0 0 8.203 8.203 1 1 0 0 1 0 1.966 10 10 0 0 0-8.203 8.203' }],
         dark:  [{ c: [12, 12, 10] }, { p: 'M12 2a7 7 0 1 0 10 10' }],
         heart: [{ p: 'M2 9.5a5.5 5.5 0 0 1 9.591-3.676.56.56 0 0 0 .818 0A5.49 5.49 0 0 1 22 9.5c0 2.29-1.5 4-3 5.5l-5.492 5.313a2 2 0 0 1-3 .019L5 15c-1.5-1.5-3-3.2-3-5.5' }],
+        yao: [{ p: 'M12 7.5a4.5 4.5 0 1 1 4.5 4.5M12 7.5A4.5 4.5 0 1 0 7.5 12M12 7.5V9m-4.5 3a4.5 4.5 0 1 0 4.5 4.5M7.5 12H9m7.5 0a4.5 4.5 0 1 1-4.5 4.5m4.5-4.5H15m-3 4.5V15' }, { c: [12, 12, 3] }],   // lucide flower
+        steel: [{ p: 'M12 2 4 7v10l8 5 8-5V7z' }, { p: 'M12 7v10M8 9.5v5M16 9.5v5' }],   // faceted ingot (placeholder for 鋼)
     };
     const ICON_PATHS = {};
     for (const _el in ICON_OPS) {
@@ -197,6 +222,27 @@
         stallSec: 45,                   // online: opponent idle this long → they forfeit
         takeoverSec: 6,                 // online: both attacked but host didn't tally → take over
     };
+    // Sandbox ("Sandbag") mode: a no-brainer damage run — no cards, no defence, 3 elemental
+    // enemies you pound for a fixed number of spins. 妖 replaces 心 (attack, flower icon).
+    const SAND = {
+        rounds: 50,
+        elements: ['fire', 'water', 'wood', 'light', 'dark', 'yao'],   // step 1: 6 colours (steel added later)
+        hpTiers: [100, 200, 400, 800],
+        strikeGap: 0.26,                // delay between each element's strike in the attack anim
+        hold: 0.9,                      // beat after all strikes before the next spin
+    };
+    // Elemental multiplier grid: RESTRAINT[attacker][defender]. Not a simple triangle, so a
+    // grid is clearer to tune. (水>火>木>水, 光↔暗, 妖↔鋼; 妖/鋼 resist light/dark.)
+    const RESTRAINT = {
+        water: { water: 1.0, fire: 1.5, wood: 0.5, light: 1.0, dark: 1.0, yao: 1.0, steel: 1.0 },
+        fire:  { water: 0.5, fire: 1.0, wood: 1.5, light: 1.0, dark: 1.0, yao: 1.0, steel: 1.0 },
+        wood:  { water: 1.5, fire: 0.5, wood: 1.0, light: 1.0, dark: 1.0, yao: 1.0, steel: 1.0 },
+        light: { water: 1.0, fire: 1.0, wood: 1.0, light: 1.0, dark: 1.5, yao: 0.5, steel: 1.0 },
+        dark:  { water: 1.0, fire: 1.0, wood: 1.0, light: 1.5, dark: 1.0, yao: 0.5, steel: 1.0 },
+        yao:   { water: 1.0, fire: 1.0, wood: 1.0, light: 1.0, dark: 1.0, yao: 1.5, steel: 0.5 },
+        steel: { water: 1.0, fire: 1.0, wood: 1.0, light: 0.5, dark: 0.5, yao: 1.5, steel: 0.5 },
+    };
+    function restraint(atk, def) { return (RESTRAINT[atk] && RESTRAINT[atk][def]) || 1; }
     // Card pools (data-driven). type = phase it's played in; cat = behaviour;
     // cost = energy; weight = draw weight within its pool. Cards are generated so the
     // pool can grow freely. Display names come from cardName() (parameterised i18n).
@@ -263,6 +309,11 @@
         youHp: 0, youMaxHp: 0,
         aiHp: 0, aiMaxHp: 0,
         aiShields: [],          // rival shields you must satisfy (all)
+        mode: 'duel',           // 'duel' (vs computer / online) | 'sandbox' (Sandbag damage run)
+        enemies: [],            // sandbox: the three target enemies [{el,hp,maxHp,flash}]
+        sandTotal: 0,           // sandbox: damage dealt so far this run
+        sandSpinRun: 0,         // sandbox: best single-spin this run
+        sandAtk: null,          // sandbox: the post-spin strike animation state
         aiBoard: null,          // vs-AI: the rival's own board (cells {el,enhanced})
         aiHand: [],             // vs-AI: the rival's own card hand (mixed, like yours — hidden from you)
         aiEnergy: 0,            // vs-AI: the rival's energy this phase
@@ -305,6 +356,7 @@
     let seedCounter = 1;
     let shell = null;
     let staged = 'normal';     // selected difficulty (seg); committed to G.aiLevel on each run
+    let stagedMode = 'duel';   // selected mode (seg); committed to G.mode on each run
     let fontCache = null;
     let accentCache = null;
     let defaultShape = null;
@@ -410,6 +462,7 @@
         return r * COLS + c;
     }
     function randomEl() {
+        if (G.mode === 'sandbox') return SAND.elements[AC.rng.int(G.rng, 0, SAND.elements.length)];   // 6 colours, equal weight
         let x = AC.rng.float(G.rng, 0, WEIGHT_TOTAL);
         for (const el of ELEMENTS) { x -= WEIGHTS[el]; if (x <= 0) return el; }
         return 'fire';
@@ -1159,6 +1212,7 @@
         return { dmg: Math.round(total), heal: Math.round(heal * comboMult), n, blocked };
     }
     function finishResolve() {
+        if (G.mode === 'sandbox') { finishResolveSandbox(); return; }
         const { dmg, heal, n, blocked } = computeSpinResult(G.resolve.combos);
         if (G.online) {
             if (n > 0) {
@@ -1183,6 +1237,7 @@
             else if (dmg > 0) { G.aiHp -= dmg; G.score = Math.min(CONFIG.scoreCap, G.score + dmg); addFloat(W / 2, 96, '-' + dmg, '#ffd0d0', 26); }
             addFloat(W / 2, 130, t('rtCombo', n), accent(), 18);
         }
+        if (!blocked && dmg > 0) recordDuelSpin(dmg);   // best single-hit (vs-computer)
         G.empowerNext = 1;
         G.cardSel = null; G.palette = null;
         G.resolving = false; G.resolve = null;
@@ -1342,11 +1397,171 @@
         } else {
             if (win && !draw) recordAiWin(G.round);   // fewest-rounds best (vs-AI only)
             shell.gameOver({ score: 0, win: win, meta: { round: G.round, win, draw: !!draw, reason } });
-            refreshBestPill();
+            updateHud();
         }
     }
 
     function addFloat(x, y, text, color, size) { G.floats.push({ x, y, text, color, size: size || 18, t: 0, life: 1.4 }); }
+
+    // =================================================================
+    // Sandbox ("Sandbag") mode — a no-brainer damage run: no cards, no defence, no HP bar.
+    // Pure spinning against 3 elemental enemies for SAND.rounds spins; chase total + best hit.
+    // =================================================================
+    function sandNewEnemy() {
+        const el = SAND.elements[AC.rng.int(G.rng, 0, SAND.elements.length)];
+        const hp = SAND.hpTiers[AC.rng.int(G.rng, 0, SAND.hpTiers.length)];   // random tier
+        return { el, hp, maxHp: hp, flash: 0 };
+    }
+    function spawnEnemies() { G.enemies = [sandNewEnemy(), sandNewEnemy(), sandNewEnemy()]; }
+    function resetSandbox() {
+        G.sandTotal = 0; G.sandSpinRun = 0; G.sandAtk = null;
+        G.hand = []; G.energy = 0;
+        G._rivalChips = []; G._rivalUsed = []; G._youChips = [];   // no duel chips in sandbox
+        spawnEnemies();
+        fillBoardNoMatches();
+        G.phase = 'attack';
+        G.phaseTimer = G.phaseMax = 9999;   // no decision clock — take your time to plan the spin
+        G.countdown = 3;
+        updateHud();
+    }
+    // After a sandbox spin resolves: turn the cleared groups into one strike per element (in the
+    // order each element was first cleared), each dealing that element's whole-spin weighted
+    // damage; a 5+ group makes that element's strike hit all three enemies.
+    function finishResolveSandbox() {
+        const combos = G.resolve ? G.resolve.combos : [];
+        const n = combos.length;
+        const comboMult = n > 0 ? 1 + BALANCE.comboStep * (n - 1) : 0;
+        const raw = {}, aoe = {}, order = [];
+        for (const g of combos) {
+            const count = g.cells.length + (g.enhanced || 0) * (BALANCE.enhancedMult - 1);
+            if (!(g.el in raw)) { raw[g.el] = 0; order.push(g.el); }
+            raw[g.el] += count * BALANCE.baseDamage;
+            if (g.cells.length >= CONFIG.bigThreshold) aoe[g.el] = true;
+        }
+        const strikes = order.map((el) => ({ el, dmg: Math.round(raw[el] * comboMult), aoe: !!aoe[el] }));
+        G.resolving = false; G.resolve = null; G.clearing.length = 0;
+        G.sandAtk = { strikes, i: 0, t: SAND.strikeGap, spinTotal: 0, hold: 0 };
+        G.phase = 'sandatk';
+        markDirty();
+    }
+    function tickSandAttack(dt) {
+        const A = G.sandAtk; if (!A) return;
+        for (const e of G.enemies) if (e.flash > 0) e.flash = Math.max(0, e.flash - dt);
+        if (A.i < A.strikes.length) {
+            A.t += dt;
+            if (A.t >= SAND.strikeGap) { A.t = 0; fireStrike(A.strikes[A.i], A); A.i++; }
+            return;
+        }
+        A.hold += dt;
+        if (A.hold >= SAND.hold) finalizeSandRound(A.spinTotal);
+    }
+    // Pick one target for an element: prefer an enemy it has a bonus against, then lowest HP,
+    // then leftmost. Dead enemies stay on the field (per round) but are skipped while any live.
+    function sandPickTarget(el) {
+        const alive = G.enemies.filter((e) => e.hp > 0);
+        const pool = alive.length ? alive : G.enemies.slice();
+        const bonus = pool.filter((e) => restraint(el, e.el) > 1);
+        const cands = bonus.length ? bonus : pool;
+        let best = cands[0];
+        for (const e of cands) if (e.hp < best.hp || (e.hp === best.hp && G.enemies.indexOf(e) < G.enemies.indexOf(best))) best = e;
+        return best;
+    }
+    function fireStrike(s, A) {
+        const targets = s.aoe ? G.enemies.slice() : [sandPickTarget(s.el)];
+        for (const e of targets) {
+            if (!e) continue;
+            const mult = restraint(s.el, e.el);
+            const d = Math.round(s.dmg * mult);
+            e.hp -= d; e.flash = 0.45;
+            G.sandTotal += d; A.spinTotal += d;   // raw damage, overkill counts
+            const R = enemyRect(G.enemies.indexOf(e));
+            const col = mult > 1 ? '#ffd36b' : (mult < 1 ? '#9fcff0' : '#ff8a6b');
+            addFloat(R.x + R.w / 2, R.y + 30, '-' + d, col, mult > 1 ? 22 : 17);
+        }
+        AC.audio.play('rock');
+        G.shake = Math.max(G.shake, s.aoe ? 0.3 : 0.16);
+        updateHud(); markDirty();
+    }
+    function finalizeSandRound(spinTotal) {
+        G.sandAtk = null;
+        recordSandSpin(spinTotal);
+        for (let i = 0; i < G.enemies.length; i++) if (G.enemies[i].hp <= 0) G.enemies[i] = sandNewEnemy();   // refill to 3
+        if (G.round >= SAND.rounds) { sandboxOver(); return; }
+        G.round++;
+        G.phase = 'attack';
+        G.spinOpen = false;
+        updateHud(); markDirty();
+    }
+    function sandboxOver() {
+        recordSandTotal(G.sandTotal);
+        G.phase = 'over';
+        updateHud();
+        shell.gameOver({ score: G.sandTotal, win: true, meta: { sandbox: true, total: G.sandTotal, spin: G.sandSpinRun } });
+    }
+    // --- sandbox records (separate from the duel's fewest-rounds / best-hit) ---
+    function sandPrefs() { try { return (AC.prefs.get('rune-clash') || {}).sandbox || {}; } catch (e) { return {}; } }
+    function setSandBest(patch) { try { const p = AC.prefs.get('rune-clash') || {}; AC.prefs.set('rune-clash', { sandbox: Object.assign({}, p.sandbox, patch) }); } catch (e) { /* ignore */ } }
+    function recordSandSpin(v) { G.sandSpinRun = Math.max(G.sandSpinRun || 0, v); const sb = sandPrefs(); if (sb.bestSpin == null || v > sb.bestSpin) setSandBest({ bestSpin: v }); }
+    function recordSandTotal(v) { const sb = sandPrefs(); if (sb.bestTotal == null || v > sb.bestTotal) setSandBest({ bestTotal: v }); }
+    function recordDuelSpin(v) { if (!v) return; try { const p = AC.prefs.get('rune-clash') || {}; const bs = Object.assign({}, p.bestSpin); if (bs[G.aiLevel] == null || v > bs[G.aiLevel]) { bs[G.aiLevel] = v; AC.prefs.set('rune-clash', { bestSpin: bs }); } } catch (e) { /* ignore */ } }
+    function duelBestRounds() { try { const v = (AC.prefs.get('rune-clash') || {}).bestRounds; return v && typeof v[staged] === 'number' ? v[staged] : null; } catch (e) { return null; } }
+    function duelBestSpin() { try { const v = (AC.prefs.get('rune-clash') || {}).bestSpin; return v && typeof v[staged] === 'number' ? v[staged] : null; } catch (e) { return null; } }
+
+    // --- sandbox rendering ---
+    function enemyRect(i) {
+        const pad = 12, gap = 10, n = 3;
+        const w = (W - pad * 2 - gap * (n - 1)) / n;
+        return { x: pad + i * (w + gap), y: 54, w, h: 150 };
+    }
+    function drawEnemies() {
+        const f = getFont();
+        for (let i = 0; i < G.enemies.length; i++) {
+            const e = G.enemies[i], R = enemyRect(i), col = ELEMENT_COLORS[e.el] || '#888', dead = e.hp <= 0;
+            ctx.save();
+            ctx.globalAlpha = dead ? 0.38 : 1;
+            ctx.fillStyle = shade(col, -0.18); roundRect(R.x, R.y, R.w, R.h, 12); ctx.fill();
+            ctx.lineWidth = 2; ctx.strokeStyle = shade(col, 0.22); roundRect(R.x, R.y, R.w, R.h, 12); ctx.stroke();
+            drawRuneIcon(e.el, R.x + R.w / 2, R.y + 50, 52, 'rgba(255,255,255,0.92)', 3.2);
+            ctx.fillStyle = 'rgba(255,255,255,0.85)'; ctx.font = `700 13px ${f}`; ctx.textAlign = 'center'; ctx.textBaseline = 'middle';
+            ctx.fillText(t('el_' + e.el), R.x + R.w / 2, R.y + 92);
+            const bx = R.x + 14, bw = R.w - 28, by = R.y + R.h - 24, bh = 13;
+            ctx.fillStyle = 'rgba(0,0,0,0.38)'; roundRect(bx, by, bw, bh, 6); ctx.fill();
+            ctx.fillStyle = '#ff5566'; roundRect(bx, by, bw * Math.max(0, Math.min(1, e.hp / e.maxHp)), bh, 6); ctx.fill();
+            ctx.fillStyle = '#fff'; ctx.font = `800 11px ${f}`;
+            ctx.fillText(Math.max(0, Math.ceil(e.hp)) + ' / ' + e.maxHp, R.x + R.w / 2, by + bh / 2 + 0.5);
+            if (e.flash > 0) { ctx.globalAlpha = Math.min(0.55, e.flash); ctx.fillStyle = '#fff'; roundRect(R.x, R.y, R.w, R.h, 12); ctx.fill(); }
+            ctx.restore();
+        }
+    }
+    function renderSandbox() {
+        drawEnemies();
+        drawBoard();
+        if (G.held) { const o = board[G.held.cell]; drawStone(o.el, o.x, o.y, CONFIG.orbRadius * 1.06, o.shape, true, o.enhanced); }
+        drawFloats();
+    }
+
+    // --- mode-aware HUD (columns differ per mode) ---
+    function hudStatHtml(labelKey, valueId, accent) {
+        return '<div class="hud-stat' + (accent ? ' accent' : '') + '">'
+            + '<span class="hud-label"><span data-icon="' + (accent ? 'swords' : 'trophy') + '" aria-hidden="true"></span>'
+            + '<span data-i18n="' + labelKey + '">' + t(labelKey) + '</span></span>'
+            + '<span class="hud-value" id="' + valueId + '">\u2014</span></div>';
+    }
+    function rebuildHud() {
+        const hud = document.querySelector('.hud'); if (!hud) return;
+        hud.innerHTML = (G.mode === 'sandbox')
+            ? hudStatHtml('rdRound', 'round', true) + hudStatHtml('rdColDamage', 'hud-dmg') + hudStatHtml('rdColBestTotal', 'hud-total') + hudStatHtml('rdColBestSpin', 'hud-spin')
+            : hudStatHtml('rdRound', 'round', true) + hudStatHtml('rdColBestRounds', 'hud-rounds') + hudStatHtml('rdColBestSpin', 'hud-spin');
+        try { AC.icons.render(hud); } catch (e) { /* ignore */ }
+        dom.round = document.getElementById('round');
+    }
+    function fmtNum(v) { return v == null ? '\u2014' : (AC.format && AC.format.score ? AC.format.score(v) : String(v)); }
+    function rebuildHelp() {
+        const ul = document.getElementById('help-list'); if (!ul) return;
+        const keys = (stagedMode === 'sandbox') ? ['rdSandHelp1Html', 'rdSandHelp2Html', 'rdSandHelp3Html'] : ['rdHelp1Html', 'rdHelp2Html', 'rdHelp3Html'];
+        ul.innerHTML = keys.map((k) => '<li data-i18n="' + k + '"></li>').join('');
+        try { AC.i18n.translateNode(ul); } catch (e) { /* ignore */ }
+    }
 
     // =================================================================
     // Online duel sync (stage 2)
@@ -1612,6 +1827,13 @@
             if (fl.t >= fl.life) G.floats.splice(i, 1);
         }
         if (G.online && G.online.strike) tickStrike(dt);   // online: the delayed "incoming hit" beat
+        if (G.mode === 'sandbox') {
+            if (G.phase === 'attack') {
+                if (G.held && G.held.moved) { G.spinTimer -= dt; if (G.spinTimer <= 0) startResolve(); }
+                if (G.resolving) stepResolve(dt);
+            } else if (G.phase === 'sandatk') tickSandAttack(dt);
+            return;
+        }
         if (G.phase === 'defense') {
             if (G.online) { if (!onlineWaiting()) G.phaseTimer = onlineRemain(); }
             else { G.phaseTimer -= dt; if (G.phaseTimer <= 0) onPhaseTimeout(); }
@@ -1673,6 +1895,14 @@
         ctx.fillRect(0, 0, W, H);
         ctx.save();
         if (G.shake > 0) { const s = G.shake * 9; ctx.translate((Math.random() - 0.5) * s, (Math.random() - 0.5) * s); }
+        if (G.mode === 'sandbox') {
+            renderSandbox();
+            ctx.restore();
+            drawSpinTimer();
+            if (G.countdown > 0) drawCountdown();
+            if (DEBUG) drawDebug();
+            return;
+        }
         drawRivalPanel();
         drawYouBar();
         drawBoard();
@@ -2266,32 +2496,38 @@
     // HUD + overlay
     // =================================================================
 
-    // "Best" = fewest rounds taken to defeat the AI, per difficulty (lower is better).
-    // Online matches are honor-system and record nothing. We own the #best pill directly
-    // (the shell's score-based best is unused here).
-    function duelBest() {
-        try { const p = AC.prefs.get('rune-clash') || {}; const v = (p.bestRounds || {})[staged]; return typeof v === 'number' ? v : null; } catch (e) { return null; }
-    }
+    // Records (per difficulty for duel, separate bucket for sandbox). Online is honor-system
+    // and records nothing. The HUD columns are rebuilt per mode (see rebuildHud / updateHud).
     function recordAiWin(rounds) {
         try {
             const p = AC.prefs.get('rune-clash') || {}, br = Object.assign({}, p.bestRounds);
             if (br[G.aiLevel] == null || rounds < br[G.aiLevel]) { br[G.aiLevel] = rounds; AC.prefs.set('rune-clash', { bestRounds: br }); }
         } catch (e) { /* ignore */ }
     }
-    function refreshBestPill() { const b = document.getElementById('best'); if (!b) return; const v = duelBest(); b.textContent = v == null ? '\u2014' : String(v); }
     function updateHud() {
         markDirty();
-        if (dom.round) dom.round.textContent = String(G.round);
-        if (dom.hp) dom.hp.textContent = String(Math.max(0, Math.ceil(G.youHp)));
-        if (hpStat) hpStat.classList.toggle('danger', G.youMaxHp > 0 && G.youHp / G.youMaxHp <= 0.3);
-        refreshBestPill();
+        const set = (id, v) => { const el = document.getElementById(id); if (el) el.textContent = v; };
+        if (G.mode === 'sandbox') {
+            set('round', G.round + ' / ' + SAND.rounds);
+            set('hud-dmg', String(G.sandTotal || 0));
+            set('hud-total', fmtNum(sandPrefs().bestTotal));
+            set('hud-spin', fmtNum(sandPrefs().bestSpin));
+        } else {
+            set('round', String(G.round));
+            set('hud-rounds', fmtNum(duelBestRounds()));
+            set('hud-spin', fmtNum(duelBestSpin()));
+        }
     }
     function overlayContent(state, result) {
         if (state === 'idle') {
+            if (stagedMode === 'sandbox') return { badge: 'swords', title: t('rdReady'), message: t('rdSandIntro'), button: t('play'), hint: t('rdSandStartHint') };
             return { badge: 'swords', title: t('rdReady'), message: t('rdIntro'), button: t('play'), hint: t('rdStartHintHtml') };
         }
         if (state === 'over') {
             const meta = (result && result.meta) || {};
+            if (meta.sandbox) {
+                return { badge: 'trophy', title: t('rdSandDone'), message: t('rdSandResultHtml', meta.total || 0, meta.spin || 0), button: t('restart'), hint: t('rdSandHint') };
+            }
             const win = !!meta.win, draw = !!meta.draw;
             const round = meta.round != null ? meta.round : G.round;
             const reason = meta.reason ? `<strong>${meta.reason}</strong><br>` : '';
@@ -2308,10 +2544,8 @@
     // =================================================================
 
     function resetRun() {
-        if (!G.online) G.aiLevel = staged;   // commit the selected difficulty for this run (vs-AI)
+        if (!G.online) { G.mode = stagedMode; G.aiLevel = staged; } else { G.mode = 'duel'; }   // online is always duel
         G.rng = AC.rng.make((((Math.random() * 0x7fffffff) | 0) ^ (Date.now() & 0xffffff)) >>> 0);   // random board each run
-        G.youHp = G.youMaxHp = DUEL.hp;
-        G.aiHp = G.aiMaxHp = DUEL.hp;
         G.round = 1;
         G.aiTimer = 0;
         G.phaseTimer = 0;
@@ -2323,10 +2557,6 @@
         G.playedThisRound = [];
         G.lastDrawn = null;
         G.spinOpen = false;
-        G.aiBoard = aiFillBoard();
-        G.aiPlayed = [];
-        G.aiStatus = '';
-        G.aiPlan = null;
         G.empowerNext = 1;
         G.held = null;
         G.spinTimer = 0;
@@ -2341,14 +2571,24 @@
         G.aiTimeMult = 1;
         G.mySlow = 0;
         board = G.board = new Array(COLS * ROWS).fill(null);
+        rebuildHud();          // columns depend on the mode
+        rebuildHelp();
+        syncModeButtons();
+        syncDiffButtons();
+        if (G.mode === 'sandbox') { resetSandbox(); return; }
+        // --- duel / online ---
+        G.youHp = G.youMaxHp = DUEL.hp;
+        G.aiHp = G.aiMaxHp = DUEL.hp;
+        G.aiBoard = aiFillBoard();
+        G.aiPlayed = [];
+        G.aiStatus = '';
+        G.aiPlan = null;
         fillBoardNoMatches();
         dealStartingHand();
         aiDealStartingHand();
         startDefensePhase();
         G.countdown = 3;   // 3-2-1 preview of the opening board & hand before the clock starts
-        if (shell) shell.refreshBest();
-        refreshBestPill();   // own the Best pill (fewest-rounds metric, not the shell score)
-        syncDiffButtons();   // committed difficulty now matches the staged pick
+        updateHud();
     }
     // =================================================================
     // Online lobby (Google / guest sign-in + room-code matchmaking)
@@ -2500,7 +2740,7 @@
             buildLobby();
             net.onAuth((u) => { netUser = u; renderLobby(); });
             if (net.cleanupStaleRooms) net.cleanupStaleRooms().catch(() => {});   // purge abandoned rooms on load
-            if (btn) { btn.hidden = false; btn.addEventListener('click', openLobby); }
+            if (btn) { btn.hidden = (stagedMode === 'sandbox'); btn.addEventListener('click', openLobby); }
         };
         if (window.ArcadeNet) onReady();
         else window.addEventListener('arcade-net-ready', onReady, { once: true });
@@ -2523,7 +2763,7 @@
         staged = d;
         try { AC.prefs.set('rune-clash', { difficulty: d }); } catch (e) { /* ignore */ }
         if (shell && shell.state === 'idle') { resetRun(); render(); }   // ready screen → apply now
-        else { syncDiffButtons(); refreshBestPill(); }                   // mid-run → stage for next run
+        else { syncDiffButtons(); updateHud(); }                         // mid-run → stage for next run
     }
     function setupDifficulty() {
         const seg = document.getElementById('difficulty-seg'); if (!seg) return;
@@ -2534,8 +2774,40 @@
         syncDiffButtons();
         AC.i18n.subscribe(syncDiffButtons);
     }
+    // Mode seg (Versus / Sandbag). Sandbox hides difficulty + online. Staged like difficulty:
+    // changing it on the ready screen restarts into the new mode; mid-run it stages for next.
+    function syncModeButtons() {
+        const seg = document.getElementById('mode-seg');
+        if (seg) for (const b of seg.querySelectorAll('button[data-mode]')) {
+            const m = b.dataset.mode;
+            b.classList.toggle('active', m === stagedMode);
+            b.classList.toggle('committed', m === G.mode && G.mode !== stagedMode);
+            b.setAttribute('aria-checked', m === stagedMode ? 'true' : 'false');
+        }
+        const diff = document.getElementById('difficulty-seg');
+        if (diff) diff.style.display = (stagedMode === 'sandbox') ? 'none' : '';
+        const online = document.getElementById('online-btn');
+        if (online && !G.online) online.hidden = (stagedMode === 'sandbox') || !(net && net.ok);   // sandbox is solo; else show once net is ready
+    }
+    function setMode(m) {
+        if ((m !== 'duel' && m !== 'sandbox') || m === stagedMode) return;
+        stagedMode = m;
+        try { AC.prefs.set('rune-clash', { mode: m }); } catch (e) { /* ignore */ }
+        if (shell && shell.state === 'idle') { resetRun(); render(); }   // ready screen → apply now
+        else { syncModeButtons(); rebuildHelp(); }                       // mid-run → stage for next run
+    }
+    function setupMode() {
+        const seg = document.getElementById('mode-seg'); if (!seg) return;
+        let saved = null; try { saved = (AC.prefs.get('rune-clash') || {}).mode; } catch (e) { /* ignore */ }
+        stagedMode = (saved === 'sandbox') ? 'sandbox' : 'duel';
+        G.mode = stagedMode;
+        seg.addEventListener('click', (e) => { const btn = e.target.closest('button[data-mode]'); if (btn) { AC.audio.unlock(); setMode(btn.dataset.mode); } });
+        syncModeButtons();
+        AC.i18n.subscribe(syncModeButtons);
+    }
     function init() {
         fitCanvas();
+        setupMode();
         setupDifficulty();
         window.addEventListener('resize', () => { fitCanvas(); markDirty(); render(); });
         shell = AC.shell.create({

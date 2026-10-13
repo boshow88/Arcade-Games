@@ -51,6 +51,10 @@
                 <span data-icon="swords" aria-hidden="true"></span>
                 <span data-i18n="rdOnlineBtn">Online</span>
             </button>
+            <div class="seg" id="mode-seg" role="radiogroup" aria-label="Mode">
+                <button type="button" class="btn toggle" data-mode="duel" data-i18n="rdModeDuel">Versus</button>
+                <button type="button" class="btn toggle" data-mode="sandbox" data-i18n="rdModeSandbox">Sandbag</button>
+            </div>
             <div class="seg" id="difficulty-seg" role="radiogroup" data-i18n-aria-label="difficulty">
                 <button type="button" class="btn toggle" data-diff="easy" data-i18n="rdLvEasy">Easy</button>
                 <button type="button" class="btn toggle" data-diff="normal" data-i18n="rdLvNormal">Normal</button>
@@ -90,7 +94,7 @@
 
         <section class="game-footer">
             <h4 data-i18n="howToPlay">How to play</h4>
-            <ul>
+            <ul id="help-list">
                 <li data-i18n="rdHelp1Html">Each round, <strong>drag a rune</strong> and line up <strong>3+ of a colour</strong> to clear, chaining <strong>combos</strong> — the cleared runes <strong>damage your rival</strong>.</li>
                 <li data-i18n="rdHelp2Html">The rival raises a <strong>shield</strong> each round (clear enhanced / N+ combos / a named colour…). Meet it or your attack is blocked. <strong>Heart</strong> runes heal you; <strong>5+</strong> of a colour forges an <strong>enhanced</strong> rune.</li>
                 <li data-i18n="rdHelp3Html">Then the rival strikes back. Drop their HP to <strong>0</strong> to win. <kbd>P</kbd> pause · <kbd>R</kbd> restart · <kbd>M</kbd> mute.</li>
